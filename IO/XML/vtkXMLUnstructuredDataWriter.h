@@ -90,6 +90,7 @@ protected:
                         vtkIdTypeArray* faceOffsets, vtkIndent indent);
 
   void WriteCellsAppended(const char* name, vtkDataArray* types,
+                          vtkIdTypeArray* faces, vtkIdTypeArray* faceOffsets,
                           vtkIndent indent, OffsetsManagerGroup *cellsManager);
 
   void WriteCellsAppendedData(vtkCellArray* cells, vtkDataArray* types,

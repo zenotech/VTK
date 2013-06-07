@@ -19,7 +19,7 @@
 #include "vtkCellArray.h"
 #include "vtkInformation.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
-
+#include <cassert>
 
 //----------------------------------------------------------------------------
 vtkXMLPUnstructuredDataReader::vtkXMLPUnstructuredDataReader()
@@ -412,3 +412,61 @@ void vtkXMLPUnstructuredDataReader::CopyCellArray(vtkIdType totalNumberOfCells,
     out += length;
     }
 }
+//---------------------------------------------------------------------------
+void vtkXMLPUnstructuredDataReader::CopyFaceArray(vtkIdTypeArray *inFaces,
+                                                  vtkIdTypeArray *outFaces,
+                                                  vtkIdTypeArray *inFaceOffset,
+                                                  vtkIdTypeArray *outFaceOffset)
+{
+  // Allocate memory in the output connectivity array.
+  vtkIdType curSize = 0;
+  if(outFaces->GetNumberOfTuples())
+    {
+    curSize = outFaces->GetNumberOfTuples();
+    }
+  vtkIdType newSize = curSize+inFaces->GetNumberOfTuples();
+  vtkIdType* in = inFaces->GetPointer(0);
+  vtkIdType* end = inFaces->GetPointer(inFaces->GetNumberOfTuples());
+  vtkIdType* out = outFaces->WritePointer(curSize, newSize);
+
+  vtkIdType* inFaceOffsetsPtr = inFaceOffset->GetPointer(0);
+  vtkIdType numberOfCells = inFaceOffset->GetNumberOfTuples();
+  vtkIdType startLoc = outFaceOffset->GetNumberOfTuples();
+  vtkIdType* outFaceOffsetsPtr = outFaceOffset->WritePointer(startLoc, numberOfCells+startLoc);
+  vtkIdType currLoc = curSize;
+
+  for(vtkIdType c = 0; c < numberOfCells; ++c)
+    {
+      if(inFaceOffsetsPtr[c] < 0)
+       {
+         outFaceOffsetsPtr[c] = -1;
+       }
+      else
+       {
+           outFaceOffsetsPtr[c] = currLoc;
+                   
+           vtkIdType numberOfCellFaces = *in++;
+           *out++ = numberOfCellFaces;
+           currLoc += 1;
+   
+           // Copy the point indices, but increment them for the appended
+           // version's index.
+           for(vtkIdType j=0;j < numberOfCellFaces; ++j)
+           {
+             vtkIdType numberOfFacePoints = *in++;
+             *out++ = numberOfFacePoints;
+            for( vtkIdType i = 0; i < numberOfFacePoints; ++i)
+            {
+               out[i] = in[i]+this->StartPoint;
+             }
+            in += numberOfFacePoints;
+            out += numberOfFacePoints;
+            currLoc += numberOfFacePoints + 1;
+           }
+
+       }
+
+    }
+}
+
+

@@ -652,9 +652,13 @@ void vtkXMLUnstructuredDataWriter::WriteCellsInline(const char* name,
 //----------------------------------------------------------------------------
 void vtkXMLUnstructuredDataWriter::WriteCellsAppended(const char* name,
                                                       vtkDataArray* types,
+                                                      vtkIdTypeArray* faces,
+                                                      vtkIdTypeArray* faceOffsets,
                                                       vtkIndent indent,
                                                       OffsetsManagerGroup *cellsManager)
 {
+  this->ConvertFaces(faces, faceOffsets);
+
   ostream& os = *(this->Stream);
   os << indent << "<" << name << ">\n";
 
@@ -745,6 +749,10 @@ vtkXMLUnstructuredDataWriter::WriteCellsAppendedData(vtkCellArray* cells,
       if( cellsMTime != mtime )
         {
         cellsMTime = mtime;
+
+        assert(cellsManager->GetElement(i).GetPosition(timestep) != 0);
+
+
         // Write the connectivity array.
         this->WriteArrayAppendedData(allcells[i],
           cellsManager->GetElement(i).GetPosition(timestep),
