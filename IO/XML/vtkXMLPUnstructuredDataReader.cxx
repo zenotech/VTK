@@ -427,12 +427,13 @@ void vtkXMLPUnstructuredDataReader::CopyFaceArray(vtkIdTypeArray *inFaces,
   vtkIdType newSize = curSize+inFaces->GetNumberOfTuples();
   vtkIdType* in = inFaces->GetPointer(0);
   vtkIdType* end = inFaces->GetPointer(inFaces->GetNumberOfTuples());
-  vtkIdType* out = outFaces->WritePointer(curSize, newSize);
-
+  vtkIdType* out = outFaces->WritePointer(0, newSize);
+  out += curSize;
   vtkIdType* inFaceOffsetsPtr = inFaceOffset->GetPointer(0);
   vtkIdType numberOfCells = inFaceOffset->GetNumberOfTuples();
   vtkIdType startLoc = outFaceOffset->GetNumberOfTuples();
-  vtkIdType* outFaceOffsetsPtr = outFaceOffset->WritePointer(startLoc, numberOfCells+startLoc);
+  vtkIdType* outFaceOffsetsPtr = outFaceOffset->WritePointer(0, numberOfCells+startLoc);
+  outFaceOffsetsPtr += startLoc;
   vtkIdType currLoc = curSize;
 
   for(vtkIdType c = 0; c < numberOfCells; ++c)
