@@ -2,27 +2,18 @@ cmake_minimum_required(VERSION 2.8.5 FATAL_ERROR)
 
 PROJECT (Medical)
 
-if(NOT VTK_BINARY_DIR)
-  find_package(VTK COMPONENTS
-    vtkCommonCore
-    vtkCommonDataModel
-    vtkCommonTransforms
-    vtkFiltersCore
-    vtkFiltersGeneral
-    vtkFiltersGeometry
-    vtkFiltersModeling
-    vtkIOImage
-    vtkIOXML
-    vtkImagingCore
-    vtkImagingStatistics
-    vtkRenderingCore
-    vtkRenderingOpenGL
-    vtkRenderingVolume
-    vtkRenderingVolumeOpenGL
-    vtkInteractionStyle
-  )
-  include(${VTK_USE_FILE})
-endif()
+find_package(VTK COMPONENTS
+  vtkFiltersGeometry
+  vtkFiltersModeling
+  vtkIOImage
+  vtkIOXML
+  vtkImagingStatistics
+  vtkInteractionStyle
+  vtkRenderingVolumeOpenGL
+  vtkTestingRendering
+  vtksys
+)
+include(${VTK_USE_FILE})
 
 add_executable(Medical1 MACOSX_BUNDLE Medical1.cxx)
 add_executable(Medical2 MACOSX_BUNDLE Medical2.cxx)

@@ -1,4 +1,17 @@
-cmake_minimum_required(VERSION 2.8.5 FATAL_ERROR)
+cmake_minimum_required(VERSION 2.8.8 FATAL_ERROR)
+
+if(POLICY CMP0022)
+  cmake_policy(SET CMP0022 NEW)
+endif()
+
+# Eliminate a warning when building in Windows that relates
+# to static linking of Qt executables to qtmain.lib.
+# This policy was introduced in CMake version 2.8.11.
+# CMake version 2.8.11.2 warns when the policy is not set
+# and uses OLD behavior.
+if(POLICY CMP0020)
+  cmake_policy(SET CMP0020 NEW)
+endif()
 
 project(VTK)
 
@@ -99,19 +112,24 @@ endif()
 if(NOT VTK_MODULES_DIR)
   set(VTK_MODULES_DIR "${VTK_BINARY_DIR}/${VTK_INSTALL_PACKAGE_DIR}/Modules")
 endif()
-
+if(NOT VTK_WWW_DIR)
+  set(VTK_WWW_DIR "${VTK_BINARY_DIR}/www")
+endif()
+if(NOT VTK_INSTALL_PYTHON_MODULE_DIR)
+  set (VTK_INSTALL_PYTHON_MODULE_DIR "-NOTFOUND" CACHE
+       PATH "Directory where python modules will be installed")
+  mark_as_advanced(VTK_INSTALL_PYTHON_MODULE_DIR)
+endif()
+if(NOT VTK_BUILD_PYTHON_MODULE_DIR)
+  set (VTK_BUILD_PYTHON_MODULE_DIR "-NOTFOUND" CACHE
+       PATH "Directory where python modules will be put inside the build tree")
+  mark_as_advanced(VTK_BUILD_PYTHON_MODULE_DIR)
+endif()
 if (CMAKE_CROSSCOMPILING AND NOT COMPILE_TOOLS_IMPORTED)
   # if CMAKE_CROSSCOMPILING is true, we need to import build-tools targets.
   find_package(VTKCompileTools REQUIRED)
   set (COMPILE_TOOLS_IMPORTED TRUE)
 endif()
-
-# FIXME: These will be removed, used by vtkzlib etc
-set(VTK_INSTALL_BIN_DIR_CM24 ${VTK_INSTALL_RUNTIME_DIR})
-set(VTK_INSTALL_LIB_DIR_CM24 ${VTK_INSTALL_LIBRARY_DIR})
-set(VTK_INSTALL_PACKAGE_DIR_CM24 ${VTK_INSTALL_PACKAGE_DIR})
-set(VTK_INSTALL_INCLUDE_DIR_CM24 ${VTK_INSTALL_INCLUDE_DIR})
-set(VTK_INSTALL_DOXYGEN_DIR_CM24 ${VTK_INSTALL_DATA_DIR}/doxygen)
 
 #-----------------------------------------------------------------------------
 # The third party macros are still used in one or two third party builds.
@@ -172,7 +190,9 @@ include(vtkDetermineCompilerFlags)
 add_definitions(-DVTK_IN_VTK)
 
 #-----------------------------------------------------------------------------
-include(vtkLegacyData)
+if(BUILD_TESTING)
+  include(vtkLegacyData)
+endif()
 
 # Provide an option for tests requiring "large" input data
 option(VTK_USE_LARGE_DATA "Enable tests requiring \"large\" data" OFF)

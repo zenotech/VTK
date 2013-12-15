@@ -16,11 +16,13 @@ vtk_add_test_cxx(NO_DATA NO_VALID NO_OUTPUT
   TestInterpolationDerivs.cxx
   TestInterpolationFunctions.cxx
   TestPath.cxx
+  TestPixelExtent.cxx
   TestPointLocators.cxx
   TestPolyDataRemoveCell.cxx
   TestPolygon.cxx
   TestPolyhedron0.cxx
   TestPolyhedron1.cxx
+  TestQuadraticPolygon.cxx
   TestSelectionSubtract.cxx
   TestTreeBFSIterator.cxx
   TestTreeDFSIterator.cxx
@@ -41,4 +43,13 @@ vtk_add_test_cxx(NO_DATA NO_VALID NO_OUTPUT
   TestStructuredData.cxx
   TestDataObjectTypes.cxx
   )
+
+vtk_add_test_cxx(NO_VALID NO_OUTPUT
+  TestCellIterators.cxx
+  )
+
+vtk_add_test_cxx(
+  TestQuadraticPolygonFilters.cxx
+  )
+
 vtk_test_cxx_executable(${vtk-module}CxxTests)

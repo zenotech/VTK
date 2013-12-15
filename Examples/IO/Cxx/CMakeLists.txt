@@ -2,16 +2,14 @@ cmake_minimum_required(VERSION 2.8.5 FATAL_ERROR)
 
 PROJECT (IO)
 
-if(NOT VTK_BINARY_DIR)
-  find_package(VTK COMPONENTS
-    vtkCommonCore
-    vtkCommonDataModel
-    vtkIOGeometry
-    vtkIOXML
-    vtkRenderingOpenGL
-  )
-  include(${VTK_USE_FILE})
-endif()
+find_package(VTK COMPONENTS
+  vtkCommonCore
+  vtkIOLegacy
+  vtkIOXML
+  vtkTestingRendering
+  vtksys
+)
+include(${VTK_USE_FILE})
 
 add_executable(DumpXMLFile MACOSX_BUNDLE DumpXMLFile.cxx)
 target_link_libraries(DumpXMLFile ${VTK_LIBRARIES})

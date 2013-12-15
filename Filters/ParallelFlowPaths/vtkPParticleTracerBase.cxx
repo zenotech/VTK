@@ -47,7 +47,7 @@ PURPOSE.  See the above copyright notice for more information.
 #include "vtkOutputWindow.h"
 #include "vtkAbstractParticleWriter.h"
 //#include "vtkToolkits.h"
-#include "assert.h"
+#include <cassert>
 #include "vtkMPIController.h"
 #include "vtkMultiProcessController.h"
 
@@ -491,7 +491,6 @@ bool vtkPParticleTracerBase::IsPointDataValid(vtkDataObject* input)
     return false;
     }
   int tmp = retVal;
-  cerr << retVal << " is my retval\n";
   this->Controller->AllReduce(&tmp, &retVal, 1, vtkMPICommunicator::MIN_OP);
 
   return (retVal != 0);

@@ -2,20 +2,14 @@ cmake_minimum_required(VERSION 2.8.5 FATAL_ERROR)
 
 PROJECT(ImageProcessing)
 
-if(NOT VTK_BINARY_DIR)
-  find_package(VTK COMPONENTS
-    vtkCommonCore
-    vtkCommonDataModel
-    vtkCommonExecutionModel
-    vtkCommonMath
-    vtkIOImage
-    vtkImagingCore
-    vtkInteractionStyle
-    vtkRenderingCore
-    vtkRenderingOpenGL
-  )
+find_package(VTK COMPONENTS
+  vtkIOImage
+  vtkImagingCore
+  vtkInteractionStyle
+  vtkRenderingOpenGL
+  vtkTestingRendering
+)
 include(${VTK_USE_FILE})
-endif()
 
 add_executable(ImageSlicing MACOSX_BUNDLE ImageSlicing.cxx)
 target_link_libraries(ImageSlicing ${VTK_LIBRARIES})

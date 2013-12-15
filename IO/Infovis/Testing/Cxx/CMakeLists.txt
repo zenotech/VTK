@@ -1,7 +1,9 @@
 vtk_add_test_cxx(NO_VALID
   TestBiomTableReader.cxx
   TestNewickTreeReader.cxx
+  TestNewickTreeWriter.cxx
   TestMultiNewickTreeReader.cxx
   TestTulipReaderProperties.cxx
+  TestDelimitedTextReader2.cxx
   )
 vtk_test_cxx_executable(${vtk-module}CxxTests)

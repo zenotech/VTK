@@ -1,26 +1,29 @@
-# Check that matplotlib is available:
-execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "import matplotlib"
-  RESULT_VARIABLE IMPORT_MATPLOTLIB_EXITCODE
-  OUTPUT_VARIABLE IMPORT_MATPLOTLIB_OUTPUT
-  ERROR_VARIABLE IMPORT_MATPLOTLIB_ERROR
-  )
-set(MATPLOTLIB_FOUND FALSE)
-if(${IMPORT_MATPLOTLIB_EXITCODE} EQUAL 0)
-  set(MATPLOTLIB_FOUND TRUE)
-endif()
+# Check that matplotlib is available
+include(FindPythonModules)
+find_python_module(matplotlib MATPLOTLIB_FOUND)
 
 if(NOT MATPLOTLIB_FOUND)
   message(STATUS "Matplotlib not found! MathText rendering will not be available until it is installed. Disabling tests.")
 endif()
 
 # add tests that do not require data or produce vector output
+set(TestMathTextFreeTypeTextRendererNoMath_ARGS
+  DATA{../Data/Fonts/DejaVuSans.ttf}
+)
 vtk_add_test_cxx(TestMathTextFreeTypeTextRendererNoMath.cxx)
+
+set(TestFreeTypeTextMapperNoMath_ARGS DATA{../Data/Fonts/DejaVuSans.ttf})
+vtk_add_test_cxx(TestFreeTypeTextMapperNoMath.cxx)
 
 # add tests that require data
 vtk_add_test_cxx(TestFTStringToPath.cxx)
 
 if(MATPLOTLIB_FOUND)
+  set(TestMathTextFreeTypeTextRenderer_ARGS DATA{../Data/Fonts/DejaVuSans.ttf})
   vtk_add_test_cxx(TestMathTextFreeTypeTextRenderer.cxx)
+
+  set(TestFreeTypeTextMapper_ARGS DATA{../Data/Fonts/DejaVuSans.ttf})
+  vtk_add_test_cxx(TestFreeTypeTextMapper.cxx)
 endif()
 
 # This benchmark takes a while to run and can't fail, so disable it by default:

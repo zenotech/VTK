@@ -329,13 +329,17 @@ if (NOT VTK_INSTALL_NO_DEVELOPMENT)
                 CMake/GenerateExportHeader.cmake
                 CMake/pythonmodules.h.in
                 CMake/UseVTK.cmake
+                CMake/FindTCL.cmake
+                CMake/vtkTclTkMacros.cmake
                 CMake/vtk-forward.c.in
                 CMake/vtkForwardingExecutable.cmake
                 CMake/vtkJavaWrapping.cmake
+                CMake/vtkMakeInstantiator.cmake
                 CMake/vtkModuleAPI.cmake
                 CMake/vtkModuleHeaders.cmake.in
                 CMake/vtkModuleInfo.cmake.in
                 CMake/vtkModuleMacros.cmake
+                CMake/vtkExternalModuleMacros.cmake
                 CMake/vtkObjectFactory.cxx.in
                 CMake/vtkObjectFactory.h.in
                 CMake/vtkPythonWrapping.cmake
