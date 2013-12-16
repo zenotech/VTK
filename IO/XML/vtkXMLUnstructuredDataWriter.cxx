@@ -739,7 +739,7 @@ void vtkXMLUnstructuredDataWriter::WriteCellsAppended(
     types->InsertNextValue(static_cast<unsigned char>(cellIter->GetCellType()));
     }
 
-  this->WriteCellsAppended(name, types.GetPointer(), indent, cellsManager);
+  this->WriteCellsAppended(name, types.GetPointer(), NULL, NULL, indent, cellsManager);
 }
 
 //----------------------------------------------------------------------------
