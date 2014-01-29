@@ -208,13 +208,22 @@ macro(vtk_module_export_info)
     list(APPEND vtk-module-INCLUDE_DIRS-build "${${vtk-module}_SYSTEM_INCLUDE_DIRS}")
     list(APPEND vtk-module-INCLUDE_DIRS-install "${${vtk-module}_SYSTEM_INCLUDE_DIRS}")
   endif()
+  if(WIN32)
+    set(vtk-module-RUNTIME_LIBRARY_DIRS-build "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+    set(vtk-module-RUNTIME_LIBRARY_DIRS-install "\${VTK_INSTALL_PREFIX}/${VTK_INSTALL_RUNTIME_DIR}")
+  else()
+    set(vtk-module-RUNTIME_LIBRARY_DIRS-build "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
+    set(vtk-module-RUNTIME_LIBRARY_DIRS-install "\${VTK_INSTALL_PREFIX}/${VTK_INSTALL_LIBRARY_DIR}")
+  endif()
   set(vtk-module-LIBRARY_DIRS "${${vtk-module}_SYSTEM_LIBRARY_DIRS}")
+  set(vtk-module-RUNTIME_LIBRARY_DIRS "${vtk-module-RUNTIME_LIBRARY_DIRS-build}")
   set(vtk-module-INCLUDE_DIRS "${vtk-module-INCLUDE_DIRS-build}")
   set(vtk-module-EXPORT_CODE "${vtk-module-EXPORT_CODE-build}")
   set(vtk-module-WRAP_HIERARCHY_FILE "${${vtk-module}_WRAP_HIERARCHY_FILE}")
   configure_file(${_VTKModuleMacros_DIR}/vtkModuleInfo.cmake.in
     ${VTK_MODULES_DIR}/${vtk-module}.cmake @ONLY)
   set(vtk-module-INCLUDE_DIRS "${vtk-module-INCLUDE_DIRS-install}")
+  set(vtk-module-RUNTIME_LIBRARY_DIRS "${vtk-module-RUNTIME_LIBRARY_DIRS-install}")
   set(vtk-module-EXPORT_CODE "${vtk-module-EXPORT_CODE-install}")
   set(vtk-module-WRAP_HIERARCHY_FILE
     "\${CMAKE_CURRENT_LIST_DIR}/${vtk-module}Hierarchy.txt")
@@ -579,11 +588,12 @@ VTK_AUTOINIT(${vtk-module})
 
   # Generate the export macro header for symbol visibility/Windows DLL declspec
   generate_export_header(${vtk-module} EXPORT_FILE_NAME ${vtk-module}Module.h)
-  if (BUILD_SHARED_LIBS)
+  get_property(_buildtype TARGET ${vtk-module} PROPERTY TYPE)
+  if (NOT "${_buildtype}" STREQUAL STATIC_LIBRARY)
     # export flags are only added when building shared libs, they cause
     # mismatched visibility warnings when building statically since not all
     # libraries that VTK builds don't set visibility flags. Until we get a
-    # time to do that, we skip visibility flags for static builds.
+    # time to do that, we skip visibility flags for static libraries.
     add_compiler_export_flags(my_abi_flags)
     set_property(TARGET ${vtk-module} APPEND
       PROPERTY COMPILE_FLAGS "${my_abi_flags}")
@@ -706,6 +716,19 @@ macro(vtk_module_third_party _pkg)
     else()
       set(vtk${_lower}_LIBRARIES "${${_upper}_LIBRARIES}")
     endif()
+
+    #a workaround for bad FindHDF5 behavior in which deb or opt can
+    #end up empty. cmake >= 2.8.12.2 makes this uneccessary
+    string(REGEX MATCH "debug;.*optimized;.*"
+           _remove_deb_opt "${vtk${_lower}_LIBRARIES}")
+    if (_remove_deb_opt)
+      set(_tmp ${vtk${_lower}_LIBRARIES})
+      list(REMOVE_ITEM _tmp "debug")
+      list(REMOVE_ITEM _tmp "optimized")
+      list(REMOVE_DUPLICATES _tmp)
+      set(vtk${_lower}_LIBRARIES ${_tmp})
+    endif()
+
     set(vtk${_lower}_INCLUDE_DIRS "")
   else()
     if(_nolibs)

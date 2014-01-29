@@ -47,6 +47,16 @@
         "display" : "none"
     },
 
+    DEFAULT_OVERLAY_HTML = "<canvas class='overlay'></canvas>",
+    DEFAULT_OVERLAY_CSS = {
+        "position": "absolute",
+        "top": "0px",
+        "left": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "z-index" : "1"
+    },
+
     module = {},
 
     DEFAULT_VIEWPORT_OPTIONS = {
@@ -66,8 +76,60 @@
 
     // ----------------------------------------------------------------------
 
-    function attachMouseListener(mouseListenerContainer, renderersContainer) {
-        var current_button = null;
+    function attachMouseListener(mouseListenerContainer, renderersContainer, overlayContainer, viewport) {
+        var current_button = null,
+        area = [0,0,0,0],
+        vp = viewport,
+        overlayCtx2D = overlayContainer[0].getContext('2d');
+
+        // Draw rectangle in overlay
+        function clearOverlay() {
+            if(overlayCtx2D !== null) {
+                overlayCtx2D.canvas.width = mouseListenerContainer.width();
+                overlayCtx2D.canvas.height = mouseListenerContainer.height();
+                overlayCtx2D.clearRect(0,0,overlayCtx2D.canvas.width,overlayCtx2D.canvas.height);
+            }
+        }
+
+        function redrawSelection() {
+            clearOverlay();
+            if(overlayCtx2D !== null) {
+                overlayCtx2D.strokeStyle="#FFFFFF";
+                var x1 = Math.min(area[0],area[2]);
+                var y1 = Math.min(area[1],area[3]);
+                var x2 = Math.max(area[0],area[2]);
+                var y2 = Math.max(area[1],area[3]);
+                var width = Math.abs(x2 - x1);
+                var height = Math.abs(y2 - y1);
+                overlayCtx2D.rect(x1, overlayContainer.height()-y2, width, height);
+                overlayCtx2D.stroke();
+            }
+        }
+
+        function extractCoordinates(event, start, reorder) {
+            var elem_position = $(event.delegateTarget).offset(),
+            height = $(event.delegateTarget).height(),
+            x = (event.pageX - elem_position.left),
+            y = (event.pageY - elem_position.top),
+            offset = start ? 0 : 2;
+            area[0 + offset] = x;
+            area[1 + offset] = height - y;
+
+            if(reorder) {
+                // Re-order area
+                var newArea = [
+                    Math.min(area[0], area[2]),
+                    Math.min(area[1], area[3]),
+                    Math.max(area[0], area[2]),
+                    Math.max(area[1], area[3])
+                ];
+                area[0] = newArea[0];
+                area[1] = newArea[1];
+                area[2] = newArea[2];
+                area[3] = newArea[3];
+            }
+
+        }
 
         // Internal method used to pre-process the interaction to standardise it
         // for a vtkWeb usage.
@@ -75,14 +137,21 @@
             if(event.hasOwnProperty("type")) {
                 if(event.type === 'mouseup') {
                     current_button = null;
+                    if (vp.getSelectionMode() === true) {
+                        clearOverlay();
+                    }
                     renderersContainer.trigger($.extend(event, {
                         type: 'mouse',
                         action: 'up',
                         current_button: current_button
                     }));
+                    extractCoordinates(event, false, true);
+                    renderersContainer.trigger({
+                        type: 'endInteraction',
+                        area: area
+                    });
                 } else if(event.type === 'mousedown') {
                     current_button = event.which;
-
                     // Override button if modifier is used
                     // Middle: Alt - Right: Shift
                     if(event.shiftKey) {
@@ -92,13 +161,19 @@
                         current_button = 2;
                         event.altKey = false;
                     }
-
+                    extractCoordinates(event, true, false);
+                    renderersContainer.trigger('startInteraction');
                     renderersContainer.trigger($.extend(event, {
                         type: 'mouse',
                         action: 'down',
                         current_button: current_button
                     }));
+
                 } else if(event.type === 'mousemove' && current_button != null) {
+                    if (vp.getSelectionMode() === true) {
+                        extractCoordinates(event, false, false);
+                        redrawSelection();
+                    }
                     renderersContainer.trigger($.extend(event, {
                         type: 'mouse',
                         action: 'move',
@@ -468,8 +543,10 @@
         rendererContainer = $(DEFAULT_RENDERERS_CONTAINER_HTML).css(DEFAULT_RENDERERS_CONTAINER_CSS),
         mouseListener = $(DEFAULT_MOUSE_LISTENER_HTML).css(DEFAULT_MOUSE_LISTENER_CSS),
         statContainer = $(DEFAULT_STATISTIC_HTML).css(DEFAULT_STATISTIC_CSS),
+        overlayContainer = $(DEFAULT_OVERLAY_HTML).css(DEFAULT_OVERLAY_CSS),
         onDoneQueue = [],
         statisticManager = createStatisticManager(),
+        inSelectionMode = false,
         viewport = {
             /**
              * Update the active renderer to be something else.
@@ -593,7 +670,7 @@
                 var container = $(selector);
                 if (container.attr("__vtkWeb_viewport__") !== "true") {
                     container.attr("__vtkWeb_viewport__", "true");
-                    container.append(rendererContainer).append(mouseListener).append(statContainer);
+                    container.append(rendererContainer).append(mouseListener).append(statContainer).append(overlayContainer);
                     rendererContainer.trigger('invalidateScene');
                 }
             },
@@ -610,6 +687,7 @@
                     rendererContainer.remove();
                     mouseListener.remove();
                     statContainer.remove();
+                    overlayContainer.remove();
                 }
             },
 
@@ -635,6 +713,50 @@
             resetStatistics: function() {
                 statisticManager.reset();
                 statContainer.empty();
+            },
+
+            /**
+             * Event triggered before a mouse down.
+             *
+             * @member vtkWeb.Viewport
+             * @event startInteraction
+             */
+            /**
+             * Event triggered after a mouse up.
+             *
+             * @member vtkWeb.Viewport
+             * @event endInteraction
+             * @param area
+             * Provide the area in pixel between the startInteraction and endInteraction.
+             * This can be used for selection or zoom to box... [minX, minY, maxX, maxY]
+             */
+
+            /**
+             * Toggle selection mode.
+             *
+             * When selection mode is active, the next interaction will
+             * create a 2D rectangle that will be used to define an area to select.
+             * This won't perform any selection but will provide another interaction
+             * mode on the client side which will then trigger an event with
+             * the given area. It is the responsibility of the user to properly
+             * handle that event and eventually trigger the appropriate server
+             * code to perform a selection or a zoom-to-box type of action.
+             *
+             * @member vtkWeb.Viewport
+             * @return {Boolean} inSelectionMode state
+             */
+            toggleSelectionMode: function() {
+                inSelectionMode = !inSelectionMode;
+                return inSelectionMode;
+            },
+
+            /**
+             * Return whether or not viewport is in selection mode.
+             *
+             * @return {Boolean} true if viewport is in selection mode, false otherwise.
+             */
+            getSelectionMode: function() {
+                return inSelectionMode;
             }
         };
 
@@ -671,7 +793,7 @@
 
         // Attach mouse listener if requested
         if (config.enableInteractions) {
-            attachMouseListener(mouseListener, rendererContainer);
+            attachMouseListener(mouseListener, rendererContainer, overlayContainer, viewport);
             try {
                 attachTouchListener(mouseListener, rendererContainer, viewport);
             } catch(error) {

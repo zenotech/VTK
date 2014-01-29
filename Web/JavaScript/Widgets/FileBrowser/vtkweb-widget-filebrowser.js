@@ -69,6 +69,7 @@
             me.append(container);
             me.data('file-list', opts.data);
             me.data('session', opts.session);
+            me.data('cacheFiles', opts.cacheFiles);
 
             if(opts.data === null) {
                 opts.session.call('vtk:listServerDirectory','.').then(function(files) {
@@ -96,21 +97,52 @@
         return this.each(function() {
             var me = $(this).empty(),
             data = me.data('file-list'),
+            newData = [],
             container = $('<div/>');
+
             me.append(container);
 
-            // Generate HTML
-            container.render(data, fileBrowserGenerator);
+            // Delete the cached active directory and fetch again
+            if(activeDirectory && me.data('session')){
+                var dirArray = activeDirectory.split("/").splice(1);
+                for(var i in data) {
+                    var item = data[i];
+                    var itemArray = item.path;
+                    if ( !equals(itemArray, dirArray) ) {
+                        newData.push(data[i]);
+                    }
+                }
 
-            // Initialize pipelineBrowser (Visibility + listeners)
-            initializeListener(me, activeDirectory);
+                var requestPath =  activeDirectory.substring(1);
+                if(requestPath.indexOf('/') == -1) {
+                    requestPath = '.';
+                }
+                me.data('session').call('vtk:listServerDirectory', requestPath)
+                    .then(function(newFiles){
+                        newData.push(newFiles);
+                        me.data('file-list', newData);
+                        // Generate HTML
+                        container.render(newData, fileBrowserGenerator);
+
+                        // Initialize pipelineBrowser (Visibility + listeners)
+                        initializeListener(me, activeDirectory);
+                    });
+
+            } else {
+                // Generate HTML
+                container.render(data, fileBrowserGenerator);
+
+                // Initialize pipelineBrowser (Visibility + listeners)
+                initializeListener(me, activeDirectory);
+            }
         });
     };
 
     $.fn.fileBrowser.defaults = {
         template: "#vtk-templates > .vtkweb-widget-filebrowser > div",
         session: null,
-        data: null
+        data: null,
+        cacheFiles: true
     };
 
     // =======================================================================
@@ -142,6 +174,22 @@
 
     // =======================================================================
 
+    equals = function(array1, array2) {
+        if (array1.length != array2.length) {
+            return false;
+        }
+
+        for (var i in array1) {
+            if (array1[i] !== array2[i]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // =======================================================================
+
     function getRelativePath(parentPath, fileName) {
         return '.' + pathToStr(getPath(parentPath, fileName).slice(1));
     }
@@ -160,6 +208,9 @@
                 if(newActive.length === 1) {
                      $('.vtk-directory', container).removeClass('active');
                      newActive.addClass('active');
+                }
+                if (container.data('cacheFiles') === false) {
+                    container.updateFileBrowser(newPath);
                 }
             } else if(type === 'dir') {
                 // Swicth active panel
