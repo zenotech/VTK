@@ -1075,7 +1075,10 @@ void OrderMultiConnectedContourPoints(vtkIdToIdVectorMapType & cpMap,
   // traverse the contour graph to remove all incoming boundary edges.
   while (currPid != maxPid)
     {
-    edges = cpMap.find(currPid)->second;
+    vtkIdToIdVectorMapType::iterator itr = cpMap.find(currPid);
+    if(itr == cpMap.end())
+       return;
+    edges = itr->second;
     edgesSize = edges.size();
     size_t i;
     bool foundPrevPid = false;
