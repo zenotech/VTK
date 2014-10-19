@@ -42,7 +42,7 @@
 #include "vtkMultiProcessController.h"
 
 #include "vtk_exodusII.h"
-#include <time.h>
+#include <ctime>
 #include <ctype.h>
 
 vtkStandardNewMacro (vtkPExodusIIWriter);
@@ -75,6 +75,27 @@ int vtkPExodusIIWriter::CheckParameters ()
     }
 
   return this->Superclass::CheckParametersInternal(numberOfProcesses, myRank);
+}
+
+//----------------------------------------------------------------------------
+int vtkPExodusIIWriter::RequestUpdateExtent (
+  vtkInformation* request,
+  vtkInformationVector** inputVector,
+  vtkInformationVector* outputVector)
+{
+  this->Superclass::RequestUpdateExtent(request, inputVector, outputVector);
+  vtkMultiProcessController *c = vtkMultiProcessController::GetGlobalController();
+  if (c)
+    {
+    int numberOfProcesses = c->GetNumberOfProcesses();
+    int myRank = c->GetLocalProcessId();
+
+    vtkInformation *info = inputVector[0]->GetInformationObject(0);
+    info->Set(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER(), myRank);
+    info->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES(), numberOfProcesses);
+    }
+
+  return 1;
 }
 
 void vtkPExodusIIWriter::CheckBlockInfoMap ()

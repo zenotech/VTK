@@ -186,6 +186,7 @@ protected:
   vtkDoubleArray* TimeValues;
   int CurrentTimeIndex;
   int FileTimeOffset;
+  bool TopologyChanged;
 
 //BTX
   vtkDataObject *OriginalInput;
@@ -270,6 +271,10 @@ protected:
                           vtkInformationVector** inputVector,
                           vtkInformationVector* outputVector);
 
+  virtual int RequestUpdateExtent (vtkInformation* request,
+                                   vtkInformationVector** inputVector,
+                                   vtkInformationVector* outputVector);
+
   int FillInputPortInformation (int port, vtkInformation* info);
 
   int RequestData (vtkInformation* request,
@@ -314,7 +319,6 @@ protected:
   vtkIdType GetElementLocalId(vtkIdType id);
 
   int WriteInitializationParameters ();
-  int WriteQARecords ();
   int WriteInformationRecords ();
   int WritePoints ();
   int WriteCoordinateNames ();
@@ -326,6 +330,10 @@ protected:
   int WriteSideSetInformation ();
   int WriteProperties ();
   int WriteNextTimeStep ();
+  vtkIntArray* GetBlockIdArray (
+    const char* BlockIdArrayName, vtkUnstructuredGrid* input);
+  static bool SameTypeOfCells (vtkIntArray* cellToBlockId,
+                               vtkUnstructuredGrid* input);
 
 //BTX
   double ExtractGlobalData (const char *name, int comp, int ts);

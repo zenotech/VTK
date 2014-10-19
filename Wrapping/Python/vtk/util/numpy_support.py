@@ -140,6 +140,12 @@ def numpy_to_vtk(num_array, deep=0, array_type=None):
         vtk_typecode = get_vtk_array_type(z.dtype)
     result_array = create_vtk_array(vtk_typecode)
 
+    # Fixup shape in case its empty or scalar.
+    try:
+        testVar = shape[0]
+    except:
+        shape = (0,)
+
     # Find the shape and set number of components.
     if len(shape) == 1:
         result_array.SetNumberOfComponents(1)
@@ -205,9 +211,27 @@ def vtk_to_numpy(vtk_array):
 
     # Get the data via the buffer interface
     dtype = get_numpy_array_type(typ)
-    result = numpy.frombuffer(vtk_array, dtype=dtype)
+    try:
+        result = numpy.frombuffer(vtk_array, dtype=dtype)
+    except ValueError:
+        # http://mail.scipy.org/pipermail/numpy-tickets/2011-August/005859.html
+        # numpy 1.5.1 (and maybe earlier) has a bug where if frombuffer is
+        # called with an empty buffer, it throws ValueError exception. This
+        # handles that issue.
+        if shape[0] == 0:
+            # create an empty array with the given shape.
+            result = numpy.empty(shape, dtype=dtype)
+        else:
+            raise
     if shape[1] == 1:
         shape = (shape[0], )
-    result.shape = shape
+    try:
+        result.shape = shape
+    except ValueError:
+        if shape[0] == 0:
+           # Refer to https://github.com/numpy/numpy/issues/2536 .
+           # For empty array, reshape fails. Create the empty array explicitly
+           # if that happens.
+	   result = numpy.empty(shape, dtype=dtype)
+        else: raise
     return result
-

@@ -232,8 +232,9 @@ static bool vtkPythonGetValue(PyObject *o, const void *&a)
       if (sz >= 0 && sz <= VTK_INT_MAX)
         {
         // check for pointer mangled as string
-        int s = (int)sz;
-        a = vtkPythonUtil::UnmanglePointer((char *)p, &s, "void_p");
+        int s = static_cast<int>(sz);
+        a = vtkPythonUtil::UnmanglePointer(
+          reinterpret_cast<char *>(p), &s, "p_void");
         if (s >= 0)
           {
           return true;
@@ -241,7 +242,8 @@ static bool vtkPythonGetValue(PyObject *o, const void *&a)
         if (s == -1)
           {
           char buf[128];
-          sprintf(buf, "value is %.80s, required type is void_p", (char *)p);
+          sprintf(buf, "value is %.80s, required type is p_void",
+            reinterpret_cast<char *>(p));
           PyErr_SetString(PyExc_TypeError, buf);
           }
         else
@@ -901,6 +903,21 @@ vtkObjectBase *vtkPythonArgs::GetSelfFromFirstArg(
 //--------------------------------------------------------------------
 // Define the GetArg methods for getting objects
 
+PyObject *vtkPythonArgs::GetArgAsPythonObject(
+  bool &valid)
+{
+  PyObject *o = PyTuple_GET_ITEM(this->Args, this->I++);
+  valid = true;
+  return o;
+}
+
+PyObject *vtkPythonArgs::GetArgAsPythonObject(
+  PyObject *o, bool &valid)
+{
+  valid = true;
+  return o;
+}
+
 vtkObjectBase *vtkPythonArgs::GetArgAsVTKObject(
   const char *classname, bool &valid)
 {
@@ -1009,6 +1026,10 @@ int vtkPythonArgs::GetArgAsSIPEnum(
 bool vtkPythonArgs::GetValue(T &a) \
 { \
   PyObject *o = PyTuple_GET_ITEM(this->Args, this->I++); \
+  if (PyVTKMutableObject_Check(o)) \
+    { \
+    o = PyVTKMutableObject_GetValue(o); \
+    } \
   if (vtkPythonGetValue(o, a)) \
     { \
     return true; \

@@ -272,6 +272,12 @@ if(WIN32)
   set_property(SOURCE vtkWin32OutputWindowProcessEncoded.c PROPERTY WRAP_EXCLUDE 1)
 endif()
 
+if(ANDROID)
+  list(APPEND Module_SRCS
+    vtkAndroidOutputWindow.cxx
+    )
+endif()
+
 # Generate data for folding Unicode strings
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/vtkUnicodeString.cmake.in
   ${CMAKE_CURRENT_BINARY_DIR}/vtkUnicodeString.cmake @ONLY)
@@ -500,6 +506,7 @@ set_source_files_properties(
   vtkWeakPointerBase.cxx
   vtkUnicodeString.cxx
   vtkDataArrayTemplate.h
+  vtkDataArrayPrivate.txx
 
   vtkABI.h
   vtkArrayInterpolate.h
@@ -593,4 +600,4 @@ endif()
 
 vtk_module_library(vtkCommonCore ${Module_SRCS})
 
-target_link_libraries(vtkCommonCore LINK_PRIVATE ${CMAKE_THREAD_LIBS_INIT} LINK_PUBLIC ${VTK_SMP_IMPLEMENTATION_LIBRARIES})
+vtk_module_link_libraries(vtkCommonCore LINK_PRIVATE ${CMAKE_THREAD_LIBS} LINK_PUBLIC ${VTK_SMP_IMPLEMENTATION_LIBRARIES})

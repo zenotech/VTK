@@ -1,4 +1,11 @@
 cmake_minimum_required (VERSION 2.8)
+if(POLICY CMP0025)
+  cmake_policy(SET CMP0025 NEW) # CMake 3.0
+endif()
+if(POLICY CMP0053)
+  cmake_policy(SET CMP0053 NEW) # CMake 3.1
+endif()
+
 PROJECT (HDF5 C CXX)
 
 #-----------------------------------------------------------------------------
@@ -280,7 +287,7 @@ ENDIF (CMAKE_BUILD_TYPE MATCHES Debug)
 #-----------------------------------------------------------------------------
 # Compiler specific flags : Shouldn't there be compiler tests for these
 #-----------------------------------------------------------------------------
-IF (NOT WIN32 AND NOT "${CMAKE_C_COMPILER_ID}" MATCHES "^XL$")
+IF (NOT WIN32 AND NOT CMAKE_C_COMPILER_ID STREQUAL "XL")
   include(CheckCCompilerFlag)
   
   check_c_compiler_flag(-std=c99 HAVE_STD_C99)

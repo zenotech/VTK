@@ -26,10 +26,10 @@
 #define MESSAGE(x)\
   cout << (is_server? "SERVER" : "CLIENT") << ":" x << endl;
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
   vtkNew<vtkTesting> testing;
-  testing->AddArguments(argc, const_cast<const char **>(argv));
+  testing->AddArguments(argc, argv);
 
   bool is_server = false;
   for (int cc=1; cc < argc; cc++)

@@ -430,7 +430,7 @@ void vtkMultiCorrelativeStatistics::Learn( vtkTable* inData,
       // Iterate over rows
       for ( i = 0; i < nRow; ++ i )
         {
-        inDataMAD->SetValue(i, l, abs(
+        inDataMAD->SetValue(i, l, (int)fabs(
             ( colPtrs[j]->GetTuple(i)[0] - rv[j] ) *
             ( colPtrs[k]->GetTuple(i)[0] - rv[k] )
           ));
@@ -704,10 +704,7 @@ void vtkMultiCorrelativeStatistics::Assess( vtkTable* inData,
       vtkWarningMacro( "Request "
                        << req - 1
                        << " could not be accommodated. Skipping." );
-      if ( dfunc )
-        {
-        delete dfunc;
-        }
+      delete dfunc;
       continue;
       }
 

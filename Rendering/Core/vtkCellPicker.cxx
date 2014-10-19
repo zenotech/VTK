@@ -949,6 +949,13 @@ double vtkCellPicker::IntersectImageWithLine(const double p1[3],
     // (this reduces the impact of roundoff error from the above computation)
     bounds[2*k] = 0.5*vtkMath::Round(2.0*(bounds[2*k]));
     bounds[2*k+1] = 0.5*vtkMath::Round(2.0*(bounds[2*k+1]));
+    // Reverse if spacing is negative
+    if (spacing[k] < 0)
+      {
+      double bt = bounds[2*k];
+      bounds[2*k] = bounds[2*k+1];
+      bounds[2*k+1] = bt;
+      }
     }
 
   // Clip the ray with the extent
@@ -1282,7 +1289,6 @@ int vtkCellPicker::HasSubCells(int cellType)
     case VTK_POLY_LINE:
     case VTK_POLY_VERTEX:
       return 1;
-      break;
     }
 
   return 0;
@@ -1296,15 +1302,12 @@ int vtkCellPicker::GetNumberOfSubCells(vtkIdList *pointIds, int cellType)
     {
     case VTK_TRIANGLE_STRIP:
       return pointIds->GetNumberOfIds() - 2;
-      break;
 
     case VTK_POLY_LINE:
       return pointIds->GetNumberOfIds() - 1;
-      break;
 
     case VTK_POLY_VERTEX:
       return pointIds->GetNumberOfIds();
-      break;
     }
 
   return 0;

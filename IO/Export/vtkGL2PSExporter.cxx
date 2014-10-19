@@ -89,14 +89,8 @@ vtkGL2PSExporter::vtkGL2PSExporter()
 vtkGL2PSExporter::~vtkGL2PSExporter()
 {
   this->SetRasterExclusions(NULL);
-  if ( this->FilePrefix )
-    {
-    delete [] this->FilePrefix;
-    }
-  if ( this->Title )
-    {
-    delete [] this->Title;
-    }
+  delete [] this->FilePrefix;
+  delete [] this->Title;
 }
 
 void vtkGL2PSExporter::WriteData()
@@ -599,10 +593,10 @@ void vtkGL2PSExporter::GetVisibleContextActors(vtkPropCollection *result,
   for (renCol->InitTraversal(); (ren = renCol->GetNextItem());)
     {
     vtkCollection *pCol = ren->GetViewProps();
-    vtkContextActor *act;
-    for (pCol->InitTraversal();
-         (act = vtkContextActor::SafeDownCast(pCol->GetNextItemAsObject()));)
+    vtkObject *object;
+    for (pCol->InitTraversal(); (object = pCol->GetNextItemAsObject());)
       {
+      vtkContextActor *act = vtkContextActor::SafeDownCast(object);
       if (!act || !act->GetVisibility())
         {
         continue;

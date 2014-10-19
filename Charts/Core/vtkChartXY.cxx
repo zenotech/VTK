@@ -196,12 +196,12 @@ void vtkChartXY::Update()
     vtkSelection *selection =
       vtkSelection::SafeDownCast(this->AnnotationLink->GetOutputDataObject(2));
     // Two major selection methods - row based or plot based.
-    if (this->SelectionMethod == vtkChart::SELECTION_ROWS &&
-        selection->GetNumberOfNodes())
+    if (this->SelectionMethod == vtkChart::SELECTION_ROWS)
       {
-      vtkSelectionNode *node = selection->GetNode(0);
-      vtkIdTypeArray *idArray =
-          vtkIdTypeArray::SafeDownCast(node->GetSelectionList());
+      vtkSelectionNode *node = selection->GetNumberOfNodes() > 0?
+        selection->GetNode(0) : NULL;
+      vtkIdTypeArray *idArray = node?
+          vtkIdTypeArray::SafeDownCast(node->GetSelectionList()) : NULL;
       std::vector<vtkPlot*>::iterator it =
           this->ChartPrivate->plots.begin();
       for ( ; it != this->ChartPrivate->plots.end(); ++it)
@@ -357,6 +357,7 @@ bool vtkChartXY::Paint(vtkContext2D *painter)
     painter->GetBrush()->SetColor(255, 255, 255, 0);
     painter->GetPen()->SetColor(0, 0, 0, 255);
     painter->GetPen()->SetWidth(1.0);
+    painter->GetPen()->SetLineType(vtkPen::SOLID_LINE);
     painter->DrawRect(this->MouseBox.GetX(), this->MouseBox.GetY(),
                       this->MouseBox.GetWidth(), this->MouseBox.GetHeight());
     }
@@ -367,6 +368,7 @@ bool vtkChartXY::Paint(vtkContext2D *painter)
     painter->GetBrush()->SetColor(255, 0, 0, 0);
     painter->GetPen()->SetColor(0, 255, 0, 255);
     painter->GetPen()->SetWidth(2.0);
+    painter->GetPen()->SetLineType(vtkPen::SOLID_LINE);
 
     const vtkContextPolygon &polygon = this->SelectionPolygon;
 
@@ -1107,8 +1109,11 @@ bool vtkChartXY::RemovePlot(vtkIdType index)
 
     // Ensure that the bounds are recalculated
     this->PlotTransformValid = false;
-    // Mark the scene as dirty
-    this->Scene->SetDirty(true);
+    if (this->Scene)
+      {
+      // Mark the scene as dirty
+      this->Scene->SetDirty(true);
+      }
     return true;
     }
   else
@@ -1138,8 +1143,11 @@ void vtkChartXY::ClearPlots()
 
   // Ensure that the bounds are recalculated
   this->PlotTransformValid = false;
-  // Mark the scene as dirty
-  this->Scene->SetDirty(true);
+  if (this->Scene)
+    {
+    // Mark the scene as dirty
+    this->Scene->SetDirty(true);
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -1229,8 +1237,11 @@ void vtkChartXY::RecalculateBounds()
 {
   // Ensure that the bounds are recalculated
   this->PlotTransformValid = false;
-  // Mark the scene as dirty
-  this->Scene->SetDirty(true);
+  if (this->Scene)
+    {
+    // Mark the scene as dirty
+    this->Scene->SetDirty(true);
+    }
 }
 
 //-----------------------------------------------------------------------------

@@ -1,7 +1,8 @@
-vtk_add_test_cxx(
+vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestAxisActor3D.cxx
   TestBarChartActor.cxx
   TestCaptionActor2D.cxx
+  TestCornerAnnotation.cxx
   TestCubeAxes2DMode.cxx
   TestCubeAxes3.cxx
   TestCubeAxesWithGridLines.cxx
@@ -18,6 +19,7 @@ vtk_add_test_cxx(
   TestLegendScaleActor.cxx
   TestPieChartActor.cxx
   TestPolarAxes.cxx
+  TestScalarBar.cxx
   TestSpiderPlotActor.cxx
   TestCubeAxesOrientedBoundingBox.cxx
   TestCubeAxesIntersectionPoint.cxx
@@ -29,4 +31,5 @@ vtk_add_test_cxx(
   TestXYPlotActor.cxx
   )
 
-vtk_test_cxx_executable(${vtk-module}CxxTests RENDERING_FACTORY)
+vtk_test_cxx_executable(${vtk-module}CxxTests tests
+  RENDERING_FACTORY)

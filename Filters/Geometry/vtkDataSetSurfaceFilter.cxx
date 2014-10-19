@@ -128,10 +128,6 @@ vtkDataSetSurfaceFilter::vtkDataSetSurfaceFilter()
   this->OriginalPointIdsName = NULL;
 
   this->NonlinearSubdivisionLevel = 1;
-
-  this->GetInformation()->Set(vtkAlgorithm::PRESERVES_BOUNDS(), 1);
-  this->GetInformation()->Set(vtkAlgorithm::PRESERVES_RANGES(), 1);
-
 }
 
 //----------------------------------------------------------------------------
@@ -1083,6 +1079,23 @@ int vtkDataSetSurfaceFilter::DataSetExecute(vtkDataSet *input,
     return 1;
     }
 
+  if (this->PassThroughCellIds)
+    {
+    this->OriginalCellIds = vtkIdTypeArray::New();
+    this->OriginalCellIds->SetName(this->GetOriginalCellIdsName());
+    this->OriginalCellIds->SetNumberOfComponents(1);
+    this->OriginalCellIds->Allocate(numCells);
+    outputCD->AddArray(this->OriginalCellIds);
+    }
+  if (this->PassThroughPointIds)
+    {
+    this->OriginalPointIds = vtkIdTypeArray::New();
+    this->OriginalPointIds->SetName(this->GetOriginalPointIdsName());
+    this->OriginalPointIds->SetNumberOfComponents(1);
+    this->OriginalPointIds->Allocate(numPts);
+    outputPD->AddArray(this->OriginalPointIds);
+    }
+
   vtkStructuredGrid *sgridInput = vtkStructuredGrid::SafeDownCast(input);
   bool mayBlank = sgridInput && sgridInput->GetCellBlanking();
 
@@ -1194,6 +1207,16 @@ int vtkDataSetSurfaceFilter::DataSetExecute(vtkDataSet *input,
   cell->Delete();
   output->SetPoints(newPts);
   newPts->Delete();
+  if (this->OriginalCellIds)
+    {
+    this->OriginalCellIds->Delete();
+    this->OriginalCellIds = NULL;
+    }
+  if (this->OriginalPointIds)
+    {
+    this->OriginalPointIds->Delete();
+    this->OriginalPointIds = NULL;
+    }
 
   //free storage
   output->Squeeze();
@@ -1345,6 +1368,8 @@ int vtkDataSetSurfaceFilter::UnstructuredGridExecute(vtkDataSet *dataSetInput,
     cellIter = vtkSmartPointer<vtkCellIterator>::Take(input->NewCellIterator());
     }
 
+  vtkUnsignedCharArray* ghosts = vtkUnsignedCharArray::SafeDownCast(
+    input->GetPointData()->GetArray("vtkGhostLevels"));
   vtkCellArray *newVerts;
   vtkCellArray *newLines;
   vtkCellArray *newPolys;
@@ -1779,6 +1804,22 @@ int vtkDataSetSurfaceFilter::UnstructuredGridExecute(vtkDataSet *dataSetInput,
            || cellType == VTK_BIQUADRATIC_QUAD
            || cellType == VTK_QUADRATIC_LINEAR_QUAD)
       {
+      bool allGhosts = true;
+      pointIdList = cellIter->GetPointIds();
+      vtkIdType nIds = pointIdList->GetNumberOfIds();
+      for ( i=0; i < nIds; i++ )
+        {
+        if (!ghosts || ghosts->GetValue(pointIdList->GetId(i)) == 0)
+          {
+          allGhosts = false;
+          }
+        }
+      // If all points of the polygon are ghosts, we throw it away.
+      if (allGhosts)
+        {
+        continue;
+        }
+
       // Note: we should not be here if this->NonlinearSubdivisionLevel is less
       // than 1.  See the check above.
       cellIter->GetCell(cell);
@@ -1885,10 +1926,20 @@ int vtkDataSetSurfaceFilter::UnstructuredGridExecute(vtkDataSet *dataSetInput,
   this->InitQuadHashTraversal();
   while ( (q = this->GetNextVisibleQuadFromHash()) )
     {
+    bool allGhosts = true;
     // handle all polys
     for (i = 0; i < q->numPts; i++)
       {
+      if (!ghosts || ghosts->GetValue(q->ptArray[i]) == 0)
+        {
+        allGhosts = false;
+        }
       q->ptArray[i] = this->GetOutputPointId(q->ptArray[i], input, newPts, outputPD);
+      }
+    // If all points of the polygon are ghosts, we throw it away.
+    if (allGhosts)
+      {
+      continue;
       }
     newPolys->InsertNextCell(q->numPts, q->ptArray);
     this->RecordOrigCellId(this->NumberOfNewCells, q);
@@ -2164,25 +2215,27 @@ void vtkDataSetSurfaceFilter::InsertPolygonInHash(vtkIdType* ids,
         {
         // if the first two points match loop through forwards
         // checking all points
-        for (int i = 1; i < numPts; i++)
+        if (tab[1] == quad->ptArray[1])
           {
-          if ( tab[i] != quad->ptArray[i])
+          for (int i = 2; i < numPts; ++i)
             {
-            match = false;
-            break;
+            if ( tab[i] != quad->ptArray[i])
+              {
+              match = false;
+              break;
+              }
             }
           }
-        }
-      else if (tab[numPts-1] == quad->ptArray[0])
-        {
-        // the first two points match with the opposite sense.
-        // loop though comparing the correct sense
-        for (int i = 1; i < numPts; i++)
+        else
           {
-          if ( tab[numPts - i - 1] != quad->ptArray[i])
+          // check if the points go in the opposite direction
+          for (int i = 1; i < numPts; ++i)
             {
-            match = false;
-            break;
+            if ( tab[numPts-i] != quad->ptArray[i])
+              {
+              match = false;
+              break;
+              }
             }
           }
         }
@@ -2257,21 +2310,13 @@ void vtkDataSetSurfaceFilter::InitFastGeomQuadAllocation(vtkIdType numberOfCells
 //----------------------------------------------------------------------------
 void vtkDataSetSurfaceFilter::DeleteAllFastGeomQuads()
 {
-  int idx;
-
-  for (idx = 0; idx < this->NumberOfFastGeomQuadArrays; ++idx)
+  for (int idx = 0; idx < this->NumberOfFastGeomQuadArrays; ++idx)
     {
-    if (this->FastGeomQuadArrays[idx])
-      {
-      delete [] this->FastGeomQuadArrays[idx];
-      this->FastGeomQuadArrays[idx] = NULL;
-      }
+    delete [] this->FastGeomQuadArrays[idx];
+    this->FastGeomQuadArrays[idx] = NULL;
     }
-  if (this->FastGeomQuadArrays)
-    {
-    delete [] this->FastGeomQuadArrays;
-    this->FastGeomQuadArrays = NULL;
-    }
+  delete [] this->FastGeomQuadArrays;
+  this->FastGeomQuadArrays = NULL;
   this->FastGeomQuadArrayLength = 0;
   this->NumberOfFastGeomQuadArrays = 0;
   this->NextArrayIndex = 0;

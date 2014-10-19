@@ -446,7 +446,6 @@ bool vtkPlotPoints::SelectPoints(const vtkVector2f& min, const vtkVector2f& max)
         }
       ++low;
     }
-  std::sort(selected.begin(), selected.end());
   this->Selection->SetNumberOfTuples(selected.size());
   vtkIdType *ptr = static_cast<vtkIdType *>(this->Selection->GetVoidPointer(0));
   for (size_t i = 0; i < selected.size(); ++i)
@@ -722,11 +721,8 @@ bool vtkPlotPoints::UpdateTableCache(vtkTable *table)
   this->CalculateLogSeries();
   this->FindBadPoints();
   this->Points->Modified();
-  if (this->Sorted)
-    {
-    delete this->Sorted;
-    this->Sorted = 0;
-    }
+  delete this->Sorted;
+  this->Sorted = 0;
 
   // Additions for color mapping
   if (this->ScalarVisibility && !this->ColorArrayName.empty())

@@ -1,26 +1,39 @@
 cmake_minimum_required(VERSION 2.8.8 FATAL_ERROR)
 
-if(POLICY CMP0022)
-  cmake_policy(SET CMP0022 NEW)
+option(VTK_ENABLE_KITS "Build VTK using kits instead of modules." OFF)
+mark_as_advanced(VTK_ENABLE_KITS)
+if(VTK_ENABLE_KITS)
+  # Kits use INTERFACE libraries which were introduced in 3.0.
+  cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 endif()
 
-# Eliminate a warning when building in Windows that relates
-# to static linking of Qt executables to qtmain.lib.
-# This policy was introduced in CMake version 2.8.11.
-# CMake version 2.8.11.2 warns when the policy is not set
-# and uses OLD behavior.
-if(POLICY CMP0020)
-  cmake_policy(SET CMP0020 NEW)
+foreach(p
+    CMP0020 # CMake 2.8.11
+    CMP0022 # CMake 2.8.12
+    CMP0025 # CMake 3.0
+    CMP0053 # CMake 3.1
+    )
+  if(POLICY ${p})
+    cmake_policy(SET ${p} NEW)
+  endif()
+endforeach()
+
+# Set a consistent MACOSX_RPATH default across all CMake versions.
+# When CMake 2.8.12 is required, change this default to 1.
+# When CMake 3.0.0 is required, remove this block (see CMP0042).
+if(NOT DEFINED CMAKE_MACOSX_RPATH)
+  set(CMAKE_MACOSX_RPATH 0)
 endif()
 
 project(VTK)
 
-# Objective-C++ compile flags, future CMake versions might make this obsolete
+# Objective-C++ compile flags.
+# CMake has no equivalent of CMAKE_CXX_FLAGS for Objective-C++ (bug #4756)
+# so we provide this in case the user needs to specify flags specifically
+# for Objective-C++ source files.  For example, to build with garbage
+# collection support, the -fobjc-gc flag would be used.
 IF(APPLE)
-  # Being a library, VTK may be linked in either GC (garbage collected)
-  # processes or non-GC processes.  Default to "GC supported" so that both
-  # GC and MRR (manual reference counting) are supported.
-  SET(VTK_OBJCXX_FLAGS_DEFAULT "-fobjc-gc")
+  SET(VTK_OBJCXX_FLAGS_DEFAULT "")
   SET(VTK_REQUIRED_OBJCXX_FLAGS ${VTK_OBJCXX_FLAGS_DEFAULT} CACHE STRING "Extra flags for Objective-C++ compilation")
   MARK_AS_ADVANCED(VTK_REQUIRED_OBJCXX_FLAGS)
 ENDIF(APPLE)
@@ -41,7 +54,8 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 # Test input data staging directory.
-set(VTK_TEST_DATA_DIR "${ExternalData_BINARY_ROOT}/Testing")
+file(RELATIVE_PATH vtk_reldir "${CMAKE_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
+set(VTK_TEST_DATA_DIR "${ExternalData_BINARY_ROOT}/${vtk_reldir}/Testing")
 
 # Test input data directory.
 set(VTK_TEST_INPUT_DIR "${VTK_SOURCE_DIR}/Testing/Data")
@@ -68,8 +82,72 @@ mark_as_advanced(CMAKE_RUNTIME_OUTPUT_DIRECTORY
   CMAKE_ARCHIVE_OUTPUT_DIRECTORY
   )
 
-# Choose static or shared libraries.
-option(BUILD_SHARED_LIBS "Build VTK with shared libraries." ON)
+# some specific defaults for Andriod to give folks
+# a reasonable starting point
+if (ANDROID OR APPLE_IOS)
+  SET( CMAKE_REQUIRE_LARGE_FILE_SUPPORT 2
+       CACHE STRING "Result from TRY_RUN" FORCE)
+  SET( CMAKE_REQUIRE_LARGE_FILE_SUPPORT__TRYRUN_OUTPUT ""
+       CACHE STRING "Output from TRY_RUN" FORCE)
+  SET( VTK_TYPE_CHAR_IS_SIGNED 1
+     CACHE STRING "Result from TRY_RUN" FORCE)
+  SET( VTK_ANSI_STREAM_EOF_RESULT 0
+     CACHE STRING "Result from TRY_RUN" FORCE)
+  SET( KWSYS_CHAR_IS_SIGNED 1
+     CACHE STRING "Result from TRY_RUN" FORCE)
+  SET( KWSYS_LFS_WORKS 2
+     CACHE STRING "Result from TRY_RUN" FORCE)
+  SET( KWSYS_LFS_WORKS__TRYRUN_OUTPUT ""
+     CACHE STRING "Output from TRY_RUN" FORCE)
+
+  option(BUILD_SHARED_LIBS "should be off for embedded" OFF)
+  set(VTK_RENDERING_BACKEND OpenGL2)
+  set(Module_vtkRenderingCore ON)
+  option(VTK_Group_Rendering "off for embedded" OFF)
+  option(VTK_Group_StandAlone "off for embedded" OFF)
+  option(VTK_Group_Imaging "off for embedded" OFF)
+  option(VTK_Group_MPI "off for embedded" OFF)
+  option(VTK_Group_Views "off for embedded" OFF)
+  option(VTK_Group_Qt "off for embedded" OFF)
+  option(VTK_Group_Tk "off for embedded" OFF)
+  option(VTK_Group_Web "off for embedded" OFF)
+
+  if (APPLE_IOS)
+    option(Module_vtkInteractionStyle "needed for multitouch" ON)
+    find_path(OPENGL_INCLUDE_DIR ES2/gl.h
+       ${CMAKE_OSX_SYSROOT}/System/Library/Frameworks/OpenGLES.framework/Headers
+       ${_OPENGL_INCLUDE_PATH}
+       )
+    find_library(OPENGL_gl_LIBRARY
+       NAMES OpenGLES
+       PATHS
+         ${CMAKE_OSX_SYSROOT}/System/Library/Frameworks
+         ${_OPENGL_LIB_PATH}
+       )
+  else ()
+    # find opengl es2 (maybe someday add an option for ES3)
+    find_path(OPENGL_INCLUDE_DIR GLES2/gl2.h
+       ${ANDROID_NDK}/platforms/android-${ANDROID_NATIVE_API_LEVEL}/arch-${ANDROID_ARCH_NAME}/usr/include
+       ${_OPENGL_INCLUDE_PATH}
+       )
+    find_library(OPENGL_gl_LIBRARY
+       NAMES GLESv2
+       PATHS
+         ${ANDROID_NDK}/platforms/android-${ANDROID_NATIVE_API_LEVEL}/arch-${ANDROID_ARCH_NAME}/usr/lib
+         ${_OPENGL_LIB_PATH}
+       )
+    find_library(OPENGL_egl_LIBRARY
+       NAMES EGL
+       PATHS
+         ${ANDROID_NDK}/platforms/android-${ANDROID_NATIVE_API_LEVEL}/arch-${ANDROID_ARCH_NAME}/usr/lib
+         ${_OPENGL_LIB_PATH}
+       )
+  endif()
+else()
+  # Choose static or shared libraries.
+  option(BUILD_SHARED_LIBS "Build VTK with shared libraries." ON)
+endif()
+
 set(VTK_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 
 #-----------------------------------------------------------------------------
@@ -130,6 +208,11 @@ if (CMAKE_CROSSCOMPILING AND NOT COMPILE_TOOLS_IMPORTED)
   find_package(VTKCompileTools REQUIRED)
   set (COMPILE_TOOLS_IMPORTED TRUE)
 endif()
+
+#-----------------------------------------------------------------------------
+# Do we try to use system libraries by default?
+option(VTK_USE_SYSTEM_LIBRARIES "Use the system's libraries by default." OFF)
+mark_as_advanced(VTK_USE_SYSTEM_LIBRARIES)
 
 #-----------------------------------------------------------------------------
 # The third party macros are still used in one or two third party builds.
@@ -215,6 +298,31 @@ set(VTK_USE_WIN32_THREADS 0)
 set(VTK_USE_PTHREADS 0)
 set(VTK_HP_PTHREADS 0)
 set(VTK_USE_SPROC 0)
+# if win32 threads and pthreads are available figure out which
+# one the compiler is setup to use.  If you can not figure it
+# out default to pthreads.
+if(CMAKE_USE_PTHREADS_INIT AND CMAKE_USE_WIN32_THREADS_INIT)
+  if(DEFINED VTK_THREAD_MODEL)
+    set(output "${VTK_THREAD_MODEL}")
+  else()
+    execute_process(COMMAND "${CMAKE_C_COMPILER}" -v OUTPUT_VARIABLE output
+      ERROR_VARIABLE output RESULT_VARIABLE result TIMEOUT 10)
+  endif()
+  if(output MATCHES "Thread model: posix")
+    set(VTK_THREAD_MODEL "Thread model: posix" CACHE STRING
+      "Thread model used by gcc.")
+    set(CMAKE_USE_WIN32_THREADS_INIT 0)
+  elseif(output MATCHES "Thread model: win32")
+    set(VTK_THREAD_MODEL "Thread model: win32" CACHE STRING
+      "Thread model used by gcc.")
+    set(CMAKE_USE_PTHREADS_INIT 0)
+  else()
+    set(VTK_THREAD_MODEL "Thread model: posix" CACHE STRING
+      "Thread model used by gcc.")
+    set(CMAKE_USE_WIN32_THREADS_INIT 0)
+  endif()
+endif()
+mark_as_advanced(VTK_THREAD_MODEL)
 if(CMAKE_USE_WIN32_THREADS_INIT)
   set(VTK_USE_WIN32_THREADS 1)
   set(CMAKE_THREAD_LIBS_INIT "")
@@ -278,6 +386,8 @@ include(VTKParallelCMakeTests)
 
 # Add the option for build the Python wrapping to VTK.
 option(VTK_WRAP_PYTHON "Should VTK Python wrapping be built?" OFF)
+set(VTK_PYTHON_VERSION 2 CACHE STRING
+    "Python version to use: 2, 2.x, or empty")
 
 # Add the option for build the Python wrapping to VTK.
 option(VTK_WRAP_JAVA "Should VTK Java wrapping be built?" OFF)
@@ -298,7 +408,7 @@ mark_as_advanced(VTK_WRAP_HINTS)
 
 if(BUILD_TESTING OR VTK_WRAP_PYTHON)
   # Need PYTHON_EXECUTABLE for HeaderTesting or python wrapping
-  find_package(PythonInterp QUIET)
+  find_package(PythonInterp ${VTK_PYTHON_VERSION} QUIET)
   mark_as_advanced(PYTHON_EXECUTABLE)
 endif()
 
@@ -420,3 +530,11 @@ unset(_vtk_all_targets)
 # Create target to download data from the VTKData group.  This must come after
 # all tests have been added that reference the group, so we put it last.
 ExternalData_Add_Target(VTKData)
+if(VTK_DATA_EXCLUDE_FROM_ALL)
+  set_property(TARGET VTKData PROPERTY EXCLUDE_FROM_ALL 1)
+  if(BUILD_TESTING AND NOT VTK_DATA_EXCLUDE_FROM_ALL_NO_WARNING)
+    message(WARNING "VTK_DATA_EXCLUDE_FROM_ALL is ON so test data "
+      "(needed because BUILD_TESTING is ON) may not be available "
+      "without manually building the 'VTKData' target.")
+  endif()
+endif()

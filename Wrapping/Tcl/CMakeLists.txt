@@ -16,6 +16,13 @@
 #
 #   SET(VTK_EXTRA_TCL_LIBRARIES ${VTK_EXTRA_TCL_LIBRARIES} vtkMySpecialTCL)
 
+# Deal with OpenGL or OpenGL2 and its translation to Roman numerals due to TCL
+# not allowing numbers in package names.
+unset(rendering_backend)
+if(VTK_RENDERING_BACKEND STREQUAL "OpenGL2")
+  set(rendering_backend "ii")
+endif()
+
 CONFIGURE_FILE(
   ${VTK_SOURCE_DIR}/Wrapping/Tcl/vtkTkAppInitConfigure.h.in
   ${VTK_BINARY_DIR}/Wrapping/Tcl/vtkTkAppInitConfigure.h
@@ -84,12 +91,10 @@ VTK_ADD_EXECUTABLE(vtk vtkTkAppInit.cxx ${VTK_EXE_RESOURCE_FILES})
 IF(VTK_USE_CARBON)
   FIND_PROGRAM(VTK_APPLE_RESOURCE Rez "${OSX_DEVELOPER_ROOT}/usr/bin")
   IF(VTK_APPLE_RESOURCE)
-    GET_TARGET_PROPERTY(VTK_EXECUTABLE_DIR vtk RUNTIME_OUTPUT_DIRECTORY)
     ADD_CUSTOM_COMMAND(
-      SOURCE vtk
-      COMMAND ${VTK_APPLE_RESOURCE}
-      ARGS Carbon.r -o ${VTK_EXECUTABLE_DIR}/vtk
-      TARGET vtk
+      TARGET vtk POST_BUILD
+      COMMAND ${VTK_APPLE_RESOURCE} Carbon.r -o $<TARGET_FILE:vtk>
+      VERBATIM
       )
   ENDIF(VTK_APPLE_RESOURCE)
 ENDIF(VTK_USE_CARBON)
@@ -142,12 +147,10 @@ if(vtkParallelMPI_ENABLED)
   IF(VTK_USE_CARBON)
     FIND_PROGRAM(VTK_APPLE_RESOURCE Rez "${OSX_DEVELOPER_ROOT}/usr/bin")
     IF(VTK_APPLE_RESOURCE)
-      GET_TARGET_PROPERTY(VTK_EXECUTABLE_DIR pvtk RUNTIME_OUTPUT_DIRECTORY)
       ADD_CUSTOM_COMMAND(
-        SOURCE pvtk
-        COMMAND ${VTK_APPLE_RESOURCE}
-        ARGS Carbon.r -o ${VTK_EXECUTABLE_DIR}/pvtk
-        TARGET pvtk
+        TARGET pvtk POST_BUILD
+        COMMAND ${VTK_APPLE_RESOURCE} Carbon.r -o $<TARGET_FILE:pvtk>
+        VERBATIM
         )
     ENDIF(VTK_APPLE_RESOURCE)
   ENDIF(VTK_USE_CARBON)
