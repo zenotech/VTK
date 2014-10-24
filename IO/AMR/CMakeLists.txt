@@ -23,4 +23,6 @@ set_source_files_properties(
   )
 
 vtk_module_library(vtkIOAMR ${Module_SRCS})
-vtk_mpi_link(vtkIOAMR)
+if(PARAVIEW_USE_MPI)
+    vtk_mpi_link(vtkIOAMR)
+endif()
