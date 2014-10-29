@@ -850,7 +850,8 @@ void vtkEnSightWriter::WriteCaseFile(int TotalTimeSteps)
         }
       }
     }
-
+  //close file
+  fclose(fd);
 
 }
 
@@ -898,7 +899,8 @@ void vtkEnSightWriter::WriteSOSCaseFile(int numProcs)
     sprintf(charBuffer,"casefile: %s.%d.case\n\n",this->BaseName,i);
     this->WriteTerminatedStringToFile(charBuffer,fd);
     }
-
+  //close file
+  fclose(fd);
 
 }
 
