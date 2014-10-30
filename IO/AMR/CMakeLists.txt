@@ -22,6 +22,8 @@ set_source_files_properties(
   WRAP_EXCLUDE
   )
 
+include(vtkMPI)
+
 vtk_module_library(vtkIOAMR ${Module_SRCS})
 if(PARAVIEW_USE_MPI)
     vtk_mpi_link(vtkIOAMR)
