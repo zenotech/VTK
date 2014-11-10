@@ -750,7 +750,7 @@ static int CheckContourDimensions(vtkPoints* points, vtkIdType npts,
                                   const vtkIdType * ptIds,
                                   double * normal, double * center)
 {
-  static const double eigenvalueRatioThresh = 0.001;
+  static const double eigenvalueRatioThresh = 1.0e-12;//0.001;
 
   if (npts < 3)
     {
