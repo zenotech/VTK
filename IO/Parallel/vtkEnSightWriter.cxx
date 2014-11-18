@@ -592,7 +592,7 @@ void vtkEnSightWriter::WriteData()
                 {
                   this->WriteIntToFile(numNodesPerFace[i],fd);
                 }
-
+              delete [] numNodesPerFace;
               for (k=0;k<CellsByElement[elementType].size();k++)
                 {
                   int CellId=CellsByElement[elementType][k];
