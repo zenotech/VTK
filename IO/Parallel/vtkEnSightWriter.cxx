@@ -570,8 +570,8 @@ void vtkEnSightWriter::WriteData()
                   numFaces += nfaces;
                 }
               // For each face number of nodes per face
-              int *numNodesPerFace = new int[numFaces];
-              numFaces = 0;
+              //int *numNodesPerFace = new int[numFaces];
+              //numFaces = 0;
               for (k=0;k<CellsByElement[elementType].size();k++)
                 {
                   int CellId=CellsByElement[elementType][k];
@@ -582,17 +582,18 @@ void vtkEnSightWriter::WriteData()
                   for(int i = 0; i < nfaces; ++i)
                   {
                     int nnodes = ptids[count];
-                    numNodesPerFace[numFaces] = nnodes;
+                    //numNodesPerFace[numFaces] = nnodes;
+                    this->WriteIntToFile(nnodes,fd);
                     count += nnodes + 1;
-                    numFaces ++;
+                    //numFaces ++;
                   }
                   //delete [] ptids;
                 }
-              for (i = 0; i < numFaces; i++)
-                {
-                  this->WriteIntToFile(numNodesPerFace[i],fd);
-                }
-              delete [] numNodesPerFace;
+              //for (i = 0; i < numFaces; i++)
+              //  {
+              //    this->WriteIntToFile(numNodesPerFace[i],fd);
+              //  }
+              //delete [] numNodesPerFace;
               for (k=0;k<CellsByElement[elementType].size();k++)
                 {
                   int CellId=CellsByElement[elementType][k];
@@ -606,7 +607,9 @@ void vtkEnSightWriter::WriteData()
                     count++;
                     for(int l=0;l<nnodes;++l)
                     {
-                      this->WriteIntToFile(ptids[count],fd);
+                      // Node numbering in EnSight starts from 1
+                      int n = ptids[count] + 1;
+                      this->WriteIntToFile(n,fd);
                       count++;
                     }
                   }
