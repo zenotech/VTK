@@ -535,7 +535,7 @@ void vtkEnSightWriter::WriteData()
           //element ID's
           for (k=0;k<CellsByElement[elementType].size();k++)
             {
-            int CellId=CellsByElement[elementType][k];
+            int CellId=CellsByElement[elementType][k]+1;
             this->WriteIntToFile(CellId,fd);
             }
           if(elementType != VTK_POLYHEDRON)
@@ -607,9 +607,8 @@ void vtkEnSightWriter::WriteData()
                     count++;
                     for(int l=0;l<nnodes;++l)
                     {
-                      // Node numbering in EnSight starts from 1
-                      int n = ptids[count] + 1;
-                      this->WriteIntToFile(n,fd);
+                      int PointId = ptids[count];
+                      this->WriteIntToFile(NodeIdToOrder[PointId],fd);
                       count++;
                     }
                   }
@@ -632,11 +631,11 @@ void vtkEnSightWriter::WriteData()
           {
           this->WriteElementTypeToFile(elementTypes[k],
             cellArrayFiles[j]);
+          for ( int CurrentDimension = 0; CurrentDimension < DataSize;
+                   CurrentDimension ++ )
+            {
           for (unsigned int m=0;m<CellsByElement[elementTypes[k]].size();m++)
             {
-            for ( int CurrentDimension = 0; CurrentDimension < DataSize;
-                     CurrentDimension ++ )
-              {
               this->WriteFloatToFile
                 (  (float)
                    (   DataArray
