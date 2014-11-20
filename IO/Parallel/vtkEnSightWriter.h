@@ -82,6 +82,11 @@ public:
   vtkSetMacro(TransientGeometry,bool);
   vtkGetMacro(TransientGeometry,bool);
 
+  // Description
+  // Override to disable geometry output
+  vtkSetMacro(DisableGeometryOutput,bool);
+  vtkGetMacro(DisableGeometryOutput,bool);
+
   //Description
   //set the number of block ID's
   vtkSetMacro(NumberOfBlocks,int);
@@ -146,6 +151,7 @@ protected:
   int NumberOfBlocks;
   int * BlockIDs;
   bool TransientGeometry;
+  bool DisableGeometryOutput;
   int GhostLevel;
   vtkUnstructuredGrid* TmpInput;
 

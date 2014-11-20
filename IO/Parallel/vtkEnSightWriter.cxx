@@ -95,6 +95,7 @@ vtkEnSightWriter::vtkEnSightWriter()
   this->BaseName = NULL;
   this->FileName = NULL;
   this->TimeStep = 0;
+  this->DisableGeometryOutput = false;
   this->Path=NULL;
   this->GhostLevelMultiplier=10000;
   this->GhostLevel = 0;
@@ -563,15 +564,11 @@ void vtkEnSightWriter::WriteData()
                   vtkIdType *ptids;
                   input->GetFaceStream(CellId,nfaces,ptids);
 
-                  //delete [] ptids;
-
                   this->WriteIntToFile(nfaces,fd);
 
                   numFaces += nfaces;
                 }
               // For each face number of nodes per face
-              //int *numNodesPerFace = new int[numFaces];
-              //numFaces = 0;
               for (k=0;k<CellsByElement[elementType].size();k++)
                 {
                   int CellId=CellsByElement[elementType][k];
@@ -582,18 +579,11 @@ void vtkEnSightWriter::WriteData()
                   for(int i = 0; i < nfaces; ++i)
                   {
                     int nnodes = ptids[count];
-                    //numNodesPerFace[numFaces] = nnodes;
                     this->WriteIntToFile(nnodes,fd);
                     count += nnodes + 1;
-                    //numFaces ++;
                   }
-                  //delete [] ptids;
                 }
-              //for (i = 0; i < numFaces; i++)
-              //  {
-              //    this->WriteIntToFile(numNodesPerFace[i],fd);
-              //  }
-              //delete [] numNodesPerFace;
+
               for (k=0;k<CellsByElement[elementType].size();k++)
                 {
                   int CellId=CellsByElement[elementType][k];
@@ -634,8 +624,8 @@ void vtkEnSightWriter::WriteData()
           for ( int CurrentDimension = 0; CurrentDimension < DataSize;
                    CurrentDimension ++ )
             {
-          for (unsigned int m=0;m<CellsByElement[elementTypes[k]].size();m++)
-            {
+            for (unsigned int m=0;m<CellsByElement[elementTypes[k]].size();m++)
+              {
               this->WriteFloatToFile
                 (  (float)
                    (   DataArray
@@ -707,6 +697,7 @@ void vtkEnSightWriter::WriteData()
         }
       }
     }
+
   //cout << "wrote " << blockCount << "parts\n";
   if (this->TmpInput)
     {
@@ -1124,7 +1115,10 @@ void vtkEnSightWriter::WriteElementTypeToFile(int elementType,FILE* fd)
 //----------------------------------------------------------------------------
 bool vtkEnSightWriter::ShouldWriteGeometry()
 {
-  return ((this->TransientGeometry || (!this->TransientGeometry && this->TimeStep==0)));
+  return (
+           (this->TransientGeometry || (!this->TransientGeometry && this->TimeStep == 0)) &&
+           !DisableGeometryOutput
+         );
 }
 
 //----------------------------------------------------------------------------
