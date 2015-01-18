@@ -19,9 +19,9 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     set(CMAKE_SHARED_LINKER_FLAGS
       "-Wl,--no-undefined -lc ${CMAKE_SHARED_LINKER_FLAGS}")
     set(CMAKE_MODULE_LINKER_FLAGS
-      "-Wl,--fatal-warnings -Wl,--no-undefined -lc ${CMAKE_SHARED_LINKER_FLAGS}")
+      "-Wl,--no-undefined -lc ${CMAKE_SHARED_LINKER_FLAGS}")
     set (CMAKE_EXE_LINKER_FLAGS
-      "-Wl,--fatal-warnings -Wl,--no-undefined -lc ${CMAKE_SHARED_LINKER_FLAGS}")
+      "-Wl,--no-undefined -lc ${CMAKE_SHARED_LINKER_FLAGS}")
   endif()
 
   # Now check if we can use visibility to selectively export symbols
