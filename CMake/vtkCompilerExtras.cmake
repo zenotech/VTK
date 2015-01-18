@@ -14,8 +14,10 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 
   # If we are compiling on Linux then set some extra linker flags too
   if(CMAKE_SYSTEM_NAME MATCHES Linux)
+#    set(CMAKE_SHARED_LINKER_FLAGS
+#      "-Wl,--fatal-warnings -Wl,--no-undefined -lc ${CMAKE_SHARED_LINKER_FLAGS}")
     set(CMAKE_SHARED_LINKER_FLAGS
-      "-Wl,--fatal-warnings -Wl,--no-undefined -lc ${CMAKE_SHARED_LINKER_FLAGS}")
+      "-Wl,--no-undefined -lc ${CMAKE_SHARED_LINKER_FLAGS}")
     set(CMAKE_MODULE_LINKER_FLAGS
       "-Wl,--fatal-warnings -Wl,--no-undefined -lc ${CMAKE_SHARED_LINKER_FLAGS}")
     set (CMAKE_EXE_LINKER_FLAGS
