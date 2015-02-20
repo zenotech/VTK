@@ -1663,7 +1663,8 @@ void vtkTecplotReader::ReadFile( vtkMultiBlockDataSet * multZone )
                   tok != "STRANDID"     &&
                   tok != "SOLUTIONTIME" &&
                   tok != "DATAPACKING"  &&
-                  tok != "VARLOCATION"
+                  tok != "VARLOCATION"  &&
+                  tok != "AUXDATA"
                 )
             )
         {
@@ -1794,6 +1795,16 @@ void vtkTecplotReader::ReadFile( vtkMultiBlockDataSet * multZone )
           vtkErrorMacro( << this->FileName << "; Tecplot zone record parameter "
                          << "'SOLUTIONTIME' is currently unsupported." );
           this->Internal->GetNextToken();
+          }
+        else if ( tok == "AUXDATA" )
+          {
+          vtkErrorMacro( << this->FileName << "; Tecplot zone record parameter "
+                         << "'AUXDATA' is currently unsupported." );
+          // Read until the end of the line
+          while ( !this->Internal->NextCharEOL )
+            {
+              tok = this->Internal->GetNextToken();
+            }
           }
         tok = this->Internal->GetNextToken();
         }
