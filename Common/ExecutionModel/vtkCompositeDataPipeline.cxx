@@ -333,6 +333,10 @@ void vtkCompositeDataPipeline::ExecuteSimpleAlgorithm(
     {
     outInfo = outInfoVec->GetInformationObject(0);
     }
+  if (!outInfo)
+    {
+    return;
+    }
 
   // Make sure a valid composite data object exists for all output ports.
   for(int i=0; i < this->Algorithm->GetNumberOfOutputPorts(); ++i)
@@ -350,8 +354,7 @@ void vtkCompositeDataPipeline::ExecuteSimpleAlgorithm(
   // This might not be valid for all cases but it is a decent
   // assumption to start with.
   // TODO: Loop over all inputs
-  vtkInformation* inInfo = 0;
-  inInfo = this->GetInputInformation(compositePort, 0);
+  vtkInformation* inInfo = this->GetInputInformation(compositePort, 0);
   vtkCompositeDataSet* input = vtkCompositeDataSet::SafeDownCast(
     inInfo->Get(vtkDataObject::DATA_OBJECT()));
 
@@ -1037,15 +1040,6 @@ void vtkCompositeDataPipeline::MarkOutputsGenerated(
   vtkInformationVector* outInfoVec)
 {
   this->Superclass::MarkOutputsGenerated(request,inInfoVec,outInfoVec);
-
-  // Save the information about COMPOSITE_INDICES() as needed in the data
-  // object.
-  int outputPort = 0;
-  if(request->Has(FROM_OUTPUT_PORT()))
-    {
-    outputPort = request->Get(FROM_OUTPUT_PORT());
-    outputPort = (outputPort >= 0 ? outputPort : 0);
-    }
 
   for (int i=0; i < outInfoVec->GetNumberOfInformationObjects(); ++i)
     {

@@ -304,27 +304,6 @@ int vtkGradientFilter::RequestData(vtkInformation *vtkNotUsed(request),
       array, fieldAssociation, input, computeVorticity, computeQCriterion, output);
     }
 
-  // If necessary, remove a layer of ghost cells.
-  int numPieces = outInfo->Get(
-    vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES());
-  if (numPieces > 1)
-    {
-    int ghostLevel = outInfo->Get(
-      vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS());
-    vtkPolyData *pd = vtkPolyData::SafeDownCast(output);
-    vtkUnstructuredGrid *ug = vtkUnstructuredGrid::SafeDownCast(output);
-    // Currently the only grids that ghost cells can be removed from
-    // are unstructured grids and polydatas
-    if (pd)
-      {
-      pd->RemoveGhostCells(ghostLevel+1);
-      }
-    else if (ug)
-      {
-      ug->RemoveGhostCells(ghostLevel+1);
-      }
-    }
-
   return 1;
 }
 
@@ -812,9 +791,9 @@ namespace {
     double xp[3], xm[3], factor;
     xp[0] = xp[1] = xp[2] = xm[0] = xm[1] = xm[2] = factor = 0;
     double xxi, yxi, zxi, xeta, yeta, zeta, xzeta, yzeta, zzeta;
-    xxi = yxi = zxi = xeta = yeta = zeta = xzeta = yzeta = zzeta = 0;
+    yxi = zxi = xeta = yeta = zeta = xzeta = yzeta = zzeta = 0;
     double aj, xix, xiy, xiz, etax, etay, etaz, zetax, zetay, zetaz;
-    aj = xix = xiy = xiz = etax = etay = etaz = zetax = zetay = zetaz = 0;
+    xix = xiy = xiz = etax = etay = etaz = zetax = zetay = zetaz = 0;
     // for finite differencing -- the values on the "plus" side and
     // "minus" side of the point to be computed at
     std::vector<double> plusvalues(numberOfInputComponents);

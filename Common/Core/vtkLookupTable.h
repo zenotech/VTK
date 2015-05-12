@@ -48,13 +48,15 @@
 // .SECTION See Also
 // vtkLogLookupTable vtkWindowLevelLookupTable
 
-#ifndef __vtkLookupTable_h
-#define __vtkLookupTable_h
+#ifndef vtkLookupTable_h
+#define vtkLookupTable_h
 
 #include "vtkCommonCoreModule.h" // For export macro
 #include "vtkScalarsToColors.h"
 
 #include "vtkUnsignedCharArray.h" // Needed for inline method
+
+class vtkSimpleMutexLock;
 
 #define VTK_RAMP_LINEAR 0
 #define VTK_RAMP_SCURVE 1
@@ -359,6 +361,8 @@ protected:
   int OpaqueFlag;
   vtkTimeStamp OpaqueFlagBuildTime;
 
+  vtkSimpleMutexLock* ResizeMutex;
+
 private:
   vtkLookupTable(const vtkLookupTable&);  // Not implemented.
   void operator=(const vtkLookupTable&);  // Not implemented.
@@ -373,6 +377,3 @@ inline unsigned char *vtkLookupTable::WritePointer(const vtkIdType id,
 }
 
 #endif
-
-
-

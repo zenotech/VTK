@@ -13,6 +13,9 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   ImportExport.cxx,NO_VALID
   TestBSplineWarp.cxx
   TestImageStencilDataMethods.cxx,NO_VALID
+  TestStencilWithLasso.cxx
+  TestStencilWithPolyDataContour.cxx
+  TestStencilWithPolyDataSurface.cxx
   TestUpdateExtentReset.cxx,NO_VALID
   )
 list(APPEND tests

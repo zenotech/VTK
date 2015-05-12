@@ -285,6 +285,43 @@ void vtkOpenGLContextDevice2D::DrawPoly(float *f, int n, unsigned char *colors,
 }
 
 //-----------------------------------------------------------------------------
+void vtkOpenGLContextDevice2D::DrawLines(float *f, int n, unsigned char *colors,
+                                         int nc)
+{
+  assert("f must be non-null" && f != NULL);
+  assert("n must be greater than 0" && n > 0);
+
+  vtkOpenGLClearErrorMacro();
+
+  this->SetLineType(this->Pen->GetLineType());
+  this->SetLineWidth(this->Pen->GetWidth());
+
+  if (colors)
+    {
+    glEnableClientState(GL_COLOR_ARRAY);
+    glColorPointer(nc, GL_UNSIGNED_BYTE, 0, colors);
+    }
+  else
+    {
+    glColor4ubv(this->Pen->GetColor());
+    }
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glVertexPointer(2, GL_FLOAT, 0, f);
+  glDrawArrays(GL_LINES, 0, n);
+  glDisableClientState(GL_VERTEX_ARRAY);
+  if (colors)
+    {
+    glDisableClientState(GL_COLOR_ARRAY);
+    }
+
+  // Restore line type and width.
+  this->SetLineType(vtkPen::SOLID_LINE);
+  this->SetLineWidth(1.0f);
+
+  vtkOpenGLCheckErrorMacro("failed after DrawLines");
+}
+
+//-----------------------------------------------------------------------------
 void vtkOpenGLContextDevice2D::DrawPoints(float *f, int n, unsigned char *c,
                                           int nc)
 {
@@ -1473,6 +1510,7 @@ vtkImageData *vtkOpenGLContextDevice2D::GenerateMarker(int shape, int width,
       }
     default: // Maintaining old behavior, which produces plus for unknown shape
       vtkWarningMacro(<<"Invalid marker shape: " << shape);
+      VTK_FALLTHROUGH;
     case VTK_MARKER_PLUS:
       {
       int center = (width + 1) / 2;

@@ -21,15 +21,21 @@
 // .SECTION see also
 // vtkRayCastImageDisplayHelper
 
-#ifndef __vtkOpenGLRayCastImageDisplayHelper_h
-#define __vtkOpenGLRayCastImageDisplayHelper_h
+#ifndef vtkOpenGLRayCastImageDisplayHelper_h
+#define vtkOpenGLRayCastImageDisplayHelper_h
 
 #include "vtkRenderingVolumeOpenGL2Module.h" // For export macro
 #include "vtkRayCastImageDisplayHelper.h"
 
-class vtkVolume;
-class vtkRenderer;
 class vtkFixedPointRayCastImage;
+class vtkRenderer;
+class vtkVolume;
+class vtkWindow;
+class vtkTextureObject;
+namespace vtkgl
+{
+class CellBO;
+}
 
 class VTKRENDERINGVOLUMEOPENGL2_EXPORT vtkOpenGLRayCastImageDisplayHelper
   : public vtkRayCastImageDisplayHelper
@@ -59,6 +65,8 @@ public:
                       vtkFixedPointRayCastImage *image,
                       float requestedDepth );
 
+  virtual void ReleaseGraphicsResources(vtkWindow *win);
+
 protected:
   vtkOpenGLRayCastImageDisplayHelper();
   ~vtkOpenGLRayCastImageDisplayHelper();
@@ -71,6 +79,12 @@ protected:
                               float requestedDepth,
                               int imageScalarType,
                               void *image );
+
+  // used for copying to framebuffer
+  vtkTextureObject *TextureObject;
+  vtkgl::CellBO *ShaderProgram;
+
+
 
 private:
   vtkOpenGLRayCastImageDisplayHelper(const vtkOpenGLRayCastImageDisplayHelper&);  // Not implemented.

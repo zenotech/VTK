@@ -19,7 +19,18 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/vtkTDxConfigure.h.in
 
 set(Module_SRCS
   ${CMAKE_CURRENT_BINARY_DIR}/${vtk-module}ObjectFactory.cxx
+  vtkCameraPass.cxx
+  vtkClearRGBPass.cxx
+  vtkClearZPass.cxx
   vtkCompositePolyDataMapper2.cxx
+  vtkDefaultPass.cxx
+  vtkDepthPeelingPass.cxx
+  vtkGaussianBlurPass.cxx
+  vtkGenericCompositePolyDataMapper2.cxx
+  vtkGenericOpenGLRenderWindow.cxx
+  vtkImageProcessingPass.cxx
+  vtkLightsPass.cxx
+  vtkOpaquePass.cxx
   vtkOpenGLActor.cxx
   vtkOpenGLCamera.cxx
   vtkOpenGLGlyph3DHelper.cxx
@@ -27,7 +38,9 @@ set(Module_SRCS
   vtkOpenGLHardwareSelector.cxx
   vtkOpenGLImageMapper.cxx
   vtkOpenGLImageSliceMapper.cxx
+  vtkOpenGLLabeledContourMapper.cxx
   vtkOpenGLLight.cxx
+  vtkOpenGLPointGaussianMapper.cxx
   vtkOpenGLPolyDataMapper.cxx
   vtkOpenGLPolyDataMapper2D.cxx
   vtkOpenGLProperty.cxx
@@ -35,24 +48,41 @@ set(Module_SRCS
   vtkOpenGLRenderer.cxx
   vtkOpenGLShaderCache.cxx
   vtkOpenGLTexture.cxx
+  vtkOverlayPass.cxx
   vtkRenderPass.cxx
+  vtkRenderStepsPass.cxx
+  vtkRenderPassCollection.cxx
   vtkRenderState.cxx
+  vtkSequencePass.cxx
   vtkShader.cxx
   vtkShaderProgram.cxx
+  vtkSobelGradientMagnitudePass.cxx
   vtkTextureObject.cxx
   vtkTextureUnitManager.cxx
+  vtkTranslucentPass.cxx
+  vtkVolumetricPass.cxx
   vtkglBufferObject.cxx
   vtkglVBOHelper.cxx
   vtkglVertexArrayObject.cxx
   )
 
-if (NOT ANDROID AND NOT APPLE_IOS)
+if (NOT DEFINED OPENGL_ES_VERSION)
   set(Module_SRCS ${Module_SRCS}
-  vtkPixelBufferObject.cxx
-  vtkFrameBufferObject.cxx
-  )
+    vtkDataTransferHelper.cxx
+    vtkFrameBufferObject.cxx
+    vtkFrameBufferObject2.cxx
+    vtkPixelBufferObject.cxx
+    vtkRenderbuffer.cxx
+    )
+else()
+  if (${OPENGL_ES_VERSION} MATCHES 3.0)
+    set(Module_SRCS ${Module_SRCS}
+      vtkFrameBufferObject.cxx
+      vtkFrameBufferObject2.cxx
+      vtkRenderbuffer.cxx
+      )
+  endif()
 endif()
-
 
 set(${vtk-module}_HDRS
   vtkOpenGL.h
@@ -68,11 +98,9 @@ set_source_files_properties(
   vtkFrameBufferObject
   vtkOpenGLGlyph3DHelper
   vtkOpenGLGlyph3DMapper
-  vtkOpenGLHardwareSelector
   vtkOpenGLShaderCache
   vtkPixelBufferObject
   vtkRenderbuffer
-  vtkRenderPass
   vtkRenderState
   vtkTextureObject
   vtkTextureUnitManager
@@ -87,20 +115,21 @@ set_source_files_properties(
   )
 
 set(shader_files
-  glsl/vtkglPolyData2DVS.glsl
-  glsl/vtkglPolyData2DFS.glsl
-
-  glsl/vtkglPolyDataVSNoLighting.glsl
-  glsl/vtkglPolyDataFSNoLighting.glsl
-
-  glsl/vtkglPolyDataVSFragmentLit.glsl
-  glsl/vtkglPolyDataFSHeadlight.glsl
-  glsl/vtkglPolyDataFSLightKit.glsl
-  glsl/vtkglPolyDataFSPositionalLights.glsl
-
+  glsl/vtkDepthPeelingPassFinalFS.glsl
+  glsl/vtkDepthPeelingPassIntermediateFS.glsl
+  glsl/vtkGaussianBlurPassFS.glsl
+  glsl/vtkGaussianBlurPassVS.glsl
+  glsl/vtkSobelGradientMagnitudePass1FS.glsl
+  glsl/vtkSobelGradientMagnitudePass2FS.glsl
+  glsl/vtkPointGaussianVS.glsl
+  glsl/vtkTextureObjectFS.glsl
+  glsl/vtkTextureObjectVS.glsl
   glsl/vtkglGlyph3DVSFragmentLit.glsl
+  glsl/vtkglPolyData2DFS.glsl
+  glsl/vtkglPolyData2DVS.glsl
+  glsl/vtkglPolyDataFS.glsl
+  glsl/vtkglPolyDataVSFragmentLit.glsl
   )
-
 unset(shader_h_files)
 foreach(file ${shader_files})
   get_filename_component(file_we ${file} NAME_WE)
@@ -144,11 +173,13 @@ endif()
 set(opengl_overrides
   Actor
   Camera
+  LabeledContourMapper
   HardwareSelector
   ImageMapper
   ImageSliceMapper
   Glyph3DMapper
   Light
+  PointGaussianMapper
   PolyDataMapper
   PolyDataMapper2D
   Property
@@ -194,11 +225,11 @@ elseif(VTK_USE_OSMESA)
 elseif(WIN32)
   # Add some custom overrides
   list(APPEND vtk_module_overrides "vtkRenderWindowInteractor")
-  set(vtk_module_vtkRenderWindowInteractor_override "vtkWin32OpenGLRenderWindowInteractor")
+  set(vtk_module_vtkRenderWindowInteractor_override "vtkWin32RenderWindowInteractor")
   list(APPEND vtk_module_overrides "vtkRenderWindow")
   set(vtk_module_vtkRenderWindow_override "vtkWin32OpenGLRenderWindow")
   list(APPEND Module_SRCS
-    vtkWin32OpenGLRenderWindowInteractor.cxx
+    vtkWin32RenderWindowInteractor.cxx
     vtkWin32OpenGLRenderWindow.cxx
     )
 elseif(VTK_USE_COCOA)
@@ -221,7 +252,7 @@ elseif(VTK_USE_COCOA)
                                 vtkCocoaRenderWindow.mm
                                 vtkCocoaGLView.mm
                                 PROPERTIES COMPILE_FLAGS "${VTK_REQUIRED_OBJCXX_FLAGS}")
-  endif(VTK_REQUIRED_OBJCXX_FLAGS)
+  endif()
   set_source_files_properties(vtkCocoaGLView WRAP_EXCLUDE)
 elseif(VTK_USE_CARBON)
   # Add some custom overrides
@@ -262,7 +293,7 @@ elseif(APPLE_IOS)
     set_source_files_properties(vtkIOSRenderWindowInteractor.mm
                                 vtkIOSRenderWindow.mm
                                 PROPERTIES COMPILE_FLAGS "${VTK_REQUIRED_OBJCXX_FLAGS}")
-  endif(VTK_REQUIRED_OBJCXX_FLAGS)
+  endif()
  endif()
 
 vtk_object_factory_configure("${vtk_module_overrides}")
@@ -270,7 +301,10 @@ vtk_object_factory_configure("${vtk_module_overrides}")
 # Detect and clear OpenGL errors. If not then other classes/user code
 # may detect VTK's OpenGL errors and vice-versa.
 set(VTK_REPORT_OPENGL_ERRORS ON CACHE BOOL "Enable OpenGL error check and report")
-mark_as_advanced(VTK_REPORT_OPENGL_ERRORS)
+cmake_dependent_option(VTK_REPORT_OPENGL_ERRORS_IN_RELEASE_BUILDS
+  "Enable OpenGL error check and reporting in non-debug builds." OFF
+  VTK_REPORT_OPENGL_ERRORS OFF)
+mark_as_advanced(VTK_REPORT_OPENGL_ERRORS VTK_REPORT_OPENGL_ERRORS_IN_RELEASE_BUILDS)
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkOpenGLError.h.in
     ${CMAKE_CURRENT_BINARY_DIR}/vtkOpenGLError.h)

@@ -92,10 +92,7 @@ vtkCompositeRGBAPass::~vtkCompositeRGBAPass()
      {
      vtkErrorMacro(<<"RootTexture should have been deleted in ReleaseGraphicsResources().");
     }
-   if(this->RawRGBABuffer!=0)
-     {
-     delete[] this->RawRGBABuffer;
-     }
+   delete[] this->RawRGBABuffer;
 }
 
 // ----------------------------------------------------------------------------
@@ -127,7 +124,7 @@ void vtkCompositeRGBAPass::PrintSelf(ostream& os, vtkIndent indent)
 bool vtkCompositeRGBAPass::IsSupported(vtkOpenGLRenderWindow *context)
 {
 #ifdef VTKGL2
-  return true;
+  return (context != 0);
 #else
   vtkOpenGLExtensionManager *extmgr = context->GetExtensionManager();
 
@@ -230,6 +227,8 @@ void vtkCompositeRGBAPass::Render(const vtkRenderState *s)
     this->RawRGBABufferSize=static_cast<size_t>(w*h*4);
     this->RawRGBABuffer=new float[this->RawRGBABufferSize];
     }
+
+  //size_t byteSize = this->RawRGBABufferSize*sizeof(unsigned char);
 
   if(this->PBO==0)
     {
@@ -353,34 +352,49 @@ void vtkCompositeRGBAPass::Render(const vtkRenderState *s)
       }
 #endif
 
+  // framebuffers have their color premultiplied by alpha.
+
+#ifdef VTKGL2
+    // save off current state of src / dst blend functions
+    GLint blendSrcA;
+    GLint blendDstA;
+    GLint blendSrcC;
+    GLint blendDstC;
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &blendSrcA);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &blendDstA);
+    glGetIntegerv(GL_BLEND_SRC_RGB, &blendSrcC);
+    glGetIntegerv(GL_BLEND_DST_RGB, &blendDstC);
+
+    glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);
+
+    // per-fragment operations
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+    glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA,
+                        GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+#else
     glPushAttrib(GL_DEPTH_BUFFER_BIT|GL_COLOR_BUFFER_BIT|GL_LIGHTING);
     glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);
 
     // per-fragment operations
-    glDisable(GL_ALPHA_TEST);
     glDisable(GL_STENCIL_TEST);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
+
+    glDisable(GL_ALPHA_TEST);
     glDisable(GL_INDEX_LOGIC_OP);
     glDisable(GL_COLOR_LOGIC_OP);
-
-    // framebuffers have their color premultiplied by alpha.
-#ifdef VTKGL2
-    glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA,
-                        GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-#else
     vtkgl::BlendFuncSeparate(GL_ONE,GL_ONE_MINUS_SRC_ALPHA,
                              GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
-#endif
-
     // fixed vertex shader
     glDisable(GL_LIGHTING);
 
     // fixed fragment shader
     glEnable(GL_TEXTURE_2D);
     glDisable(GL_FOG);
-
     glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_REPLACE);
+#endif
+
     glPixelStorei(GL_UNPACK_ALIGNMENT,1);// client to server
 
     // 2. if root is not farest, save it in a TO
@@ -435,22 +449,24 @@ void vtkCompositeRGBAPass::Render(const vtkRenderState *s)
         }
 #ifdef VTKGL2
       to->Activate();
+      to->CopyToFrameBuffer(0, 0, w - 1, h - 1, 0, 0, w, h, NULL, NULL);
+      to->Deactivate();
+      --procIndex;
+      }
+    // restore blend func
+    glBlendFuncSeparate(blendSrcC, blendDstC, blendSrcA, blendDstA);
 #else
       vtkgl::ActiveTexture(vtkgl::TEXTURE0);
-#endif
       // fixed-pipeline for vertex and fragment shaders.
       to->Bind();
-#ifdef VTKGL2
-      to->CopyToFrameBuffer(0, 0, w - 1, h - 1, 0, 0);
-      to->Deactivate();
-#else
       to->CopyToFrameBuffer(0,0,w-1,h-1,0,0,w,h);
-#endif
       to->UnBind();
       --procIndex;
       }
     glPopAttrib();
+#endif
     frontToBackList->Delete();
+
 #ifdef VTK_COMPOSITE_RGBAPASS_DEBUG
     // get rgba-buffer of root before any blending with satellite
     // for debugging only.

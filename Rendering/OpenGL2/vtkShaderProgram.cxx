@@ -71,6 +71,7 @@ vtkShaderProgram::vtkShaderProgram() : Handle(0), VertexShaderHandle(0),
     this->GeometryShader->SetType(vtkShader::Geometry);
 
     this->Compiled = false;
+    this->NumberOfOutputs = 0;
 }
 
 vtkShaderProgram::~vtkShaderProgram()
@@ -226,17 +227,33 @@ bool vtkShaderProgram::Link()
     return false;
     }
 
+#if GL_ES_VERSION_2_0 != 1
+  // bind the outputs if specified
+  if (this->NumberOfOutputs)
+    {
+    for (unsigned int i = 0; i < this->NumberOfOutputs; i++)
+      {
+      // this naming has to match the bindings
+      // in vtkOpenGLShaderCache.cxx
+      std::ostringstream dst;
+      dst << "fragOutput" << i;
+      glBindFragDataLocation(static_cast<GLuint>(this->Handle), i,
+        dst.str().c_str());
+      }
+    }
+#endif
+
   GLint isCompiled;
   glLinkProgram(static_cast<GLuint>(this->Handle));
   glGetProgramiv(static_cast<GLuint>(this->Handle), GL_LINK_STATUS, &isCompiled);
   if (isCompiled == 0)
     {
     GLint length(0);
-    glGetShaderiv(static_cast<GLuint>(this->Handle), GL_INFO_LOG_LENGTH, &length);
+    glGetProgramiv(static_cast<GLuint>(this->Handle), GL_INFO_LOG_LENGTH, &length);
     if (length > 1)
       {
       char *logMessage = new char[length];
-      glGetShaderInfoLog(static_cast<GLuint>(this->Handle), length, NULL, logMessage);
+      glGetProgramInfoLog(static_cast<GLuint>(this->Handle), length, NULL, logMessage);
       this->Error = logMessage;
       delete[] logMessage;
       }
@@ -538,6 +555,19 @@ bool vtkShaderProgram::SetUniform2f(const char *name, const float v[2])
     return false;
     }
   glUniform2fv(location, 1, v);
+  return true;
+}
+
+bool vtkShaderProgram::SetUniform2fv(const char *name, const int count,
+                                    const float (*f)[2])
+{
+  GLint location = static_cast<GLint>(this->FindUniform(name));
+  if (location == -1)
+    {
+    Error = "Could not set uniform " + std::string(name) + ". No such uniform.";
+    return false;
+    }
+  glUniform2fv(location, count, (const GLfloat *)f);
   return true;
 }
 

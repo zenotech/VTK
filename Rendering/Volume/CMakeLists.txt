@@ -11,6 +11,8 @@ set(Module_SRCS
   vtkFixedPointVolumeRayCastHelper.cxx
   vtkFixedPointVolumeRayCastMIPHelper.cxx
   vtkFixedPointVolumeRayCastMapper.cxx
+  vtkGPUVolumeRayCastMapper.cxx
+  vtkProjectedTetrahedraMapper.cxx
   vtkRayCastImageDisplayHelper.cxx
   vtkRecursiveSphereDirectionEncoder.cxx
   vtkSphericalDirectionEncoder.cxx
@@ -49,24 +51,22 @@ set_source_files_properties(
   ABSTRACT
   )
 
-# only some volume mappers are supported for the OpenGL2 backend
 if(VTK_RENDERING_BACKEND STREQUAL "OpenGL2")
-  set_source_files_properties(vtkSmartVolumeMapper.cxx
-    PROPERTIES COMPILE_FLAGS -DVTK_OPENGL2)
-  set(Module_SRCS ${Module_SRCS}
-    vtkGPUVolumeRayCastMapper.cxx
+  set_source_files_properties(
+    vtkGPUVolumeRayCastMapper.cxx APPEND PROPERTIES
+    COMPILE_DEFINITIONS VTK_OPENGL2
     )
-else()
-set(Module_SRCS ${Module_SRCS}
-  vtkHAVSVolumeMapper.cxx
-  vtkProjectedAAHexahedraMapper.cxx
-  vtkProjectedTetrahedraMapper.cxx
-  vtkSmartVolumeMapper.cxx
-  vtkGPUVolumeRayCastMapper.cxx
-  vtkVolumeTextureMapper2D.cxx
-  vtkVolumeTextureMapper3D.cxx
-  vtkVolumeTextureMapper.cxx
-  )
+endif()
+
+# only some volume mappers are supported for the OpenGL2 backend
+if(NOT VTK_RENDERING_BACKEND STREQUAL "OpenGL2")
+  set(Module_SRCS ${Module_SRCS}
+    vtkHAVSVolumeMapper.cxx
+    vtkProjectedAAHexahedraMapper.cxx
+    vtkVolumeTextureMapper2D.cxx
+    vtkVolumeTextureMapper3D.cxx
+    vtkVolumeTextureMapper.cxx
+    )
 endif()
 
 

@@ -18,9 +18,12 @@
 #include "vtkTextProperty.h"
 #include "vtkObjectFactory.h"
 #include "vtkMath.h"
+#include "vtkNew.h"
 #include "vtkPath.h"
 #include "vtkImageData.h"
 #include "vtkSmartPointer.h"
+#include "vtkVector.h"
+#include "vtkVectorOperators.h"
 
 #include "vtkStdString.h"
 #include "vtkUnicodeString.h"
@@ -36,6 +39,8 @@
 # include <stdint.h>
 #endif
 
+#include <limits>
+#include <cassert>
 #include <algorithm>
 #include <map>
 #include <vector>
@@ -47,6 +52,16 @@ using namespace ftgl;
 // Print debug info
 #define VTK_FTFC_DEBUG 0
 #define VTK_FTFC_DEBUG_CD 0
+
+namespace {
+// Some helper functions:
+void rotateVector2i(vtkVector2i &vec, float sinTheta, float cosTheta)
+{
+  vec = vtkVector2i(vtkMath::Round(cosTheta * vec[0] - sinTheta * vec[1]),
+                    vtkMath::Round(sinTheta * vec[0] + cosTheta * vec[1]));
+}
+
+} // end anon namespace
 
 class vtkTextPropertyLookup
     : public std::map<unsigned long, vtkSmartPointer<vtkTextProperty> >
@@ -61,16 +76,19 @@ public:
   // Set by PrepareMetaData
   vtkTextProperty *textProperty;
   unsigned long textPropertyCacheId;
+  unsigned long unrotatedTextPropertyCacheId;
   FT_Face face;
   bool faceHasKerning;
+  bool faceIsRotated;
+  FT_Matrix rotation;
+  FT_Matrix inverseRotation;
 
   // Set by CalculateBoundingBox
   int ascent;
   int descent;
   int height;
   struct LineMetrics {
-    int originX;
-    int originY;
+    vtkVector2i origin;
     int width;
     // bbox relative to origin[XY]:
     int xmin;
@@ -78,9 +96,15 @@ public:
     int ymin;
     int ymax;
   };
+  vtkVector2i dx; // Vector representing the data width after rotation
+  vtkVector2i dy; // Vector representing the data height after rotation
+  vtkVector2i TL; // Top left corner of the rotated data
+  vtkVector2i TR; // Top right corner of the rotated data
+  vtkVector2i BL; // Bottom left corner of the rotated data
+  vtkVector2i BR; // Bottom right corner of the rotated data
   std::vector<LineMetrics> lineMetrics;
   int maxLineWidth;
-  int bbox[4];
+  vtkTuple<int, 4> bbox;
 };
 
 class vtkFreeTypeTools::ImageMetaData : public vtkFreeTypeTools::MetaData
@@ -190,6 +214,7 @@ vtkFreeTypeTools::vtkFreeTypeTools()
 #endif
   // Force use of compiled fonts by default.
   this->ForceCompiledFonts = true;
+  this->DebugTextures = false;
   this->MaximumNumberOfFaces = 30; // combinations of family+bold+italic
   this->MaximumNumberOfSizes = this->MaximumNumberOfFaces * 20; // sizes
   this->MaximumNumberOfBytes = 300000UL * this->MaximumNumberOfSizes;
@@ -358,25 +383,11 @@ void vtkFreeTypeTools::ReleaseCacheManager()
     this->CacheManager = NULL;
     }
 
-  if (this->ImageCache)
-    {
-    delete this->ImageCache;
-    this->ImageCache = NULL;
-    }
+  delete this->ImageCache;
+  this->ImageCache = NULL;
 
-  if (this->CMapCache)
-    {
-    delete this->CMapCache;
-    this->CMapCache = NULL;
-    }
-}
-
-//----------------------------------------------------------------------------
-bool vtkFreeTypeTools::IsBoundingBoxValid(int bbox[4])
-{
-  return (!bbox ||
-          bbox[0] == VTK_INT_MAX || bbox[1] == VTK_INT_MIN ||
-          bbox[2] == VTK_INT_MAX || bbox[3] == VTK_INT_MIN) ? false : true;
+  delete this->CMapCache;
+  this->CMapCache = NULL;
 }
 
 //----------------------------------------------------------------------------
@@ -391,10 +402,10 @@ bool vtkFreeTypeTools::GetBoundingBox(vtkTextProperty *tprop,
     return false;
     }
 
-  // No string to render, bail out now
   if (str.empty())
     {
-    return false;
+    std::fill(bbox, bbox + 4, 0);
+    return true;
     }
 
   MetaData metaData;
@@ -404,7 +415,7 @@ bool vtkFreeTypeTools::GetBoundingBox(vtkTextProperty *tprop,
     result = this->CalculateBoundingBox(str, metaData);
     if (result)
       {
-      memcpy(bbox, metaData.bbox, sizeof(int) * 4);
+      memcpy(bbox, metaData.bbox.GetData(), sizeof(int) * 4);
       }
     }
   return result;
@@ -422,10 +433,10 @@ bool vtkFreeTypeTools::GetBoundingBox(vtkTextProperty *tprop,
     return false;
     }
 
-  // No string to render, bail out now
   if (str.empty())
     {
-    return false;
+    std::fill(bbox, bbox + 4, 0);
+    return true;
     }
 
   MetaData metaData;
@@ -435,7 +446,75 @@ bool vtkFreeTypeTools::GetBoundingBox(vtkTextProperty *tprop,
     result = this->CalculateBoundingBox(str, metaData);
     if (result)
       {
-      memcpy(bbox, metaData.bbox, sizeof(int) * 4);
+      memcpy(bbox, metaData.bbox.GetData(), sizeof(int) * 4);
+      }
+    }
+  return result;
+}
+
+//----------------------------------------------------------------------------
+bool vtkFreeTypeTools::GetMetrics(vtkTextProperty *tprop,
+                                  const vtkStdString &str,
+                                  vtkTextRenderer::Metrics &metrics)
+{
+  if (!tprop)
+    {
+    vtkErrorMacro(<< "NULL text property.");
+    return false;
+    }
+
+  if (str.empty())
+    {
+    metrics = vtkTextRenderer::Metrics();
+    return true;
+    }
+
+  MetaData metaData;
+  bool result = this->PrepareMetaData(tprop, metaData);
+  if (result)
+    {
+    result = this->CalculateBoundingBox(str, metaData);
+    if (result)
+      {
+      metrics.BoundingBox = metaData.bbox;
+      metrics.TopLeft     = metaData.TL;
+      metrics.TopRight    = metaData.TR;
+      metrics.BottomLeft  = metaData.BL;
+      metrics.BottomRight = metaData.BR;
+      }
+    }
+  return result;
+}
+
+//----------------------------------------------------------------------------
+bool vtkFreeTypeTools::GetMetrics(vtkTextProperty *tprop,
+                                  const vtkUnicodeString &str,
+                                  vtkTextRenderer::Metrics &metrics)
+{
+  if (!tprop)
+    {
+    vtkErrorMacro(<< "NULL text property.");
+    return false;
+    }
+
+  if (str.empty())
+    {
+    metrics = vtkTextRenderer::Metrics();
+    return true;
+    }
+
+  MetaData metaData;
+  bool result = this->PrepareMetaData(tprop, metaData);
+  if (result)
+    {
+    result = this->CalculateBoundingBox(str, metaData);
+    if (result)
+      {
+      metrics.BoundingBox = metaData.bbox;
+      metrics.TopLeft     = metaData.TL;
+      metrics.TopRight    = metaData.TR;
+      metrics.BottomLeft  = metaData.BL;
+      metrics.BottomRight = metaData.BR;
       }
     }
   return result;
@@ -530,7 +609,7 @@ void vtkFreeTypeTools::MapTextPropertyToId(vtkTextProperty *tprop,
   // Set the first bit to avoid id = 0
   // (the id will be mapped to a pointer, FTC_FaceID, so let's avoid NULL)
   *id = 1;
-  int bits = 1;
+  unsigned int bits = 1;
 
   // The font family is hashed into 16 bits (= 17 bits so far)
   vtkTypeUInt16 familyHash =
@@ -541,21 +620,29 @@ void vtkFreeTypeTools::MapTextPropertyToId(vtkTextProperty *tprop,
   bits += 16;
 
   // Bold is in 1 bit (= 18 bits so far)
-  int bold = (tprop->GetBold() ? 1 : 0) << bits;
+  unsigned long bold = (tprop->GetBold() ? 1 : 0) << bits;
   ++bits;
 
   // Italic is in 1 bit (= 19 bits so far)
-  int italic = (tprop->GetItalic() ? 1 : 0) << bits;
+  unsigned long italic = (tprop->GetItalic() ? 1 : 0) << bits;
   ++bits;
 
   // Orientation (in degrees)
   // We need 9 bits for 0 to 360. What do we need for more precisions:
   // - 1/10th degree: 12 bits (11.8) (31 bits)
-  int angle = (vtkMath::Round(tprop->GetOrientation() * 10.0) % 3600) << bits;
+  long angle = vtkMath::Round(tprop->GetOrientation() * 10.0) % 3600;
+  if (angle < 0)
+    {
+    angle += 3600;
+    }
+  angle <<= bits;
 
   // We really should not use more than 32 bits
+  unsigned long merged = (bold | italic | angle);
+  assert(merged <= std::numeric_limits<vtkTypeUInt32>::max());
+
   // Now final id
-  *id |= bold | italic | angle;
+  *id |= merged;
 
   // Insert the TextProperty into the lookup table
   if (!this->TextPropertyLookup->contains(*id))
@@ -1002,6 +1089,51 @@ inline bool vtkFreeTypeTools::PrepareMetaData(vtkTextProperty *tprop,
     return false;
     }
 
+  // Store an unrotated version of this font, as we'll need this to get accurate
+  // ascenders/descenders (see CalculateBoundingBox).
+  if (tprop->GetOrientation() != 0.0)
+    {
+    vtkNew<vtkTextProperty> unrotatedTProp;
+    unrotatedTProp->ShallowCopy(tprop);
+    unrotatedTProp->SetOrientation(0);
+    FT_Face unusedFace;
+    bool unusedBool;
+    if (!this->GetFace(unrotatedTProp.GetPointer(),
+                       metaData.unrotatedTextPropertyCacheId,
+                       unusedFace, unusedBool))
+      {
+      return false;
+      }
+    }
+  else
+    {
+    metaData.unrotatedTextPropertyCacheId = metaData.textPropertyCacheId;
+    }
+
+  // Rotation matrices:
+  metaData.faceIsRotated =
+      (fabs(metaData.textProperty->GetOrientation()) > 1e-5);
+  if (metaData.faceIsRotated)
+    {
+    float angle = vtkMath::RadiansFromDegrees(
+          static_cast<float>(metaData.textProperty->GetOrientation()));
+    // 0 -> orientation (used to adjust kerning, PR#15301)
+    float c = cos(angle);
+    float s = sin(angle);
+    metaData.rotation.xx = (FT_Fixed)( c * 0x10000L);
+    metaData.rotation.xy = (FT_Fixed)(-s * 0x10000L);
+    metaData.rotation.yx = (FT_Fixed)( s * 0x10000L);
+    metaData.rotation.yy = (FT_Fixed)( c * 0x10000L);
+
+    // orientation -> 0 (used for width calculations)
+    c = cos(-angle);
+    s = sin(-angle);
+    metaData.inverseRotation.xx = (FT_Fixed)( c * 0x10000L);
+    metaData.inverseRotation.xy = (FT_Fixed)(-s * 0x10000L);
+    metaData.inverseRotation.yx = (FT_Fixed)( s * 0x10000L);
+    metaData.inverseRotation.yy = (FT_Fixed)( c * 0x10000L);
+    }
+
   return true;
 }
 
@@ -1049,7 +1181,7 @@ bool vtkFreeTypeTools::RenderStringInternal(vtkTextProperty *tprop,
     }
 
   // Prepare the ImageData to receive the text
-  this->PrepareImageData(data, metaData.bbox);
+  this->PrepareImageData(data, metaData.bbox.GetData());
 
   // Setup the image metadata
   if (!this->PrepareImageMetaData(tprop, data, metaData))
@@ -1058,20 +1190,22 @@ bool vtkFreeTypeTools::RenderStringInternal(vtkTextProperty *tprop,
     return false;
     }
 
+  // Render the background:
+  this->RenderBackground(tprop, data, metaData);
+
   // Render shadow if needed
   if (metaData.textProperty->GetShadow())
     {
     // Modify the line offsets with the shadow offset
-    int shadowOffset[2];
-    metaData.textProperty->GetShadowOffset(shadowOffset);
+    vtkVector2i shadowOffset;
+    metaData.textProperty->GetShadowOffset(shadowOffset.GetData());
     std::vector<MetaData::LineMetrics> origMetrics = metaData.lineMetrics;
     metaData.lineMetrics.clear();
     for (std::vector<MetaData::LineMetrics>::const_iterator
          it = origMetrics.begin(), itEnd = origMetrics.end(); it < itEnd; ++it)
       {
       MetaData::LineMetrics line = *it;
-      line.originX += shadowOffset[0];
-      line.originY += shadowOffset[1];
+      line.origin = line.origin + shadowOffset;
       metaData.lineMetrics.push_back(line);
       }
 
@@ -1095,8 +1229,33 @@ bool vtkFreeTypeTools::RenderStringInternal(vtkTextProperty *tprop,
     memcpy(metaData.rgba, origColor, 3 * sizeof(unsigned char));
     }
 
+  // Mark the image data as modified, as it is possible that only
+  // vtkImageData::Get*Pointer methods will be called, which do not update the
+  // MTime.
+  data->Modified();
+
   // Render image
-  return this->PopulateData(str, data, metaData);
+  if (!this->PopulateData(str, data, metaData))
+    {
+    vtkErrorMacro(<<"Error rendering text.");
+    return false;
+    }
+
+  // Draw a yellow dot at the anchor point:
+  if (this->DebugTextures)
+    {
+    unsigned char *ptr =
+        static_cast<unsigned char *>(data->GetScalarPointer(0, 0, 0));
+    if (ptr)
+      {
+      ptr[0] = 255;
+      ptr[1] = 255;
+      ptr[2] = 0;
+      ptr[3] = 255;
+      }
+    }
+
+  return true;
 }
 
 //----------------------------------------------------------------------------
@@ -1127,8 +1286,6 @@ bool vtkFreeTypeTools::StringToPathInternal(vtkTextProperty *tprop,
     return false;
     }
 
-  // Adjust for justification
-  this->JustifyPath(path, metaData);
   return true;
 }
 
@@ -1177,13 +1334,14 @@ bool vtkFreeTypeTools::CalculateBoundingBox(const T& str,
     {
     FT_BitmapGlyph bitmapGlyph;
     FT_UInt glyphIndex;
+    // Use the unrotated face to get correct metrics:
     FT_Bitmap *bitmap = this->GetBitmap(
-          *heightString, metaData.textPropertyCacheId, fontSize, glyphIndex,
-          bitmapGlyph);
+          *heightString, metaData.unrotatedTextPropertyCacheId, fontSize,
+          glyphIndex, bitmapGlyph);
     if (bitmap)
       {
       metaData.ascent = std::max(bitmapGlyph->top - 1, metaData.ascent);
-      metaData.descent = std::min(-(bitmap->rows - (bitmapGlyph->top - 1)),
+      metaData.descent = std::min(-static_cast<int>((bitmap->rows - (bitmapGlyph->top - 1))),
                                   metaData.descent);
       }
     ++heightString;
@@ -1191,31 +1349,107 @@ bool vtkFreeTypeTools::CalculateBoundingBox(const T& str,
   // Set line height. Descent is negative.
   metaData.height = metaData.ascent - metaData.descent;
 
+  // The unrotated height of the text
+  int numLines = metaData.lineMetrics.size();
+  double lineSpacing = numLines > 1 ? metaData.textProperty->GetLineSpacing()
+                                    : 1.;
+  int fullHeight = numLines * metaData.height * lineSpacing +
+                   metaData.textProperty->GetLineOffset();
+
+  // Will we be rendering a background?
+  bool hasBackground = (static_cast<unsigned char>(
+        metaData.textProperty->GetBackgroundOpacity() * 255) > 0);
+  int backgroundPad = hasBackground ? 2 : 0; // pixels on each side.
+
   // sin, cos of orientation
   float angle = vtkMath::RadiansFromDegrees(
         metaData.textProperty->GetOrientation());
   float c = cos(angle);
   float s = sin(angle);
 
-  // The base of the current line, and temp vars for line offsets and origins
-  int pen[2] = {0, 0};
-  double offset[2] = {0., 0.};
-  int origin[2] = {0, 0};
+  // The width and height of the text + background, as rotated vectors:
+  metaData.dx = vtkVector2i(metaData.maxLineWidth + 2 * backgroundPad, 0);
+  metaData.dy = vtkVector2i(0, fullHeight + 2 * backgroundPad);
+  rotateVector2i(metaData.dx, s, c);
+  rotateVector2i(metaData.dy, s, c);
 
-  // Initialize bbox
-  metaData.bbox[0] = metaData.bbox[1] = pen[0];
-  metaData.bbox[2] = metaData.bbox[3] = pen[1];
+  // The rotated padding on the text's vertical and horizontal axes:
+  vtkVector2i hBackgroundPad(backgroundPad, 0);
+  vtkVector2i vBackgroundPad(0, backgroundPad);
+  rotateVector2i(hBackgroundPad, s, c);
+  rotateVector2i(vBackgroundPad, s, c);
+
+  // Calculate the bottom left corner of the data rect. Start at anchor point
+  // (0, 0) and subtract out justification. Account for background padding to
+  // ensure that we're aligning to the text, not the background.
+  metaData.BL = vtkVector2i(0, 0);
+  switch (metaData.textProperty->GetJustification())
+    {
+    case VTK_TEXT_CENTERED:
+      metaData.BL = metaData.BL - (metaData.dx * 0.5);
+      break;
+    case VTK_TEXT_RIGHT:
+      metaData.BL = metaData.BL - metaData.dx + hBackgroundPad;
+      break;
+    case VTK_TEXT_LEFT:
+      metaData.BL = metaData.BL - hBackgroundPad;
+      break;
+    default:
+      vtkErrorMacro(<< "Bad horizontal alignment flag: "
+                    << metaData.textProperty->GetJustification());
+      break;
+    }
+  switch (metaData.textProperty->GetVerticalJustification())
+    {
+    case VTK_TEXT_CENTERED:
+      metaData.BL = metaData.BL - (metaData.dy * 0.5);
+      break;
+    case VTK_TEXT_BOTTOM:
+      metaData.BL = metaData.BL - vBackgroundPad;
+      break;
+    case VTK_TEXT_TOP:
+      metaData.BL = metaData.BL - metaData.dy + vBackgroundPad;
+      break;
+    default:
+      vtkErrorMacro(<< "Bad vertical alignment flag: "
+                    << metaData.textProperty->GetVerticalJustification());
+      break;
+    }
+
+  // Compute the other corners of the data:
+  metaData.TL = metaData.BL + metaData.dy;
+  metaData.TR = metaData.TL + metaData.dx;
+  metaData.BR = metaData.BL + metaData.dx;
+
+  // First baseline offset from top-left corner.
+  vtkVector2i penOffset(backgroundPad, -backgroundPad);
+  // Account for line spacing to center the text vertically in the bbox:
+  penOffset[1] -= vtkMath::Ceil((lineSpacing - 1.) * metaData.height * 0.5);
+  penOffset[1] -= metaData.ascent;
+  penOffset[1] -= metaData.textProperty->GetLineOffset();
+  rotateVector2i(penOffset, s, c);
+
+  vtkVector2i pen = metaData.TL + penOffset;
+
+  // Calculate bounding box of text:
+  vtkTuple<int, 4> textBbox;
+  textBbox[0] = textBbox[1] = pen[0];
+  textBbox[2] = textBbox[3] = pen[1];
+
+  // Calculate line offset:
+  vtkVector2i lineFeed(0, -(metaData.height * lineSpacing));
+  rotateVector2i(lineFeed, s, c);
 
   // Compile the metrics data to determine the final bounding box. Set line
   // origins here, too.
+  vtkVector2i origin;
   int justification = metaData.textProperty->GetJustification();
   for (size_t i = 0; i < metaData.lineMetrics.size(); ++i)
     {
     MetaData::LineMetrics &metrics = metaData.lineMetrics[i];
 
     // Apply justification
-    origin[0] = pen[0];
-    origin[1] = pen[1];
+    origin = pen;
     if (justification != VTK_TEXT_LEFT)
       {
       int xShift = metaData.maxLineWidth - metrics.width;
@@ -1223,27 +1457,21 @@ bool vtkFreeTypeTools::CalculateBoundingBox(const T& str,
         {
         xShift /= 2;
         }
-      origin[0] += vtkMath::Floor(c * xShift + 0.5);
-      origin[1] += vtkMath::Floor(s * xShift + 0.5);
+      origin[0] += vtkMath::Round(c * xShift);
+      origin[1] += vtkMath::Round(s * xShift);
       }
 
     // Set line origin
-    metrics.originX = origin[0];
-    metrics.originY = origin[1];
+    metrics.origin = origin;
 
     // Merge bounding boxes
-    metaData.bbox[0] = std::min(metaData.bbox[0], metrics.xmin + origin[0]);
-    metaData.bbox[1] = std::max(metaData.bbox[1], metrics.xmax + origin[0]);
-    metaData.bbox[2] = std::min(metaData.bbox[2], metrics.ymin + origin[1]);
-    metaData.bbox[3] = std::max(metaData.bbox[3], metrics.ymax + origin[1]);
-
-    // Calculate offset of next line
-    offset[0] = 0.;
-    offset[1] = -(metaData.height * metaData.textProperty->GetLineSpacing());
+    textBbox[0] = std::min(textBbox[0], metrics.xmin + origin[0]);
+    textBbox[1] = std::max(textBbox[1], metrics.xmax + origin[0]);
+    textBbox[2] = std::min(textBbox[2], metrics.ymin + origin[1]);
+    textBbox[3] = std::max(textBbox[3], metrics.ymax + origin[1]);
 
     // Update pen position
-    pen[0] += vtkMath::Floor(c * offset[0] - s * offset[1] + 0.5);
-    pen[1] += vtkMath::Floor(s * offset[0] + c * offset[1] + 0.5);
+    pen = pen + lineFeed;
     }
 
   // Adjust for shadow
@@ -1253,21 +1481,39 @@ bool vtkFreeTypeTools::CalculateBoundingBox(const T& str,
     metaData.textProperty->GetShadowOffset(shadowOffset);
     if (shadowOffset[0] < 0)
       {
-      metaData.bbox[0] += shadowOffset[0];
+      textBbox[0] += shadowOffset[0];
       }
     else
       {
-      metaData.bbox[1] += shadowOffset[0];
+      textBbox[1] += shadowOffset[0];
       }
     if (shadowOffset[1] < 0)
       {
-      metaData.bbox[2] += shadowOffset[1];
+      textBbox[2] += shadowOffset[1];
       }
     else
       {
-      metaData.bbox[3] += shadowOffset[1];
+      textBbox[3] += shadowOffset[1];
       }
     }
+
+  // Compute the background bounding box.
+  vtkTuple<int, 4> bgBbox;
+  bgBbox[0] = std::min(std::min(metaData.TL[0], metaData.TR[0]),
+                       std::min(metaData.BL[0], metaData.BR[0]));
+  bgBbox[1] = std::max(std::max(metaData.TL[0], metaData.TR[0]),
+                       std::max(metaData.BL[0], metaData.BR[0]));
+  bgBbox[2] = std::min(std::min(metaData.TL[1], metaData.TR[1]),
+                       std::min(metaData.BL[1], metaData.BR[1]));
+  bgBbox[3] = std::max(std::max(metaData.TL[1], metaData.TR[1]),
+                       std::max(metaData.BL[1], metaData.BR[1]));
+
+  // Calculate the final bounding box (should just be the bg, but just in
+  // case...)
+  metaData.bbox[0] = std::min(textBbox[0], bgBbox[0]);
+  metaData.bbox[1] = std::max(textBbox[1], bgBbox[1]);
+  metaData.bbox[2] = std::min(textBbox[2], bgBbox[2]);
+  metaData.bbox[3] = std::max(textBbox[3], bgBbox[3]);
 
   return true;
 }
@@ -1275,8 +1521,7 @@ bool vtkFreeTypeTools::CalculateBoundingBox(const T& str,
 //----------------------------------------------------------------------------
 void vtkFreeTypeTools::PrepareImageData(vtkImageData *data, int textBbox[4])
 {
-  // The bounding box is the area that is going to be filled with pixels
-  // given a text origin of (0, 0). Calculate the bbox's dimensions.
+  // Calculate the bbox's dimensions
   int textDims[2];
   textDims[0] = (textBbox[1] - textBbox[0] + 1);
   textDims[1] = (textBbox[3] - textBbox[2] + 1);
@@ -1293,7 +1538,7 @@ void vtkFreeTypeTools::PrepareImageData(vtkImageData *data, int textBbox[4])
     targetDims[1] = vtkMath::NearestPowerOfTwo(targetDims[1]);
     }
 
-  // Calculate the target extent of the image using the text origin as (0, 0, 0)
+  // Calculate the target extent of the image.
   int targetExtent[6];
   targetExtent[0] = textBbox[0];
   targetExtent[1] = textBbox[0] + targetDims[0] - 1;
@@ -1327,53 +1572,183 @@ void vtkFreeTypeTools::PrepareImageData(vtkImageData *data, int textBbox[4])
     }
 
   // Clear the image buffer
-  memset(data->GetScalarPointer(), 0,
+  memset(data->GetScalarPointer(), this->DebugTextures ? 64 : 0,
          (data->GetNumberOfPoints() * data->GetNumberOfScalarComponents()));
 }
 
-//----------------------------------------------------------------------------
-void vtkFreeTypeTools::JustifyPath(vtkPath *path, MetaData &metaData)
+// Helper functions for rasterizing the background quad:
+namespace RasterScanQuad {
+
+// Return true and set t1 (if 0 <= t1 <= 1) for the intersection of lines:
+//
+// P1(t1) = p1 + t1 * v1 and
+// P2(t2) = p2 + t2 * v2.
+//
+// This method is specialized for the case of P2(t2) always being a horizontal
+// line (v2 = {1, 0}) with p1 defined as {0, y}.
+//
+// If the lines do not intersect or t1 is outside of the specified range, return
+// false.
+inline bool getIntersectionParameter(const vtkVector2i &p1,
+                                     const vtkVector2i &v1,
+                                     int y, float &t1)
 {
-  double delta[2] = {0.0, 0.0};
-  double bounds[6];
-
-  vtkPoints *points = path->GetPoints();
-  points->GetBounds(bounds);
-
-  // Apply justification:
-  switch (metaData.textProperty->GetJustification())
+  // First check if the input vector is parallel to the scan line, returning
+  // false if it is:
+  if (v1[1] == 0)
     {
-    default:
-    case VTK_TEXT_LEFT:
-      delta[0] = -bounds[0];
-      break;
-    case VTK_TEXT_CENTERED:
-      delta[0] = -(bounds[0] + bounds[1]) * 0.5;
-      break;
-    case VTK_TEXT_RIGHT:
-      delta[0] = -bounds[1];
-      break;
-    }
-  switch (metaData.textProperty->GetVerticalJustification())
-    {
-    default:
-    case VTK_TEXT_BOTTOM:
-      delta[1] = -bounds[2];
-      break;
-    case VTK_TEXT_CENTERED:
-      delta[1] = -(bounds[2] + bounds[3]) * 0.5;
-      break;
-    case VTK_TEXT_TOP:
-      delta[1] = -bounds[3];
+    return false;
     }
 
-  if (delta[0] != 0 || delta[1] != 0) {
-    for (vtkIdType i = 0; i < points->GetNumberOfPoints(); ++i)
+  // Given the lines:
+  // P1(t1) = p1 + t1 * v1 (The polygon edge)
+  // P2(t2) = p2 + t2 * v2 (The horizontal scan line)
+  //
+  // And defining the vector:
+  // w = p1 - p2
+  //
+  // The value of t1 at the intersection of P1 and P2 is:
+  // t1 = (v2[1] * w[0] - v2[0] * w[1]) / (v2[0] * v1[1] - v2[1] * v1[0])
+  //
+  // We know that p2 = {0, y} and v2 = {1, 0}, since we're scanning along the
+  // x axis, so the above becomes:
+  // t1 = (-w[1]) / (v1[1])
+  //
+  // Expanding the definition of w, w[1] --> (p1[1] - p2[1]) --> p1[1] - y,
+  // resulting in the final:
+  // t1 = -(p1[1] - y) / v1[1], or
+  // t1 = (y - p1[1]) / v1[1]
+
+  t1 = (y - p1[1]) / static_cast<float>(v1[1]);
+  return t1 >= 0.f && t1 <= 1.f;
+}
+
+// Evaluate the line equation P(t) = p + t * v at the supplied t, and return
+// the x value of the resulting point.
+inline int evaluateLineXOnly(const vtkVector2i &p, const vtkVector2i &v,
+                             float t)
+{
+  return p.GetX() + vtkMath::Round(v.GetX() * t);
+}
+
+// Given the corners of a rectangle (TL, TR, BL, BR), the vectors that
+// separate them (dx = TR - TL = BR - BL, dy = TR - BR = TL - BL), and the
+// y value to scan, return the minimum and maximum x values that the rectangle
+// contains.
+bool findScanRange(const vtkVector2i &TL, const vtkVector2i &TR,
+                   const vtkVector2i &BL, const vtkVector2i &BR,
+                   const vtkVector2i &dx, const vtkVector2i &dy,
+                   int y, int &min, int &max)
+{
+  // Initialize the min and max to a known invalid range using the bounds of the
+  // rectangle:
+  min = std::max(std::max(TL[0], TR[0]), std::max(BL[0], BR[0]));
+  max = std::min(std::min(TL[0], TR[0]), std::min(BL[0], BR[0]));
+
+  float lineParam;
+  int numIntersections = 0;
+
+  // Top
+  if (getIntersectionParameter(TL, dx, y, lineParam))
+    {
+    int x = evaluateLineXOnly(TL, dx, lineParam);
+    min = std::min(min, x);
+    max = std::max(max, x);
+    ++numIntersections;
+    }
+  // Bottom
+  if (getIntersectionParameter(BL, dx, y, lineParam))
+    {
+    int x = evaluateLineXOnly(BL, dx, lineParam);
+    min = std::min(min, x);
+    max = std::max(max, x);
+    ++numIntersections;
+    }
+  // Left
+  if (getIntersectionParameter(BL, dy, y, lineParam))
+    {
+    int x = evaluateLineXOnly(BL, dy, lineParam);
+    min = std::min(min, x);
+    max = std::max(max, x);
+    ++numIntersections;
+    }
+  // Right
+  if (getIntersectionParameter(BR, dy, y, lineParam))
+    {
+    int x = evaluateLineXOnly(BR, dy, lineParam);
+    min = std::min(min, x);
+    max = std::max(max, x);
+    ++numIntersections;
+    }
+
+  return numIntersections != 0;
+}
+
+// Clamp value to stay between the minimum and maximum extent for the
+// specified dimension.
+inline void clampToExtent(int extent[6], int dim, int &value)
+{
+  value = std::min(extent[2*dim+1], std::max(extent[2*dim], value));
+}
+
+} // end namespace RasterScanQuad
+
+//----------------------------------------------------------------------------
+void vtkFreeTypeTools::RenderBackground(vtkTextProperty *tprop,
+                                        vtkImageData *image,
+                                        ImageMetaData &metaData)
+{
+  unsigned char color[4] = {
+    static_cast<unsigned char>(tprop->GetBackgroundColor()[0] * 255),
+    static_cast<unsigned char>(tprop->GetBackgroundColor()[1] * 255),
+    static_cast<unsigned char>(tprop->GetBackgroundColor()[2] * 255),
+    static_cast<unsigned char>(tprop->GetBackgroundOpacity()  * 255)
+  };
+
+  if (color[3] == 0)
+    {
+    return;
+    }
+
+  const vtkVector2i &dx = metaData.dx;
+  const vtkVector2i &dy = metaData.dy;
+  const vtkVector2i &TL = metaData.TL;
+  const vtkVector2i &TR = metaData.TR;
+  const vtkVector2i &BL = metaData.BL;
+  const vtkVector2i &BR = metaData.BR;
+
+  // Find the minimum and maximum y values:
+  int yMin = std::min(std::min(TL[1], TR[1]), std::min(BL[1], BR[1]));
+  int yMax = std::max(std::max(TL[1], TR[1]), std::max(BL[1], BR[1]));
+
+  // Clamp these to prevent out of bounds errors:
+  int extent[6];
+  image->GetExtent(extent);
+  RasterScanQuad::clampToExtent(extent, 1, yMin);
+  RasterScanQuad::clampToExtent(extent, 1, yMax);
+
+  // Scan from yMin to yMax, finding the x values on that horizontal line that
+  // are contained by the data rectangle, then paint them with the background
+  // color.
+  for (int y = yMin; y <= yMax; ++y)
+    {
+    int xMin, xMax;
+    if (RasterScanQuad::findScanRange(TL, TR, BL, BR, dx, dy, y, xMin, xMax))
       {
-      double *point = points->GetPoint(i);
-      point[0] += delta[0];
-      point[1] += delta[1];
-      points->SetPoint(i, point);
+      // Clamp to prevent out of bounds errors:
+      RasterScanQuad::clampToExtent(extent, 0, xMin);
+      RasterScanQuad::clampToExtent(extent, 0, xMax);
+
+      // Get a pointer into the image data:
+      unsigned char *dataPtr = static_cast<unsigned char*>(
+            image->GetScalarPointer(xMin, y, 0));
+      for (int x = xMin; x <= xMax; ++x)
+        {
+        *(dataPtr++) = color[0];
+        *(dataPtr++) = color[1];
+        *(dataPtr++) = color[2];
+        *(dataPtr++) = color[3];
+        }
       }
     }
 }
@@ -1412,8 +1787,8 @@ bool vtkFreeTypeTools::RenderLine(IteratorType begin, IteratorType end,
                                   int lineIndex, DataType data,
                                   MetaData &metaData)
 {
-  int x = metaData.lineMetrics[lineIndex].originX;
-  int y = metaData.lineMetrics[lineIndex].originY;
+  int x = metaData.lineMetrics[lineIndex].origin.GetX();
+  int y = metaData.lineMetrics[lineIndex].origin.GetY();
 
   // Render char by char
   FT_UInt previousGlyphIndex = 0; // for kerning
@@ -1463,6 +1838,10 @@ bool vtkFreeTypeTools::RenderCharacter(CharType character, int &x, int &y,
       if (FT_Get_Kerning(iMetaData->face, previousGlyphIndex, glyphIndex,
                          FT_KERNING_DEFAULT, &kerningDelta) == 0)
         {
+        if (metaData.faceIsRotated) // PR#15301
+          {
+          FT_Vector_Transform(&kerningDelta, &metaData.rotation);
+          }
         penX += kerningDelta.x >> 6;
         penY += kerningDelta.y >> 6;
         }
@@ -1470,66 +1849,66 @@ bool vtkFreeTypeTools::RenderCharacter(CharType character, int &x, int &y,
     previousGlyphIndex = glyphIndex;
 
     // Render the current glyph into the image
-    unsigned char *dataPtr =
+    unsigned char *ptr =
         static_cast<unsigned char *>(image->GetScalarPointer(penX, penY, 0));
-    if (!dataPtr)
+    if (ptr)
       {
-      return false;
-      }
+      int dataPitch = (-iMetaData->imageDimensions[0] - bitmap->width) *
+          iMetaData->imageIncrements[0];
+      unsigned char *glyphPtrRow = bitmap->buffer;
+      unsigned char *glyphPtr;
+      const unsigned char *fgRGB = iMetaData->rgba;
+      const float fgA = iMetaData->rgba[3] / 255.f;
 
-    int dataPitch = (-iMetaData->imageDimensions[0] - bitmap->width) *
-        iMetaData->imageIncrements[0];
-    unsigned char *glyphPtrRow = bitmap->buffer;
-    unsigned char *glyphPtr;
-    float tpropAlpha = iMetaData->rgba[3] / 255.0;
-
-    for (int j = 0; j < bitmap->rows; ++j)
-      {
-      glyphPtr = glyphPtrRow;
-
-      for (int i = 0; i < bitmap->width; ++i)
+      for (int j = 0; j < static_cast<int>(bitmap->rows); ++j)
         {
-        if (*glyphPtr == 0)
-          {
-          dataPtr += 4;
-          ++glyphPtr;
-          }
-        else if (dataPtr[3] > 0)
-          {
-          // This is a pixel we've drawn before since it has non-zero alpha.
-          // We must therefore blend the colors.
-          float t_alpha = tpropAlpha * (*glyphPtr / 255.0);
-          float t_1_m_alpha = 1.0 - t_alpha;
-          float data_alpha = dataPtr[3] / 255.0;
+        glyphPtr = glyphPtrRow;
 
-          float blendR(t_1_m_alpha * dataPtr[0] + t_alpha * iMetaData->rgba[0]);
-          float blendG(t_1_m_alpha * dataPtr[1] + t_alpha * iMetaData->rgba[1]);
-          float blendB(t_1_m_alpha * dataPtr[2] + t_alpha * iMetaData->rgba[2]);
-
-          // Figure out the color.
-          dataPtr[0] = static_cast<unsigned char>(blendR);
-          dataPtr[1] = static_cast<unsigned char>(blendG);
-          dataPtr[2] = static_cast<unsigned char>(blendB);
-          dataPtr[3] = static_cast<unsigned char>(
-                255 * (t_alpha + data_alpha * t_1_m_alpha));
-          dataPtr += 4;
-          ++glyphPtr;
-          }
-        else
+        for (int i = 0; i < static_cast<int>(bitmap->width); ++i)
           {
-          *dataPtr = iMetaData->rgba[0];
-          ++dataPtr;
-          *dataPtr = iMetaData->rgba[1];
-          ++dataPtr;
-          *dataPtr = iMetaData->rgba[2];
-          ++dataPtr;
-          *dataPtr = static_cast<unsigned char>((*glyphPtr) * tpropAlpha);
-          ++dataPtr;
+          if (*glyphPtr == 0)
+            {
+            ptr += 4;
+            }
+          else if (ptr[3] > 0)
+            {
+            // This is a pixel we've drawn before since it has non-zero alpha.
+            // We must therefore blend the colors.
+            const float val = *glyphPtr / 255.f;
+            const float bgA = ptr[3] / 255.0;
+
+            const float fg_blend = fgA * val;
+            const float bg_blend = 1.f - fg_blend;
+
+            float r(bg_blend * ptr[0] + fg_blend * fgRGB[0]);
+            float g(bg_blend * ptr[1] + fg_blend * fgRGB[1]);
+            float b(bg_blend * ptr[2] + fg_blend * fgRGB[2]);
+            float a(255 * (fg_blend + bgA * bg_blend));
+
+            // Figure out the color.
+            ptr[0] = static_cast<unsigned char>(r);
+            ptr[1] = static_cast<unsigned char>(g);
+            ptr[2] = static_cast<unsigned char>(b);
+            ptr[3] = static_cast<unsigned char>(a);
+
+            ptr += 4;
+            }
+          else
+            {
+            *ptr = fgRGB[0];
+            ++ptr;
+            *ptr = fgRGB[1];
+            ++ptr;
+            *ptr = fgRGB[2];
+            ++ptr;
+            *ptr = static_cast<unsigned char>((*glyphPtr) * fgA);
+            ++ptr;
+            }
           ++glyphPtr;
           }
+        glyphPtrRow += bitmap->pitch;
+        ptr += dataPitch;
         }
-      glyphPtrRow += bitmap->pitch;
-      dataPtr += dataPitch;
       }
     }
 
@@ -1579,6 +1958,10 @@ bool vtkFreeTypeTools::RenderCharacter(CharType character, int &x, int &y,
       FT_Vector kerningDelta;
       FT_Get_Kerning(metaData.face, previousGlyphIndex, glyphIndex,
                      FT_KERNING_DEFAULT, &kerningDelta);
+      if (metaData.faceIsRotated) // PR#15301
+        {
+        FT_Vector_Transform(&kerningDelta, &metaData.rotation);
+        }
       pen_x += kerningDelta.x >> 6;
       pen_y += kerningDelta.y >> 6;
       }
@@ -1598,22 +1981,31 @@ bool vtkFreeTypeTools::RenderCharacter(CharType character, int &x, int &y,
         FT_Vector ftvec = outline->points[point];
         char fttag = outline->tags[point];
         controlType tag = FIRST_POINT;
-        if (fttag & FT_CURVE_TAG_ON)
+
+        // Mask the tag and convert to our known-good control types:
+        // (0x3 mask is because these values often have trailing garbage --
+        // see note above controlType enum).
+        switch (fttag & 0x3)
           {
-          tag = ON_POINT;
-          }
-        else if (fttag & FT_CURVE_TAG_CUBIC)
-          {
-          tag = CUBIC_POINT;
-          }
-        else if (fttag & FT_CURVE_TAG_CONIC)
-          {
-          tag = CONIC_POINT;
+          case (FT_CURVE_TAG_ON & 0x3): // 0b01
+            tag = ON_POINT;
+            break;
+          case (FT_CURVE_TAG_CUBIC & 0x3): // 0b11
+            tag = CUBIC_POINT;
+            break;
+          case (FT_CURVE_TAG_CONIC & 0x3): // 0b00
+            tag = CONIC_POINT;
+            break;
+          default:
+            vtkWarningMacro("Invalid control code returned from FreeType: "
+                            << static_cast<int>(fttag) << " (masked: "
+                            << static_cast<int>(fttag & 0x3));
+            return false;
           }
 
         double vec[2];
-        vec[0] = ftvec.x / 64.0 + x;
-        vec[1] = ftvec.y / 64.0 + y;
+        vec[0] = ftvec.x / 64.0 + pen_x;
+        vec[1] = ftvec.y / 64.0 + pen_y;
 
         // Handle the first point here, unless it is a CONIC point, in which
         // case the switches below handle it.
@@ -1903,20 +2295,6 @@ template<typename T>
 void vtkFreeTypeTools::GetLineMetrics(T begin, T end, MetaData &metaData,
                                       int &width, int bbox[4])
 {
-  FT_Matrix inverseRotation;
-  bool isRotated = (fabs(metaData.textProperty->GetOrientation()) > 1e-5);
-  if (isRotated)
-    {
-    float angle = -vtkMath::RadiansFromDegrees(
-          static_cast<float>(metaData.textProperty->GetOrientation()));
-    float c = cos(angle);
-    float s = sin(angle);
-    inverseRotation.xx = (FT_Fixed)( c * 0x10000L);
-    inverseRotation.xy = (FT_Fixed)(-s * 0x10000L);
-    inverseRotation.yx = (FT_Fixed)( s * 0x10000L);
-    inverseRotation.yy = (FT_Fixed)( c * 0x10000L);
-    }
-
   FT_BitmapGlyph bitmapGlyph;
   FT_UInt gindex = 0;
   FT_UInt gindexLast = 0;
@@ -1934,13 +2312,16 @@ void vtkFreeTypeTools::GetLineMetrics(T begin, T end, MetaData &metaData,
       if (FT_Get_Kerning(metaData.face, gindexLast, gindex, FT_KERNING_DEFAULT,
                          &delta) == 0)
         {
+        // Kerning is not rotated with the face, no need to rotate/adjust for
+        // width:
+        width += delta.x >> 6;
+        // But we do need to rotate for pen location (see PR#15301)
+        if (metaData.faceIsRotated)
+          {
+          FT_Vector_Transform(&delta, &metaData.rotation);
+          }
         pen[0] += delta.x >> 6;
         pen[1] += delta.y >> 6;
-        if (isRotated)
-          {
-          FT_Vector_Transform(&delta, &inverseRotation);
-          }
-        width += delta.x >> 6;
         }
       }
 
@@ -1950,8 +2331,8 @@ void vtkFreeTypeTools::GetLineMetrics(T begin, T end, MetaData &metaData,
     if (bitmap)
       {
       bbox[0] = std::min(bbox[0], pen[0] + bitmapGlyph->left);
-      bbox[1] = std::max(bbox[1], pen[0] + bitmapGlyph->left + bitmap->width);
-      bbox[2] = std::min(bbox[2], pen[1] + bitmapGlyph->top - 1 - bitmap->rows);
+      bbox[1] = std::max(bbox[1], pen[0] + bitmapGlyph->left + static_cast<int>(bitmap->width));
+      bbox[2] = std::min(bbox[2], pen[1] + bitmapGlyph->top - 1 - static_cast<int>(bitmap->rows));
       bbox[3] = std::max(bbox[3], pen[1] + bitmapGlyph->top - 1);
       }
     else
@@ -1967,9 +2348,9 @@ void vtkFreeTypeTools::GetLineMetrics(T begin, T end, MetaData &metaData,
     pen[0] += (delta.x + 0x8000) >> 16;
     pen[1] += (delta.y + 0x8000) >> 16;
 
-    if (isRotated)
+    if (metaData.faceIsRotated)
       {
-      FT_Vector_Transform(&delta, &inverseRotation);
+      FT_Vector_Transform(&delta, &metaData.inverseRotation);
       }
     width += (delta.x + 0x8000) >> 16;
     }

@@ -98,6 +98,11 @@ public:
     for (iter = dataMap.begin(); iter != dataMap.end(); ++iter)
       {
       const PixelInformation &key = iter->first;
+      if (! key.Prop)
+        {
+        // we don't select 2D annotations
+        continue;
+        }
       const std::set<vtkIdType> &id_values = iter->second;
       vtkSelectionNode* child = vtkSelectionNode::New();
       child->SetContentType(vtkSelectionNode::INDICES);
@@ -326,12 +331,7 @@ bool vtkHardwareSelector::PassRequired(int pass)
 //----------------------------------------------------------------------------
 void vtkHardwareSelector::SavePixelBuffer(int passNo)
 {
-  if (this->PixBuffer[passNo])
-    {
-    delete [] this->PixBuffer[passNo];
-    this->PixBuffer[passNo] = 0;
-    }
-
+  delete [] this->PixBuffer[passNo];
   this->PixBuffer[passNo] = this->Renderer->GetRenderWindow()->GetPixelData(
     this->Area[0], this->Area[1], this->Area[2], this->Area[3],
     (this->Renderer->GetRenderWindow()->GetSwapBuffers() == 1)? 1 : 0);
@@ -460,7 +460,8 @@ void vtkHardwareSelector::RenderAttributeId(vtkIdType attribid)
 {
   if (attribid < 0)
     {
-    vtkErrorMacro("Invalid id: " << attribid);
+    // negative attribid is valid. It happens when rendering higher order
+    // elements where new points are added for rendering smooth surfaces.
     return;
     }
 
@@ -613,7 +614,7 @@ vtkHardwareSelector::PixelInformation vtkHardwareSelector::GetPixelInformation(
 
     actorid--;
     info.PropID = actorid;
-    info.Prop = this->Internals->Props[actorid];
+    info.Prop = this->GetPropFromID(actorid);
 
     int composite_id = this->Convert(display_position,
       this->PixBuffer[COMPOSITE_INDEX_PASS]);

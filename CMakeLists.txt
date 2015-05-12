@@ -36,7 +36,7 @@ IF(APPLE)
   SET(VTK_OBJCXX_FLAGS_DEFAULT "")
   SET(VTK_REQUIRED_OBJCXX_FLAGS ${VTK_OBJCXX_FLAGS_DEFAULT} CACHE STRING "Extra flags for Objective-C++ compilation")
   MARK_AS_ADVANCED(VTK_REQUIRED_OBJCXX_FLAGS)
-ENDIF(APPLE)
+ENDIF()
 
 set(VTK_CMAKE_DIR "${VTK_SOURCE_DIR}/CMake")
 set(CMAKE_MODULE_PATH ${VTK_CMAKE_DIR} ${CMAKE_MODULE_PATH})
@@ -82,6 +82,22 @@ mark_as_advanced(CMAKE_RUNTIME_OUTPUT_DIRECTORY
   CMAKE_ARCHIVE_OUTPUT_DIRECTORY
   )
 
+include(vtkVersion)
+set(VTK_VERSION
+    "${VTK_MAJOR_VERSION}.${VTK_MINOR_VERSION}.${VTK_BUILD_VERSION}")
+
+option(VTK_IOS_BUILD "Build vtk.framework for iOS" OFF)
+if (VTK_IOS_BUILD)
+  include(vtkiOS)
+  return()
+endif()
+
+option(VTK_ANDROID_BUILD "Build VTK for Android" OFF)
+if (VTK_ANDROID_BUILD)
+  include(vtkAndroid)
+  return()
+endif()
+
 # some specific defaults for Andriod to give folks
 # a reasonable starting point
 if (ANDROID OR APPLE_IOS)
@@ -112,30 +128,60 @@ if (ANDROID OR APPLE_IOS)
   option(VTK_Group_Tk "off for embedded" OFF)
   option(VTK_Group_Web "off for embedded" OFF)
 
+  # need int version for CPP
+  if (${OPENGL_ES_VERSION} MATCHES 2.0)
+    set(OPENGL_ES_VERSION_INT 20)
+  endif()
+  if (${OPENGL_ES_VERSION} MATCHES 3.0)
+    set(OPENGL_ES_VERSION_INT 30)
+  endif()
+
   if (APPLE_IOS)
-    option(Module_vtkInteractionStyle "needed for multitouch" ON)
-    find_path(OPENGL_INCLUDE_DIR ES2/gl.h
-       ${CMAKE_OSX_SYSROOT}/System/Library/Frameworks/OpenGLES.framework/Headers
-       ${_OPENGL_INCLUDE_PATH}
-       )
+    unset(OPENGL_INCLUDE_DIR CACHE)
+    if (${OPENGL_ES_VERSION} MATCHES 2.0)
+      find_path(OPENGL_INCLUDE_DIR ES2/gl.h
+                ${CMAKE_OSX_SYSROOT}/System/Library/Frameworks/OpenGLES.framework/Headers
+                ${_OPENGL_INCLUDE_DIR})
+    elseif (${OPENGL_ES_VERSION} MATCHES 3.0)
+      find_path(OPENGL_INCLUDE_DIR ES3/gl.h
+                ${CMAKE_OSX_SYSROOT}/System/Library/Frameworks/OpenGLES.framework/Headers
+                ${_OPENGL_INCLUDE_DIR})
+    endif()
     find_library(OPENGL_gl_LIBRARY
        NAMES OpenGLES
        PATHS
          ${CMAKE_OSX_SYSROOT}/System/Library/Frameworks
          ${_OPENGL_LIB_PATH}
        )
-  else ()
-    # find opengl es2 (maybe someday add an option for ES3)
-    find_path(OPENGL_INCLUDE_DIR GLES2/gl2.h
-       ${ANDROID_NDK}/platforms/android-${ANDROID_NATIVE_API_LEVEL}/arch-${ANDROID_ARCH_NAME}/usr/include
-       ${_OPENGL_INCLUDE_PATH}
-       )
-    find_library(OPENGL_gl_LIBRARY
-       NAMES GLESv2
-       PATHS
-         ${ANDROID_NDK}/platforms/android-${ANDROID_NATIVE_API_LEVEL}/arch-${ANDROID_ARCH_NAME}/usr/lib
-         ${_OPENGL_LIB_PATH}
-       )
+  elseif (ANDROID)
+    unset(OPENGL_INCLUDE_DIR CACHE)
+    unset(OPENGL_gl_LIBRARY CACHE)
+    unset(OPENGL_egl_LIBRARY CACHE)
+
+    if (${OPENGL_ES_VERSION} MATCHES 2.0)
+      find_path(OPENGL_INCLUDE_DIR GLES2/gl2.h
+         ${ANDROID_NDK}/platforms/android-${ANDROID_NATIVE_API_LEVEL}/arch-${ANDROID_ARCH_NAME}/usr/include
+         ${_OPENGL_INCLUDE_PATH}
+         NO_DEFAULT_PATH
+         )
+      find_library(OPENGL_gl_LIBRARY
+         NAMES GLESv2
+         PATHS
+           ${ANDROID_NDK}/platforms/android-${ANDROID_NATIVE_API_LEVEL}/arch-${ANDROID_ARCH_NAME}/usr/lib
+           ${_OPENGL_LIB_PATH}
+         )
+    elseif (${OPENGL_ES_VERSION} MATCHES 3.0)
+      find_path(OPENGL_INCLUDE_DIR GLES3/gl3.h
+         ${ANDROID_NDK}/platforms/android-${ANDROID_NATIVE_API_LEVEL}/arch-${ANDROID_ARCH_NAME}/usr/include
+         ${_OPENGL_INCLUDE_PATH}
+         )
+      find_library(OPENGL_gl_LIBRARY
+         NAMES GLESv3
+         PATHS
+           ${ANDROID_NDK}/platforms/android-${ANDROID_NATIVE_API_LEVEL}/arch-${ANDROID_ARCH_NAME}/usr/lib
+           ${_OPENGL_LIB_PATH}
+         )
+    endif()
     find_library(OPENGL_egl_LIBRARY
        NAMES EGL
        PATHS
@@ -151,10 +197,6 @@ endif()
 set(VTK_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 
 #-----------------------------------------------------------------------------
-include(vtkVersion)
-set(VTK_VERSION
-    "${VTK_MAJOR_VERSION}.${VTK_MINOR_VERSION}.${VTK_BUILD_VERSION}")
-
 # VTK installation structure
 if(NOT VTK_INSTALL_RUNTIME_DIR)
   set(VTK_INSTALL_RUNTIME_DIR bin)
@@ -523,6 +565,7 @@ if (_vtk_compiletools_targets)
          FILE ${VTK_BINARY_DIR}/VTKCompileToolsConfig.cmake)
   add_dependencies(vtkCompileTools ${_vtk_compiletools_targets})
 endif()
+
 unset(_vtk_targets)
 unset(_vtk_compiletools_targets)
 unset(_vtk_all_targets)

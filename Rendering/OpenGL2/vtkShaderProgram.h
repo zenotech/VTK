@@ -14,8 +14,8 @@
 // .NAME vtkShaderProgram - a glsl shader program
 // .SECTION Description
 // This class contains the vertex, fragment, geometry shaders that combine to make a shader program
-#ifndef __vtkShaderProgram_h
-#define __vtkShaderProgram_h
+#ifndef vtkShaderProgram_h
+#define vtkShaderProgram_h
 
 #include "vtkRenderingOpenGL2Module.h" // for export macro
 #include "vtkObject.h"
@@ -62,10 +62,6 @@ public:
   vtkBooleanMacro(Compiled, bool);
 
   // Description:
-  // Compile this shader program and attached shaders
-  virtual int CompileShader();
-
-  // Description:
   // Set/Get the md5 hash of this program
   std::string GetMD5Hash() const { return this->MD5Hash; }
   void SetMD5Hash(const std::string &hash) { this->MD5Hash = hash; }
@@ -88,41 +84,10 @@ public:
 
 
   /**
-   * Attach the supplied shader to this program.
-   * @note A maximum of one Vertex shader and one Fragment shader can be
-   * attached to a shader program.
-   * @return true on success.
-   */
-  bool AttachShader(const vtkShader *shader);
-
-  /** Detach the supplied shader from this program.
-   * @note A maximum of one Vertex shader and one Fragment shader can be
-   * attached to a shader program.
-   * @return true on success.
-   */
-  bool DetachShader(const vtkShader *shader);
-
-  /**
-   * Attempt to link the shader program.
-   * @return false on failure. Query error to get the reason.
-   * @note The shaders attached to the program must have been compiled.
-   */
-  bool Link();
-
-  /**
-   * Bind the program in order to use it. If the program has not been linked
-   * then link() will be called.
-   */
-  bool Bind();
-
-  /**
    * Check if the program is currently bound, or not.
    * @return True if the program is bound, false otherwise.
    */
   bool isBound() const { return this->Bound; }
-
-  /** Releases the shader program from the current context. */
-  void Release();
 
   // Description:
   // release any graphics resources this class is using.
@@ -203,12 +168,62 @@ public:
   /** Set the @p name uniform array to @p f with @p count elements */
   bool SetUniform1iv(const char *name, const int count, const int *f);
   bool SetUniform1fv(const char *name, const int count, const float *f);
+  bool SetUniform2fv(const char *name, const int count, const float (*f)[2]);
   bool SetUniform3fv(const char *name, const int count, const float (*f)[3]);
   bool SetUniform4fv(const char *name, const int count, const float (*f)[4]);
+
+  // How many outputs does this program produce
+  // only valid for OpenGL 3.2 or later
+  vtkSetMacro(NumberOfOutputs,unsigned int);
 
 protected:
   vtkShaderProgram();
   ~vtkShaderProgram();
+
+  /***************************************************************
+   * The following functions are only for use by the shader cache
+   * which is why they are protected and that class is a friend
+   * you need to use the shader cache to compile/link/bind your shader
+   * do not try to do it yourself as it will screw up the cache
+   ***************************************************************/
+   friend class vtkOpenGLShaderCache;
+
+    /**
+   * Attach the supplied shader to this program.
+   * @note A maximum of one Vertex shader and one Fragment shader can be
+   * attached to a shader program.
+   * @return true on success.
+   */
+  bool AttachShader(const vtkShader *shader);
+
+  /** Detach the supplied shader from this program.
+   * @note A maximum of one Vertex shader and one Fragment shader can be
+   * attached to a shader program.
+   * @return true on success.
+   */
+  bool DetachShader(const vtkShader *shader);
+
+  // Description:
+  // Compile this shader program and attached shaders
+  virtual int CompileShader();
+
+  /**
+   * Attempt to link the shader program.
+   * @return false on failure. Query error to get the reason.
+   * @note The shaders attached to the program must have been compiled.
+   */
+  bool Link();
+
+  /**
+   * Bind the program in order to use it. If the program has not been linked
+   * then link() will be called.
+   */
+  bool Bind();
+
+  /** Releases the shader program from the current context. */
+  void Release();
+
+  /************* end **************************************/
 
   vtkShader *VertexShader;
   vtkShader *FragmentShader;
@@ -227,6 +242,12 @@ protected:
   bool Linked;
   bool Bound;
   bool Compiled;
+
+  // for glsl 1.5 or later, how many outputs
+  // does this shader create
+  // they will be bound in order to
+  // fragOutput0 fragOutput1 etc...
+  unsigned int NumberOfOutputs;
 
   std::string Error;
 

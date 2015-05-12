@@ -15,8 +15,8 @@
 // .NAME vtkVRMLImporter_Yacc.h
 //
 
-#ifndef __vtkVRMLImporter_Yacc_h
-#define __vtkVRMLImporter_Yacc_h
+#ifndef vtkVRMLImporter_Yacc_h
+#define vtkVRMLImporter_Yacc_h
 
 
 #include "vtkFloatArray.h"
@@ -605,8 +605,6 @@ const VrmlNodeType* vtkVRMLYaccData::find(const char *_name)
 #define YYDEBUG 1
 
 #include <stdlib.h>
-
-#undef bool
 
 
 

@@ -1,7 +1,7 @@
 /*=========================================================================
 
   Program:   Visualization Toolkit
-  Module:    vtkOpenGLProjectedTetrahedraMapper.cxx
+  Module:    vtkVolumeStateRAII.h
 
   Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
   All rights reserved.
@@ -13,8 +13,8 @@
 
 =========================================================================*/
 
-#ifndef __vtkVolumeStateRAII_h
-#define __vtkVolumeStateRAII_h
+#ifndef vtkVolumeStateRAII_h
+#define vtkVolumeStateRAII_h
 
 // Only these states can be queries via glIsEnabled:
 // http://www.khronos.org/opengles/sdk/docs/man/
@@ -24,17 +24,11 @@ class vtkVolumeStateRAII
   public:
     vtkVolumeStateRAII()
       {
-      this->DepthTestEnabled = glIsEnabled(GL_DEPTH_TEST);
+      this->DepthTestEnabled = (glIsEnabled(GL_DEPTH_TEST) != 0);
 
-      this->BlendEnabled = glIsEnabled(GL_BLEND);
+      this->BlendEnabled = (glIsEnabled(GL_BLEND) != 0);
 
-      this->CullFaceEnabled = glIsEnabled(GL_CULL_FACE);
-
-      // Enable texture 1D and 3D as we are using it
-      // for transfer functions and m_volume data
-      glEnable(GL_TEXTURE_1D);
-      glEnable(GL_TEXTURE_2D);
-      glEnable(GL_TEXTURE_3D);
+      this->CullFaceEnabled = (glIsEnabled(GL_CULL_FACE) != 0);
 
       // Enable depth_sampler test
       if (!this->DepthTestEnabled)
@@ -62,9 +56,12 @@ class vtkVolumeStateRAII
 
     ~vtkVolumeStateRAII()
       {
-#ifndef __APPLE__
-      glBindVertexArray(0);
+#ifdef __PPLE__
+      if (vtkOpenGLRenderWindow::GetContextSupports32())
 #endif
+        {
+        glBindVertexArray(0);
+        }
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
@@ -84,12 +81,6 @@ class vtkVolumeStateRAII
         {
         glDisable(GL_DEPTH_TEST);
         }
-
-      glActiveTexture(GL_TEXTURE0);
-
-      glDisable(GL_TEXTURE_3D);
-      glDisable(GL_TEXTURE_2D);
-      glDisable(GL_TEXTURE_1D);
       }
 
 private:
@@ -98,5 +89,5 @@ private:
   bool CullFaceEnabled;
 };
 
-#endif // __vtkVolumeStateRAII_h
+#endif // vtkVolumeStateRAII_h
 // VTK-HeaderTest-Exclude: vtkVolumeStateRAII.h

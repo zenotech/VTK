@@ -28,13 +28,16 @@ vtkStandardNewMacro(vtkOpenGLCamera);
 
 vtkOpenGLCamera::vtkOpenGLCamera()
 {
+  this->WCDCMatrix = vtkMatrix4x4::New();
   this->WCVCMatrix = vtkMatrix4x4::New();
   this->NormalMatrix = vtkMatrix3x3::New();
   this->VCDCMatrix = vtkMatrix4x4::New();
+  this->LastRenderer = 0;
 }
 
 vtkOpenGLCamera::~vtkOpenGLCamera()
 {
+  this->WCDCMatrix->Delete();
   this->WCVCMatrix->Delete();
   this->NormalMatrix->Delete();
   this->VCDCMatrix->Delete();
@@ -47,7 +50,6 @@ void vtkOpenGLCamera::Render(vtkRenderer *ren)
 
   int lowerLeft[2];
   int usize, vsize;
-  vtkMatrix4x4 *matrix = vtkMatrix4x4::New();
 
   vtkOpenGLRenderWindow *win = vtkOpenGLRenderWindow::SafeDownCast(ren->GetRenderWindow());
 
@@ -130,8 +132,6 @@ void vtkOpenGLCamera::Render(vtkRenderer *ren)
     ren->Clear();
     }
 
-  matrix->Delete();
-
   vtkOpenGLCheckErrorMacro("failed after Render");
 }
 
@@ -158,10 +158,11 @@ void vtkOpenGLCamera::PrintSelf(ostream& os, vtkIndent indent)
 }
 
 void vtkOpenGLCamera::GetKeyMatrices(vtkRenderer *ren, vtkMatrix4x4 *&wcvc,
-        vtkMatrix3x3 *&normMat, vtkMatrix4x4 *&vcdc)
+        vtkMatrix3x3 *&normMat, vtkMatrix4x4 *&vcdc, vtkMatrix4x4 *&wcdc)
 {
   // has the camera changed?
-  if (this->MTime > this->KeyMatrixTime ||
+  if (ren != this->LastRenderer ||
+      this->MTime > this->KeyMatrixTime ||
       ren->GetMTime() > this->KeyMatrixTime)
     {
     this->WCVCMatrix->DeepCopy(this->GetModelViewTransformMatrix());
@@ -196,10 +197,14 @@ void vtkOpenGLCamera::GetKeyMatrices(vtkRenderer *ren, vtkMatrix4x4 *&wcvc,
       this->VCDCMatrix->Transpose();
       }
 
+    vtkMatrix4x4::Multiply4x4(this->WCVCMatrix, this->VCDCMatrix, this->WCDCMatrix);
+
     this->KeyMatrixTime.Modified();
+    this->LastRenderer = ren;
     }
 
   wcvc = this->WCVCMatrix;
   normMat = this->NormalMatrix;
   vcdc = this->VCDCMatrix;
+  wcdc = this->WCDCMatrix;
 }

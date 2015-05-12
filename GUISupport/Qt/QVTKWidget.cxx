@@ -48,7 +48,7 @@
 #include "qx11info_x11.h"
 #endif
 
-#if defined(Q_WS_WIN)
+#if defined(Q_OS_WIN)
 # include <windows.h>
 # include <QSysInfo>
 #endif
@@ -131,6 +131,7 @@ void QVTKWidget::SetUseTDx(bool useTDx)
   if(useTDx!=this->UseTDx)
     {
     this->UseTDx=useTDx;
+
     if(this->UseTDx)
       {
 #if defined(VTK_USE_TDX) && defined(Q_WS_X11)
@@ -392,6 +393,19 @@ bool QVTKWidget::event(QEvent* e)
       if(isVisible())
         {
         this->mRenWin->Start();
+        }
+      }
+    }
+  else if(e->type() == QEvent::TouchBegin ||
+          e->type() == QEvent::TouchUpdate ||
+          e->type() == QEvent::TouchEnd)
+    {
+    if(this->mRenWin)
+      {
+      mIrenAdapter->ProcessEvent(e, this->mRenWin->GetInteractor());
+      if (e->isAccepted())
+        {
+        return true;
         }
       }
     }
@@ -809,7 +823,7 @@ void QVTKWidget::x11_setup_window()
 #endif
 }
 
-#if defined(Q_WS_WIN)
+#if defined(Q_OS_WIN)
 bool QVTKWidget::winEvent(MSG* msg, long*)
 {
   // Starting with Windows Vista, Microsoft introduced WDDM.
@@ -818,10 +832,21 @@ bool QVTKWidget::winEvent(MSG* msg, long*)
   if(msg->message == WM_PAINT &&
     QSysInfo::windowsVersion() >= QSysInfo::WV_VISTA)
     {
-    InvalidateRect(this->winId(), NULL, FALSE);
+    InvalidateRect((HWND)this->winId(), NULL, FALSE);
     }
   return false;
 }
+
+#if QT_VERSION >= 0x050000
+bool QVTKWidget::nativeEvent(const QByteArray& eventType, void* message, long* result)
+{
+  if (eventType == "windows_generic_MSG")
+    {
+    winEvent((MSG*)message, result);
+    }
+  return false;
+}
+#endif
 #endif
 
 #if defined (QVTK_USE_CARBON)

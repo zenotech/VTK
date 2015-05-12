@@ -37,13 +37,14 @@
 // .SECTION See also
 // vtkObject vtkCommand vtkInformationKey
 
-#ifndef __vtkObjectBase_h
-#define __vtkObjectBase_h
+#ifndef vtkObjectBase_h
+#define vtkObjectBase_h
 
 #include "vtkCommonCoreModule.h" // For export macro
-#include "vtkAtomicInt.h"
 #include "vtkIndent.h"
 #include "vtkSystemIncludes.h"
+#include "vtkAtomicInt.h" // needs to be included after vtkSystemIncludes.h
+                          // for warning suppressions to work on Visual Studio
 
 class vtkGarbageCollector;
 class vtkGarbageCollectorToObjectBaseFriendship;
