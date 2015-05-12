@@ -16,8 +16,8 @@
 // vtkOpenGLCamera is a concrete implementation of the abstract class
 // vtkCamera.  vtkOpenGLCamera interfaces to the OpenGL rendering library.
 
-#ifndef __vtkOpenGLCamera_h
-#define __vtkOpenGLCamera_h
+#ifndef vtkOpenGLCamera_h
+#define vtkOpenGLCamera_h
 
 #include "vtkRenderingOpenGL2Module.h" // For export macro
 #include "vtkCamera.h"
@@ -40,16 +40,18 @@ public:
   void UpdateViewport(vtkRenderer *ren);
 
   void GetKeyMatrices(vtkRenderer *ren, vtkMatrix4x4 *&WCVCMatrix,
-    vtkMatrix3x3 *&normalMatrix, vtkMatrix4x4 *&VCDCMatrix);
+    vtkMatrix3x3 *&normalMatrix, vtkMatrix4x4 *&VCDCMatrix, vtkMatrix4x4 *&WCDCMatrix);
 
 protected:
   vtkOpenGLCamera();
   ~vtkOpenGLCamera();
 
+  vtkMatrix4x4 *WCDCMatrix;
   vtkMatrix4x4 *WCVCMatrix;
   vtkMatrix3x3 *NormalMatrix;
   vtkMatrix4x4 *VCDCMatrix;
   vtkTimeStamp KeyMatrixTime;
+  vtkRenderer *LastRenderer;
 
 private:
   vtkOpenGLCamera(const vtkOpenGLCamera&);  // Not implemented.

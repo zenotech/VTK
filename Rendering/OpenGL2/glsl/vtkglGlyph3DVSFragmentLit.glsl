@@ -28,27 +28,25 @@
 
 attribute vec4 vertexMC;
 
+// frag position in VC
+//VTK::PositionVC::Dec
+
 // optional normal declaration
 //VTK::Normal::Dec
 
 // Texture coordinates
 //VTK::TCoord::Dec
 
-uniform mat3 normalMatrix; // transform model coordinate directions to view coordinates
-
 // material property values
 //VTK::Color::Dec
 
 // camera and actor matrix values
-uniform mat4 MCVCMatrix;  // combined Model to View transform
-uniform mat4 VCDCMatrix;  // the camera's projection matrix
+//VTK::Camera::Dec
 
 //VTK::Glyph::Dec
 
 // clipping plane vars
 //VTK::Clip::Dec
-
-varying vec4 vertexVC;
 
 void main()
 {
@@ -62,7 +60,6 @@ void main()
 
   //VTK::TCoord::Impl
 
-  // compute the projected vertex position
-  vertexVC = MCVCMatrix * vertex;
-  gl_Position = VCDCMatrix * vertexVC;
+  // frag position in VC
+  //VTK::PositionVC::Impl
 }

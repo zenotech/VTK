@@ -102,10 +102,6 @@ void vtkFixedPointVolumeRayCastMapperComputeCS1CGradients( T *dataPtr,
   aspect[1] = spacing[1] * 2.0 / avgSpacing;
   aspect[2] = spacing[2] * 2.0 / avgSpacing;
 
-  std::cerr << "spacing is " << spacing[0] << " " << spacing[1] << " " << spacing[2] << std::endl;
-  std::cerr << "aspect is " << aspect[0] << " " << aspect[1] << " " << aspect[2] << std::endl;
-
-
   // compute the increments
   yinc = static_cast<vtkIdType>(dim[0]);
   zinc = yinc*static_cast<vtkIdType>(dim[1]);
@@ -3464,4 +3460,13 @@ void vtkFixedPointVolumeRayCastMapper::PrintSelf(ostream& os, vtkIndent indent)
   //   << this->TableScale[3] << endl;
 
   // os << indent << "Flip Mip Comparison" << this->FlipMIPComparison << end;"
+}
+
+
+void vtkFixedPointVolumeRayCastMapper::ReleaseGraphicsResources(vtkWindow *win)
+{
+  if (win && this->ImageDisplayHelper)
+    {
+    this->ImageDisplayHelper->ReleaseGraphicsResources(win);
+    }
 }

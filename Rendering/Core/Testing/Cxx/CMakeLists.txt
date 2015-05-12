@@ -1,12 +1,16 @@
 if(VTK_RENDERING_BACKEND STREQUAL "OpenGL2")
   set(extra_opengl2_tests
-    TestAreaSelections.cxx) # incorrect results in OpenGL
+    TestCompositePolyDataMapper2.cxx,NO_DATA
+    # the following produce incorrect results in OpenGL
+    TestTranslucentLUTAlphaBlending.cxx
+    TestTranslucentLUTTextureAlphaBlending.cxx
+    TestAreaSelections.cxx
+    )
 endif()
 
 vtk_add_test_cxx(${vtk-module}CxxTests tests
   ${extra_opengl2_tests}
   otherCoordinate.cxx,NO_DATA,NO_VALID
-  TestCompositePolyDataMapper2.cxx
   FrustumClip.cxx
   Mace.cxx
   RGrid.cxx
@@ -18,7 +22,14 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestBackfaceCulling.cxx
   TestBareScalarsToColors.cxx
   TestBlockOpacity.cxx
+  TestColorByCellDataStringArray.cxx
+  TestColorByPointDataStringArray.cxx
+  TestColorByStringArrayDefaultLookupTable.cxx
+  TestColorByStringArrayDefaultLookupTable2D.cxx
+  TestColorTransferFunctionStringArray.cxx,NO_VALID
+  TestDirectScalarsToColors.cxx
   TestDiscretizableColorTransferFunction.cxx,NO_VALID
+  TestDiscretizableColorTransferFunctionStringArray.cxx,NO_VALID
   TestEdgeFlags.cxx
   TestFollowerPicking.cxx
   TestGlyph3DMapper.cxx
@@ -30,6 +41,8 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestHomogeneousTransformOfActor.cxx
   TestInteractorStyleImageProperty.cxx,NO_VALID
   TestInteractorTimers.cxx,NO_VALID
+  TestLabeledContourMapper.cxx
+  TestLabeledContourMapperWithActorMatrix.cxx
   TestPickingManager.cxx,NO_VALID
   TestManyActors.cxx,NO_VALID
   TestMapVectorsAsRGBColors.cxx
@@ -38,6 +51,7 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestOrderedTriangulator.cxx
   TestOpacity.cxx
   TestOSConeCxx.cxx
+  TestPointSelection.cxx,NO_VALID
   TestPolygonSelection.cxx
   TestResetCameraVerticalAspectRatio.cxx
   TestResetCameraVerticalAspectRatioParallel.cxx
@@ -50,9 +64,7 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestTransformCoordinateUseDouble.cxx
   TestTranslucentImageActorAlphaBlending.cxx
   TestTranslucentImageActorDepthPeeling.cxx
-  TestTranslucentLUTAlphaBlending.cxx
   TestTranslucentLUTDepthPeeling.cxx
-  TestTranslucentLUTTextureAlphaBlending.cxx
   TestTranslucentLUTTextureDepthPeeling.cxx
   TestTStripsColorsTCoords.cxx
   TestTStripsNormalsColorsTCoords.cxx

@@ -2,8 +2,9 @@ include(vtkObjectFactory)
 
 set(Module_SRCS
   vtkOpenGLGPUVolumeRayCastMapper.cxx
+  vtkOpenGLProjectedTetrahedraMapper.cxx
   vtkOpenGLRayCastImageDisplayHelper.cxx
-  vtkVolumeShader.cxx
+  vtkSmartVolumeMapper.cxx
   )
 
 set_source_files_properties(
@@ -14,6 +15,8 @@ set_source_files_properties(
 set(shader_files
   shaders/raycasterfs.glsl
   shaders/raycastervs.glsl
+  shaders/vtkglProjectedTetrahedraVS.glsl
+  shaders/vtkglProjectedTetrahedraFS.glsl
   )
 
 unset(shader_h_files)
@@ -38,6 +41,7 @@ endforeach()
 # Now for the object factory.
 set(opengl_overrides
   GPUVolumeRayCastMapper
+  ProjectedTetrahedraMapper
   RayCastImageDisplayHelper
   )
 
@@ -51,11 +55,3 @@ list(APPEND Module_SRCS
 set_source_files_properties(${vtk-module}ObjectFactory.cxx WRAP_EXCLUDE)
 
 vtk_module_library(vtkRenderingVolumeOpenGL2 ${Module_SRCS})
-
-add_custom_command(OUTPUT "${vtkRenderingVolumeOpenGL2_BINARY_DIR}/shaders"
-                   COMMAND ${CMAKE_COMMAND} -E copy_directory
-                   "${vtkRenderingVolumeOpenGL2_SOURCE_DIR}/shaders"
-                   "${CMAKE_BINARY_DIR}/shaders")
-add_custom_target(copy_shaders ALL DEPENDS
-  "${vtkRenderingVolumeOpenGL2_BINARY_DIR}/shaders")
-add_dependencies(vtkRenderingVolumeOpenGL2 copy_shaders)

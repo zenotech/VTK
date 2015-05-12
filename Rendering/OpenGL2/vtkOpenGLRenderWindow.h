@@ -19,8 +19,8 @@
 // library. Application programmers should normally use vtkRenderWindow
 // instead of the OpenGL specific version.
 
-#ifndef __vtkOpenGLRenderWindow_h
-#define __vtkOpenGLRenderWindow_h
+#ifndef vtkOpenGLRenderWindow_h
+#define vtkOpenGLRenderWindow_h
 
 #include "vtkRenderingOpenGL2Module.h" // For export macro
 #include "vtkRenderWindow.h"
@@ -34,14 +34,24 @@ class vtkTextureUnitManager;
 class vtkOpenGLShaderCache;
 class vtkStdString;
 class vtkTexture;
-class vtkTexturedActor2D;
 class vtkTextureObject;
+class vtkShaderProgram;
+
+namespace vtkgl
+{
+class VertexArrayObject;
+}
 
 class VTKRENDERINGOPENGL2_EXPORT vtkOpenGLRenderWindow : public vtkRenderWindow
 {
 public:
   vtkTypeMacro(vtkOpenGLRenderWindow, vtkRenderWindow);
   void PrintSelf(ostream& os, vtkIndent indent);
+
+  // Description:
+  // Overridden to release resources that would interfere with an external
+  // application's rendering.
+  void Render();
 
   // Description:
   // Set/Get the maximum number of multisamples
@@ -126,7 +136,7 @@ public:
   virtual void OpenGLInitContext();
 
   // Description::
-  // Get if the copntext includes opengl core profile 3.2 support
+  // Get if the context includes opengl core profile 3.2 support
   static bool GetContextSupportsOpenGL32();
   void SetContextSupportsOpenGL32(bool val);
 
@@ -203,6 +213,39 @@ public:
   // Useful for measurement only.
   virtual void WaitForCompletion();
 
+  // Description:
+  // Helper function that draws a quad on the screen
+  // at the specified vertex coordinates and if
+  // tcoords are not NULL with the specified
+  // texture coordinates.
+  static void RenderQuad(
+    float *verts, float *tcoords,
+    vtkShaderProgram *program, vtkgl::VertexArrayObject *vao);
+  static void RenderTriangles(
+    float *verts, unsigned int numVerts,
+    GLuint *indices, unsigned int numIndices,
+    float *tcoords,
+    vtkShaderProgram *program, vtkgl::VertexArrayObject *vao);
+
+  // Description:
+  // Replacement for the old glDrawPixels function
+  virtual void DrawPixels(int x1, int y1, int x2, int y2,
+              int numComponents, int dataType, void *data);
+
+  // Description:
+  // Replacement for the old glDrawPixels function, but it allows
+  // for scaling the data and using only part of the texture
+  virtual void DrawPixels(
+    int dstXmin, int dstYmin, int dstXmax, int dstYmax,
+    int srcXmin, int srcYmin, int srcXmax, int srcYmax,
+    int srcWidth, int srcHeight, int numComponents, int dataType, void *data);
+
+  // Description:
+  // Replacement for the old glDrawPixels function.  This simple version draws all
+  // the data to the entire current viewport scaling as needed.
+  virtual void DrawPixels(
+    int srcWidth, int srcHeight, int numComponents, int dataType, void *data);
+
 protected:
   vtkOpenGLRenderWindow();
   ~vtkOpenGLRenderWindow();
@@ -237,6 +280,13 @@ protected:
   // Description:
   // Flag telling if a framebuffer-based offscreen is currently in use.
   int OffScreenUseFrameBuffer;
+
+  // Description:
+  // Variables used by the framebuffer-based offscreen method.
+  int NumberOfFrameBuffers;
+  unsigned int TextureObjects[4]; // really GLuint
+  unsigned int FrameBufferObject; // really GLuint
+  unsigned int DepthRenderBufferObject; // really GLuint
 
   // Description:
   // Create a not-off-screen window.
@@ -276,11 +326,7 @@ protected:
 
   vtkTextureUnitManager *TextureUnitManager;
 
-  vtkTexturedActor2D *DrawPixelsActor;
-
-  // Description:
-  // Replacement for the old glDrawPixels function
-  void DrawPixels(int x1, int y1, int x2, int y2, int numComponents, int dataType, void *data);
+  vtkTextureObject *DrawPixelsTextureObject;
 
   bool Initialized; // ensure glewinit has been called
 

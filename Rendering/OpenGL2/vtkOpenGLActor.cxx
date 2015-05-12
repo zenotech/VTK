@@ -18,6 +18,7 @@
 #include "vtkMatrix3x3.h"
 #include "vtkMatrix4x4.h"
 #include "vtkObjectFactory.h"
+#include "vtkOpenGLPolyDataMapper.h"
 #include "vtkOpenGLRenderer.h"
 #include "vtkProperty.h"
 #include "vtkOpenGLError.h"
@@ -49,8 +50,8 @@ void vtkOpenGLActor::Render(vtkRenderer *ren, vtkMapper *mapper)
   vtkOpenGLClearErrorMacro();
 
   // get opacity
-  double opacity = this->GetProperty()->GetOpacity();
-  if (opacity == 1.0)
+  bool opaque = (this->GetIsOpaque() != 0);
+  if (opaque)
     {
     glDepthMask(GL_TRUE);
     }
@@ -78,7 +79,7 @@ void vtkOpenGLActor::Render(vtkRenderer *ren, vtkMapper *mapper)
   // send a render to the mapper; update pipeline
   mapper->Render(ren, this);
 
-  if (opacity != 1.0)
+  if (!opaque)
     {
     glDepthMask(GL_TRUE);
     }
@@ -108,8 +109,6 @@ void vtkOpenGLActor::GetKeyMatrices(vtkMatrix4x4 *&mcwc, vtkMatrix3x3 *&normMat)
     else
       {
       this->NormalTransform->SetMatrix(this->Matrix);
-      double *scale = this->NormalTransform->GetScale();
-      this->NormalTransform->Scale(1.0 / scale[0], 1.0 / scale[1], 1.0 / scale[2]);
       vtkMatrix4x4 *mat4 = this->NormalTransform->GetMatrix();
       for(int i = 0; i < 3; ++i)
         {

@@ -42,6 +42,7 @@ set(Module_SRCS
   vtkImageSliceMapper.cxx
   vtkInteractorEventRecorder.cxx
   vtkInteractorObserver.cxx
+  vtkLabeledContourMapper.cxx
   vtkLightActor.cxx
   vtkLightCollection.cxx
   vtkLight.cxx
@@ -72,6 +73,8 @@ set(Module_SRCS
   vtkRenderWindowInteractor.cxx
   vtkSelectVisiblePoints.cxx
   vtkShaderDeviceAdapter2.cxx
+  vtkTextActor.cxx
+  vtkTextActor3D.cxx
   vtkTexture.cxx
   vtkTexturedActor2D.cxx
   vtkTransformCoordinateSystems.cxx
@@ -115,6 +118,7 @@ set(Module_SRCS
   vtkStringToImage.cxx
   vtkTextMapper.cxx
   vtkTextProperty.cxx
+  vtkTextPropertyCollection.cxx
   vtkTextRenderer.cxx
 
   # Some of the new rendering code - may move around in the future.
@@ -124,13 +128,19 @@ set(Module_SRCS
   )
 
 if(VTK_RENDERING_BACKEND STREQUAL "OpenGL2")
-set_source_files_properties(
- vtkRenderWindow.cxx  # dummy out painterdevice adapter
- vtkHardwareSelector.cxx # dummy out painter device adapter
-  PROPERTIES COMPILE_FLAGS -DVTK_OPENGL2)
+  set_source_files_properties(
+    vtkRenderWindow.cxx  # dummy out painterdevice adapter
+    vtkHardwareSelector.cxx # dummy out painter device adapter
+    PROPERTIES COMPILE_FLAGS -DVTK_OPENGL2)
+  list(APPEND Module_SRCS
+    vtkPointGaussianMapper.cxx
+    )
+  set_source_files_properties(
+    vtkPointGaussianMapper
+    ABSTRACT
+    )
 else() # Add painter device adapter when not OpenGL2
-  set(Module_SRCS
-    ${Module_SRCS}
+  list(APPEND Module_SRCS
     vtkPainterDeviceAdapter.cxx
     )
 endif()

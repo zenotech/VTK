@@ -17,18 +17,24 @@
 // vtkTextureObject represents an OpenGL texture object. It provides API to
 // create textures using data already loaded into pixel buffer objects. It can
 // also be used to create textures without uploading any data.
-#ifndef __vtkTextureObject_h
-#define __vtkTextureObject_h
+#ifndef vtkTextureObject_h
+#define vtkTextureObject_h
 
 #include "vtkRenderingOpenGL2Module.h" // For export macro
 #include "vtkObject.h"
 #include "vtkWeakPointer.h" // for render context
 
 class vtkWindow;
+class vtkShaderProgram;
 class vtkOpenGLRenderWindow;
-class vtkTexturedActor2D;
+namespace vtkgl
+{
+class VertexArrayObject;
+class CellBO;
+class BufferObject;
+}
 
-#if GL_ES_VERSION_2_0 != 1
+#if GL_ES_VERSION_2_0 != 1 || GL_ES_VERSION_3_0 == 1
 class vtkPixelBufferObject;
 #endif
 
@@ -50,7 +56,18 @@ public:
     NumberOfDepthTextureCompareFunctions
   };
 
-  // Wrap values.
+// ClampToBorder is not supported in ES 2.0
+// Wrap values.
+#if GL_ES_VERSION_2_0 != 1
+  enum
+  {
+    ClampToEdge=0,
+    Repeat,
+    MirroredRepeat,
+    ClampToBorder,
+    NumberOfWrapModes
+  };
+#else
   enum
   {
     ClampToEdge=0,
@@ -58,6 +75,7 @@ public:
     MirroredRepeat,
     NumberOfWrapModes
   };
+#endif
 
   // MinificationFilter values.
   enum
@@ -82,6 +100,26 @@ public:
     NumberOfDepthFormats
   };
 
+  // Internal alpha format
+  enum
+  {
+    alpha=0,
+    alpha8,
+    alpha16,
+    alpha16f,
+    alpha32f,
+    NumberOfAlphaFormats
+  };
+
+  // Depth mode formats
+  enum
+  {
+    DepthAlpha=0,
+    DepthLuminance,
+    DepthIntensity,
+    NumberOfDepthModeFormats
+  };
+
   static vtkTextureObject* New();
   vtkTypeMacro(vtkTextureObject, vtkObject);
   void PrintSelf(ostream& os, vtkIndent indent);
@@ -89,7 +127,10 @@ public:
   // Description:
   // Get/Set the context. This does not increase the reference count of the
   // context to avoid reference loops.
-  // SetContext() may raise an error is the OpenGL context does not support the
+  //
+  // {
+  // this->TextureObject = vtkTextureObject::New();
+  // }SetContext() may raise an error is the OpenGL context does not support the
   // required OpenGL extensions.
   void SetContext(vtkOpenGLRenderWindow*);
   vtkOpenGLRenderWindow* GetContext();
@@ -164,7 +205,13 @@ public:
                           int internalFormat, int rawType,
                           void *raw);
 
-// PBO's are not supported in ES 2.0
+  // Description:
+  // Create a texture buffer basically a 1D texture that can be
+  // very large for passing data into the fragment shader
+  bool CreateTextureBuffer(unsigned int numValues, int numComps,
+                           int dataType, vtkgl::BufferObject *bo);
+
+// 1D  textures are not supported in ES 2.0 or 3.0
 #if GL_ES_VERSION_2_0 != 1
 
   // Description:
@@ -179,6 +226,22 @@ public:
   bool Create1D(int numComps,
                 vtkPixelBufferObject *pbo,
                 bool shaderSupportsTextureInt);
+
+  // Description:
+  // Create 1D texture from client memory
+  bool Create1DFromRaw(unsigned int width, int numComps,
+                       int dataType, void *data);
+  // Description:
+  // Create a 1D alpha texture using a raw pointer.
+  // This is a blocking call. If you can, use PBO instead.
+  bool CreateAlphaFromRaw(unsigned int width,
+                          int internalFormat,
+                          int rawType,
+                          void *raw);
+#endif
+
+// PBO's, and 3D textures are not supported in ES 2.0
+#if GL_ES_VERSION_2_0 != 1 || GL_ES_VERSION_3_0 == 1
 
   // Description:
   // Create a 2D texture using the PBO.
@@ -197,6 +260,14 @@ public:
   bool Create3D(unsigned int width, unsigned int height, unsigned int depth,
                 int numComps, vtkPixelBufferObject *pbo,
                 bool shaderSupportsTextureInt);
+
+  // Description:
+  // Create a 3D texture from client memory
+  // numComps must be in [1-4].
+  bool Create3DFromRaw(unsigned int width, unsigned int height,
+                       unsigned int depth, int numComps,
+                       int dataType, void *data);
+
   // Description:
   // This is used to download raw data from the texture into a pixel bufer. The
   // pixel buffer API can then be used to download the pixel buffer data to CPU
@@ -241,20 +312,50 @@ public:
   // Description:
   // Create texture without uploading any data.
   bool Create2D(unsigned int width, unsigned int height, int numComps,
-                int vtktype,
-                bool shaderSupportsTextureInt);
+                int vtktype, bool shaderSupportsTextureInt);
   bool Create3D(unsigned int width, unsigned int height, unsigned int depth,
-                int numComps, int vtktype,
-                bool shaderSupportsTextureInt);
+                int numComps, int vtktype, bool shaderSupportsTextureInt);
 
   // Description:
   // Get the data type for the texture as a vtk type int i.e. VTK_INT etc.
-  int GetDataType();
+  int GetVTKDataType();
 
+  // Description:
+  // Get the data type for the texture as GLenum type.
+  int GetDataType(int vtk_scalar_type);
+  void SetDataType(unsigned int glType);
+
+  // Description:
+  // Get/Set internal format (OpenGL internal format) that should
+  // be used.
+  // (https://www.opengl.org/sdk/docs/man2/xhtml/glTexImage2D.xml)
   unsigned int GetInternalFormat(int vtktype, int numComps,
                                  bool shaderSupportsTextureInt);
+  void SetInternalFormat(unsigned int glInternalFormat);
+
+  // Description:
+  // Get/Set format (OpenGL internal format) that should
+  // be used.
+  // (https://www.opengl.org/sdk/docs/man2/xhtml/glTexImage2D.xml)
   unsigned int GetFormat(int vtktype, int numComps,
                          bool shaderSupportsTextureInt);
+  void SetFormat(unsigned int glFormat);
+
+  // Description:
+  // Reset format, internal format, and type of the texture.
+  //
+  // This method is useful when a texture is reused in a
+  // context same as the previous render call. In such
+  // cases, texture destruction does not happen and therefore
+  // previous set values are used.
+  void ResetFormatAndType();
+
+  unsigned int GetDepthTextureModeFormat(int vtktype);
+  unsigned int GetMinificationFilterMode(int vtktype);
+  unsigned int GetMagnificationFilterMode(int vtktype);
+  unsigned int GetWrapSMode(int vtktype);
+  unsigned int GetWrapTMode(int vtktype);
+  unsigned int GetWrapRMode(int vtktype);
 
   // Description:
   // Optional, require support for floating point depth buffer
@@ -353,6 +454,13 @@ public:
   { return this->MagnificationFilter==Linear; }
 
   // Description:
+  // Border Color (RGBA). The values can be any valid float value,
+  // if the gpu supports it. Initial value is (0.0f,0.0f,0.0f,0.0f)
+  // , as in OpenGL spec.
+  vtkSetVector4Macro(BorderColor,float);
+  vtkGetVector4Macro(BorderColor,float);
+
+  // Description:
   // Lower-clamp the computed LOD against this value. Any float value is valid.
   // Initial value is -1000.0f, as in OpenGL spec.
   vtkSetMacro(MinLOD,float);
@@ -435,23 +543,33 @@ public:
     { return vtkTextureObject::IsSupported(renWin, false, false, false); }
 
   // Description:
-  // Copy a sub-part of the texture (src) in the current framebuffer
-  // at location (dstXmin,dstYmin). (dstXmin,dstYmin) is the location of the
-  // lower left corner of the rectangle.
-  // \pre positive_srcXmin: srcXmin>=0
-  // \pre max_srcXmax: srcXmax<this->GetWidth()
-  // \pre increasing_x: srcXmin<=srcXmax
-  // \pre positive_srcYmin: srcYmin>=0
-  // \pre max_srcYmax: srcYmax<this->GetHeight()
-  // \pre increasing_y: srcYmin<=srcYmax
-  // \pre positive_dstXmin: dstXmin>=0
-  // \pre positive_dstYmin: dstYmin>=0
-  void CopyToFrameBuffer(int srcXmin,
-                         int srcYmin,
-                         int srcXmax,
-                         int srcYmax,
-                         int dstXmin,
-                         int dstYmin);
+  // Copy the texture (src) in the current framebuffer.  A variety of
+  // signatures based on what you want to do
+  // Copy the entire texture to the entire current viewport
+  void CopyToFrameBuffer(vtkShaderProgram *program,
+                         vtkgl::VertexArrayObject *vao);
+  // part of a texture to part of a viewport, scaling as needed
+  void CopyToFrameBuffer(int srcXmin, int srcYmin,
+                         int srcXmax, int srcYmax,
+                         int dstXmin, int dstYmin,
+                         int dstXmax, int dstYmax,
+                         int dstSizeX, int dstSizeY,
+                         vtkShaderProgram *program,
+                         vtkgl::VertexArrayObject *vao
+                         );
+  // copy part of a texure to part of a viewport, no scalaing
+  void CopyToFrameBuffer(int srcXmin, int srcYmin,
+                         int srcXmax, int srcYmax,
+                         int dstXmin, int dstYmin,
+                         int dstSizeX, int dstSizeY,
+                         vtkShaderProgram *program,
+                         vtkgl::VertexArrayObject *vao
+                         );
+  // copy a texture to a quad using the provided tcoords and verts
+  void CopyToFrameBuffer(float *tcoords, float *verts,
+                         vtkShaderProgram *program,
+                         vtkgl::VertexArrayObject *vao
+                         );
 
 
   // Description:
@@ -496,6 +614,7 @@ protected:
 
   unsigned int Target; // GLenum
   unsigned int Format; // GLenum
+  unsigned int InternalFormat; // GLenum
   unsigned int Type; // GLenum
   int Components;
 
@@ -519,7 +638,7 @@ protected:
   float MaxLOD;
   int BaseLevel;
   int MaxLevel;
-
+  float BorderColor[4];
 
   bool DepthTextureCompare;
   int DepthTextureCompareFunction;
@@ -529,7 +648,11 @@ protected:
   int AutoParameters;
   vtkTimeStamp SendParametersTime;
 
-  vtkTexturedActor2D *DrawPixelsActor;
+  // used for copying to framebuffer
+  vtkgl::CellBO *ShaderProgram;
+
+  // for texturebuffers we hold on to the Buffer
+  vtkgl::BufferObject *BufferObject;
 
 private:
   vtkTextureObject(const vtkTextureObject&); // Not implemented.

@@ -87,6 +87,7 @@ vtkRenderer::vtkRenderer()
   this->PathArrayCount = 0;
 
   this->Layer                    = 0;
+  this->PreserveColorBuffer = 0;
   this->PreserveDepthBuffer = 0;
 
   this->ComputedVisiblePropBounds[0] = VTK_DOUBLE_MAX;
@@ -617,6 +618,19 @@ int vtkRenderer::UpdateTranslucentPolygonalGeometry()
 vtkWindow *vtkRenderer::GetVTKWindow()
 {
   return this->RenderWindow;
+}
+
+// ----------------------------------------------------------------------------
+void vtkRenderer::SetLayer(int layer)
+{
+  vtkDebugMacro(<< this->GetClassName() << " (" << this
+                << "): setting Layer to " << layer);
+  if (this->Layer != layer)
+    {
+    this->Layer = layer;
+    this->Modified();
+    }
+  this->SetPreserveColorBuffer(layer == 0 ? 0 : 1);
 }
 
 // Specify the camera to use for this renderer.
@@ -1246,6 +1260,13 @@ void vtkRenderer::ViewToWorld(double &x, double &y, double &z)
   double mat[16];
   double result[4];
 
+  if (this->ActiveCamera == NULL)
+    {
+    vtkErrorMacro("ViewToWorld: no active camera, cannot compute view to world, returning 0,0,0");
+    x = y = z = 0.0;
+    return;
+    }
+
   // get the perspective transformation from the active camera
   vtkMatrix4x4 *matrix = this->ActiveCamera->
                 GetCompositeProjectionTransformMatrix(
@@ -1812,8 +1833,7 @@ void vtkRenderer::ExpandBounds(double bounds[6], vtkMatrix4x4 *matrix)
 
 int  vtkRenderer::Transparent()
 {
-  // If our layer is the 0th layer, then we are not transparent, else we are.
-  return (this->Layer == 0 ? 0 : 1);
+  return this->PreserveColorBuffer;
 }
 
 double vtkRenderer::GetTiledAspectRatio()

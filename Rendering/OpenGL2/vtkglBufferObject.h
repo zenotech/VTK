@@ -11,8 +11,8 @@
      PURPOSE.  See the above copyright notice for more information.
 
 =========================================================================*/
-#ifndef __vtkglBufferObject_h
-#define __vtkglBufferObject_h
+#ifndef vtkglBufferObject_h
+#define vtkglBufferObject_h
 
 #include "vtkRenderingOpenGL2Module.h"
 #include "vtkStdString.h" // for std::string
@@ -31,7 +31,8 @@ class VTKRENDERINGOPENGL2_EXPORT BufferObject
 public:
   enum ObjectType {
     ArrayBuffer,
-    ElementArrayBuffer
+    ElementArrayBuffer,
+    TextureBuffer
   };
 
   BufferObject(ObjectType type = ArrayBuffer);
@@ -58,8 +59,9 @@ public:
   template <class T>
   bool Upload(const T &array, ObjectType type);
 
-  // non vector version for float
-  bool Upload(const float *array, int numElements, ObjectType type);
+  // non vector version
+  template <class T>
+  bool Upload(const T *array, size_t numElements, ObjectType type);
 
   /**
    * Bind the buffer object ready for rendering.
@@ -104,6 +106,20 @@ inline bool BufferObject::Upload(const T &array,
     }
   return this->UploadInternal(&array[0],
                               array.size() * sizeof(typename T::value_type),
+                              objectType);
+}
+
+template <class T>
+inline bool BufferObject::Upload(const T *array, size_t numElements,
+                                 BufferObject::ObjectType objectType)
+{
+  if (!array)
+    {
+    this->Error = "Refusing to upload empty array.";
+    return false;
+    }
+  return this->UploadInternal(array,
+                              numElements * sizeof(T),
                               objectType);
 }
 

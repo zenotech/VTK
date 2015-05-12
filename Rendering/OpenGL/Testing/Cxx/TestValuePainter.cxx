@@ -1,7 +1,7 @@
 /*=========================================================================
 
   Program:   Visualization Toolkit
-  Module:    TestBlurAndSobelPasses.cxx
+  Module:    TestValuePainter.cxx
 
   Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
   All rights reserved.
@@ -33,7 +33,7 @@
 
 #include <set>
 
-#define MAX 10
+#define TESTVP_MAX 10
 
 void PrepArray(bool byName, bool drawCell, int arrayIndex, int arrayComponent,
                vtkDataSet *dataset, vtkDataArray *values, vtkValuePainter *painter,
@@ -50,7 +50,7 @@ void PrepArray(bool byName, bool drawCell, int arrayIndex, int arrayComponent,
       {
       arrayComponent = 0;
       }
-    cerr << "Drawing " << values->GetName() << " [" << arrayComponent << "]" << endl;
+    cerr << "Drawing CELL " << values->GetName() << " [" << arrayComponent << "]" << endl;
     if (!byName)
       {
       painter->SetInputArrayToProcess(VTK_SCALAR_MODE_USE_CELL_FIELD_DATA, arrayIndex);
@@ -72,7 +72,7 @@ void PrepArray(bool byName, bool drawCell, int arrayIndex, int arrayComponent,
       {
       arrayComponent = 0;
       }
-    cerr << "Drawing " << values->GetName() << " [" << arrayComponent << "]" << endl;
+    cerr << "Drawing POINT " << values->GetName() << " [" << arrayComponent << "]" << endl;
     if (!byName)
       {
       painter->SetInputArrayToProcess(VTK_SCALAR_MODE_USE_POINT_FIELD_DATA, arrayIndex);
@@ -83,6 +83,8 @@ void PrepArray(bool byName, bool drawCell, int arrayIndex, int arrayComponent,
       }
     minmax = values->GetRange(arrayComponent);
     }
+  painter->SetInputComponentToProcess(arrayComponent);
+  painter->SetScalarRange(minmax[0], minmax[1]);
 }
 
 int TestValuePainter(int argc, char* argv[])
@@ -117,11 +119,7 @@ int TestValuePainter(int argc, char* argv[])
       interactive = true;
       }
     }
-/*
-  vtkSmartPointer<vtkXMLPolyDataReader> reader = vtkSmartPointer<vtkXMLPolyDataReader>::New();
-  reader->SetFileName("/Source/CINEMA/value-painter/vtkexample/data/test.vtp");
-  reader->Update();
-*/
+
   vtkSmartPointer<vtkPolyData> dataset = vtkSmartPointer<vtkPolyData>::New();
   vtkSmartPointer<vtkPoints> points = vtkSmartPointer<vtkPoints>::New();
   dataset->SetPoints(points);
@@ -134,13 +132,13 @@ int TestValuePainter(int argc, char* argv[])
   vectors->SetName("Point Vector Array 1");
   dataset->GetPointData()->AddArray(vectors);
   double vector[3];
-  for (unsigned int i = 0; i < MAX; i++)
+  for (unsigned int i = 0; i < TESTVP_MAX; i++)
     {
-    for (unsigned int j = 0; j < MAX; j++)
+    for (unsigned int j = 0; j < TESTVP_MAX; j++)
       {
       points->InsertNextPoint(i,j,0.0);
-      scalars->InsertNextValue((double)i/MAX+10);
-      vector[0] = sin((double)j/MAX*6.1418);
+      scalars->InsertNextValue((double)i/TESTVP_MAX+10);
+      vector[0] = sin((double)j/TESTVP_MAX*6.1418);
       vector[1] = 1.0;
       vector[2] = 1.0;
       vtkMath::Normalize(vector);
@@ -158,18 +156,18 @@ int TestValuePainter(int argc, char* argv[])
   vectors->SetNumberOfComponents(3);
   vectors->SetName("Cell Vector Array 1");
   dataset->GetCellData()->AddArray(vectors);
-  for (unsigned int i = 0; i < (MAX-1); i++)
+  for (unsigned int i = 0; i < (TESTVP_MAX-1); i++)
     {
-    for (unsigned int j = 0; j < (MAX-1); j++)
+    for (unsigned int j = 0; j < (TESTVP_MAX-1); j++)
       {
       cells->InsertNextCell(4);
-      cells->InsertCellPoint(i*MAX    +j);
-      cells->InsertCellPoint(i*MAX    +j+1);
-      cells->InsertCellPoint((i+1)*MAX+j+1);
-      cells->InsertCellPoint((i+1)*MAX+j);
+      cells->InsertCellPoint(i*TESTVP_MAX    +j);
+      cells->InsertCellPoint(i*TESTVP_MAX    +j+1);
+      cells->InsertCellPoint((i+1)*TESTVP_MAX+j+1);
+      cells->InsertCellPoint((i+1)*TESTVP_MAX+j);
 
-      scalars->InsertNextValue((double)i/(MAX-1)-10);
-      vector[0] = sin((double)j/(MAX-1)*6.1418);
+      scalars->InsertNextValue((double)i/(TESTVP_MAX-1)-10);
+      vector[0] = sin((double)j/(TESTVP_MAX-1)*6.1418);
       vector[1] = 1.0;
       vector[2] = 1.0;
       vtkMath::Normalize(vector);
@@ -238,6 +236,9 @@ int TestValuePainter(int argc, char* argv[])
         {
         PrepArray(_byName, _drawCell, j, k, dataset, values, painter, minmax);
         renderWindow->Render();
+
+        //std::string v;
+        //cin >> v;
         }
       }
     }

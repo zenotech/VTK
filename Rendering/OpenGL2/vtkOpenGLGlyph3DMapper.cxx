@@ -128,11 +128,8 @@ vtkOpenGLGlyph3DMapper::vtkOpenGLGlyph3DMapper()
 vtkOpenGLGlyph3DMapper::~vtkOpenGLGlyph3DMapper()
 {
   this->ColorMapper->Delete();
-  if (this->GlyphValues)
-    {
-    delete this->GlyphValues;
-    this->GlyphValues = NULL;
-    }
+
+  delete this->GlyphValues;
 
   if (this->LastWindow)
     {
@@ -676,6 +673,7 @@ void vtkOpenGLGlyph3DMapper::RebuildStructures(
           scalez = 1.0e-10;
           }
         trans->Scale(scalex, scaley, scalez);
+        normalTrans->Scale(scalex, scaley, scalez);
         }
 
       vtkMatrix4x4::DeepCopy(arrayVals, trans->GetMatrix());
@@ -692,7 +690,7 @@ void vtkOpenGLGlyph3DMapper::RebuildStructures(
         {
         for (int j = 0; j < 3; j++)
           {
-          entry->NormalMatrices[entry->NumberOfPoints*9+i*3+j] = arrayVals[j*4+i];
+          entry->NormalMatrices[entry->NumberOfPoints*9+i*3+j] = arrayVals[i*4+j];
           }
         }
       entry->NumberOfPoints++;

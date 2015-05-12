@@ -1,7 +1,7 @@
 /*=========================================================================
 
   Program:   Visualization Toolkit
-  Module:    vtkOpenGL.h
+  Module:    vtkOpenGLError.h
 
   Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
   All rights reserved.
@@ -12,13 +12,22 @@
      PURPOSE.  See the above copyright notice for more information.
 
 =========================================================================*/
-#ifndef __vtkOpenGLError_h
-#define __vtkOpenGLError_h
+#ifndef vtkOpenGLError_h
+#define vtkOpenGLError_h
 
 #include "vtkSetGet.h"
 #include "vtk_glew.h"
 
+#ifndef NDEBUG
+// debug build.
 #cmakedefine VTK_REPORT_OPENGL_ERRORS
+#else // NDEBUG
+// release build
+#cmakedefine VTK_REPORT_OPENGL_ERRORS_IN_RELEASE_BUILDS
+#if defined(VTK_REPORT_OPENGL_ERRORS_IN_RELEASE_BUILDS)
+#cmakedefine VTK_REPORT_OPENGL_ERRORS
+#endif // defined(VTK_REPORT_OPENGL_ERRORS_IN_RELEASE_BUILDS)
+#endif // NDEBUG
 
 // Description:
 // The following functions can be used to detect and report, and/or

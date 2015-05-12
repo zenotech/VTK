@@ -160,6 +160,13 @@ vtkEnSightReader::~vtkEnSightReader()
 }
 
 //----------------------------------------------------------------------------
+void vtkEnSightReader::ClearForNewCaseFileName()
+{
+  this->UnstructuredPartIds->Reset();
+  vtkGenericEnSightReader::ClearForNewCaseFileName();
+}
+
+//----------------------------------------------------------------------------
 int vtkEnSightReader::RequestData(
   vtkInformation *vtkNotUsed(request),
   vtkInformationVector **vtkNotUsed(inputVector),
@@ -2145,7 +2152,7 @@ void vtkEnSightReader::RemoveLeadingBlanks(char *line)
     {
     count++;
     }
-  memmove(line, line+count, strlen(line+count));
+  memmove(line, line + count, strlen(line + count) + 1);
 }
 
 //----------------------------------------------------------------------------

@@ -15,8 +15,8 @@
 // .SECTION Description
 // PolyDataMapper that uses a OpenGL to do the actual rendering.
 
-#ifndef __vtkOpenGLGlyph3DHelper_h
-#define __vtkOpenGLGlyph3DHelper_h
+#ifndef vtkOpenGLGlyph3DHelper_h
+#define vtkOpenGLGlyph3DHelper_h
 
 #include "vtkRenderingOpenGL2Module.h" // For export macro
 #include "vtkOpenGLPolyDataMapper.h"
@@ -58,12 +58,18 @@ public:
       std::vector<float> &normalMatrices, std::vector<vtkIdType> &pickIds,
       unsigned long pointMTime);
 
+  // Description:
+  // Release any graphics resources that are being consumed by this mapper.
+  // The parameter window could be used to determine which graphic
+  // resources to release.
+  virtual void ReleaseGraphicsResources(vtkWindow *window);
+
 protected:
   vtkOpenGLGlyph3DHelper();
   ~vtkOpenGLGlyph3DHelper();
 
   // special opengl 32 version that uses instances
-#if GL_ES_VERSION_2_0 != 1
+#if GL_ES_VERSION_2_0 != 1 || GL_ES_VERSION_3_0 == 1
   void GlyphRenderInstances(vtkRenderer* ren, vtkActor* actor, vtkIdType numPts,
       std::vector<unsigned char> &colors, std::vector<float> &matrices,
       std::vector<float> &normalMatrices,
