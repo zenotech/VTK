@@ -18,6 +18,7 @@
 #include "vtkMath.h"
 #include "vtkNew.h"
 #include "vtkContext2D.h"
+#include "vtkContextScene.h"
 #include "vtkPen.h"
 #include "vtkChart.h"
 #include "vtkTextProperty.h"
@@ -28,12 +29,22 @@
 #include "vtkStdString.h"
 #include "vtkAxisExtended.h"
 
-#include "vtksys/ios/sstream"
+#include <sstream>
 #include "vtkObjectFactory.h"
 
+#include "vtksys/RegularExpression.hxx"
+
 #include <algorithm>
+#include <cstdio>
 #include <limits>
 #include <cmath>
+
+// pull in snprintf on MSVC:
+#if defined(_WIN32) && !defined(__CYGWIN__)
+#  define SNPRINTF _snprintf
+#else
+#  define SNPRINTF snprintf
+#endif
 
 //-----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkAxis);
@@ -78,6 +89,7 @@ vtkAxis::vtkAxis()
   this->TicksVisible = true;
   this->AxisVisible = true;
   this->Precision = 2;
+  this->LabelFormat = "%g";
   this->Notation = vtkAxis::STANDARD_NOTATION;
   this->Behavior = vtkAxis::AUTO;
   this->Pen = vtkPen::New();
@@ -659,6 +671,19 @@ void vtkAxis::SetPrecision(int precision)
 }
 
 //-----------------------------------------------------------------------------
+void vtkAxis::SetLabelFormat(const std::string &fmt)
+{
+  vtkDebugMacro(<< this->GetClassName() << " (" << this
+                << "): setting LabelFormat to " << fmt);
+  if (this->LabelFormat != fmt)
+    {
+    this->LabelFormat = fmt;
+    this->Modified();
+    this->TickMarksDirty = true;
+    }
+}
+
+//-----------------------------------------------------------------------------
 void vtkAxis::SetLogScale(bool logScale)
 {
   if (this->LogScale == logScale)
@@ -820,44 +845,6 @@ bool vtkAxis::SetCustomTickPositions(vtkDoubleArray *positions,
     }
 }
 
-#ifndef VTK_LEGACY_REMOVE
-//-----------------------------------------------------------------------------
-void vtkAxis::SetTickPositions(vtkDoubleArray* array)
-{
-  VTK_LEGACY_REPLACED_BODY(vtkAxis::SetTickPositions, "VTK 6.0",
-                           vtkAxis::SetCustomTickPositions);
-  if (!array)
-    {
-    this->TickPositions->SetNumberOfTuples(0);
-    }
-  else
-    {
-    this->TickPositions->DeepCopy(array);
-    }
-  this->CustomTickLabels = true;
-  this->TickMarksDirty = false;
-  this->Modified();
-}
-
-//-----------------------------------------------------------------------------
-void vtkAxis::SetTickLabels(vtkStringArray* array)
-{
-  VTK_LEGACY_REPLACED_BODY(vtkAxis::SetTickLabels, "VTK 6.0",
-                           vtkAxis::SetCustomTickPositions);
-  if (!array)
-    {
-    this->TickLabels->SetNumberOfTuples(0);
-    }
-  else
-    {
-    this->TickLabels->DeepCopy(array);
-    }
-  this->CustomTickLabels = true;
-  this->TickMarksDirty = false;
-  this->Modified();
-}
-#endif // VTK_LEGACY_REMOVE
-
 //-----------------------------------------------------------------------------
 vtkRectf vtkAxis::GetBoundingRect(vtkContext2D* painter)
 {
@@ -922,6 +909,7 @@ void vtkAxis::UpdateLogScaleActive(bool alwaysUpdateMinMaxFromUnscaled)
     if (!this->LogScaleActive)
       {
       this->LogScaleActive = true;
+      this->TickMarksDirty = true;
       needUpdate = true;
       }
     if (needUpdate || alwaysUpdateMinMaxFromUnscaled)
@@ -972,6 +960,7 @@ void vtkAxis::UpdateLogScaleActive(bool alwaysUpdateMinMaxFromUnscaled)
     if (this->LogScaleActive)
       {
       this->LogScaleActive = false;
+      this->TickMarksDirty = true;
       needUpdate = true;
       }
     if (needUpdate || alwaysUpdateMinMaxFromUnscaled)
@@ -1168,24 +1157,7 @@ void vtkAxis::GenerateTickLabels(double min, double max)
       // Now create a label for the tick position
       if (this->TickLabelAlgorithm == vtkAxis::TICK_SIMPLE)
         {
-        vtksys_ios::ostringstream ostr;
-        ostr.imbue(std::locale::classic());
-        if (this->Notation > 0)
-          {
-          ostr.precision(this->Precision);
-          }
-        if (this->Notation == 1)
-          {
-          // Scientific notation
-          ostr.setf(vtksys_ios::ios::scientific, vtksys_ios::ios::floatfield);
-          }
-        else if (this->Notation == 2)
-          {
-          ostr.setf(ios::fixed, ios::floatfield);
-          }
-        ostr << value;
-
-        this->TickLabels->InsertNextValue(ostr.str());
+        this->TickLabels->InsertNextValue(this->GenerateSimpleLabel(value));
         }
       else
         {
@@ -1197,6 +1169,7 @@ void vtkAxis::GenerateTickLabels(double min, double max)
   this->TickMarksDirty = false;
 }
 
+//-----------------------------------------------------------------------------
 void vtkAxis::GenerateTickLabels()
 {
   this->TickLabels->SetNumberOfTuples(0);
@@ -1208,25 +1181,76 @@ void vtkAxis::GenerateTickLabels()
       {
       value = pow(double(10.0), double(value));
       }
-    // Now create a label for the tick position
-    vtksys_ios::ostringstream ostr;
+    this->TickLabels->InsertNextValue(this->GenerateSimpleLabel(value));
+    }
+}
+
+//-----------------------------------------------------------------------------
+vtkStdString vtkAxis::GenerateSimpleLabel(double val)
+{
+  vtkStdString result;
+  if (this->Notation == PRINTF_NOTATION)
+    { // Use the C-style printf specification:
+    const int buffSize = 1024;
+    char buffer[buffSize];
+
+    // On Windows, formats with exponents have three digits by default
+    // whereas on other systems, exponents have two digits. Set to two
+    // digits on Windows for consistent behavior.
+#if defined(_MSC_VER) && _MSC_VER < 1900
+    unsigned int oldWin32ExponentFormat = _set_output_format(_TWO_DIGIT_EXPONENT);
+#endif
+
+    int len = SNPRINTF(buffer, buffSize, this->LabelFormat.c_str(), val);
+    if (len < 0) // Overrun on windows
+      {
+      len = buffSize;
+      }
+
+#if defined(_MSC_VER) && _MSC_VER < 1900
+  _set_output_format(oldWin32ExponentFormat);
+#endif
+
+    result = vtkStdString(buffer, std::min(len, buffSize));
+    }
+  else
+    { // Use the C++ style stream format specification:
+    std::ostringstream ostr;
     ostr.imbue(std::locale::classic());
-    if (this->Notation > 0)
+    if (this->Notation != STANDARD_NOTATION)
       {
       ostr.precision(this->Precision);
+      if (this->Notation == SCIENTIFIC_NOTATION)
+        {
+        ostr.setf(std::ios::scientific, std::ios::floatfield);
+        }
+      else if (this->Notation == FIXED_NOTATION)
+        {
+        ostr.setf(ios::fixed, ios::floatfield);
+        }
       }
-    if (this->Notation == SCIENTIFIC_NOTATION)
-      {
-      ostr.setf(vtksys_ios::ios::scientific, vtksys_ios::ios::floatfield);
-      }
-    else if (this->Notation == FIXED_NOTATION)
-      {
-      ostr.setf(ios::fixed, ios::floatfield);
-      }
-    ostr << value;
-
-    this->TickLabels->InsertNextValue(ostr.str());
+    ostr << val;
+    result = vtkStdString(ostr.str());
     }
+
+  // Strip out leading zeros on the exponent:
+  vtksys::RegularExpression regExp("[Ee][+-]");
+  if (regExp.find(result))
+    {
+    vtkStdString::iterator it = result.begin() + regExp.start() + 2;
+    while (it != result.end() && *it == '0')
+      {
+      it = result.erase(it);
+      }
+
+    // If the exponent is 0, remove the e+ bit, too.
+    if (it == result.end())
+      {
+      result.erase(regExp.start());
+      }
+    }
+
+  return result;
 }
 
 //-----------------------------------------------------------------------------
@@ -1241,7 +1265,7 @@ void vtkAxis::GenerateTickLabels()
 //   8 - Factored Scientific 5 (10^6)
 void vtkAxis::GenerateLabelFormat(int notation, double n)
 {
-  vtksys_ios::ostringstream ostr;
+  std::ostringstream ostr;
   ostr.imbue(std::locale::classic());
 
   switch(notation)
@@ -1249,7 +1273,7 @@ void vtkAxis::GenerateLabelFormat(int notation, double n)
     case 1:
       ostr << n;
       ostr.precision(this->Precision);
-      ostr.setf(vtksys_ios::ios::scientific, vtksys_ios::ios::floatfield);
+      ostr.setf(std::ios::scientific, std::ios::floatfield);
       this->TickLabels->InsertNextValue(ostr.str());
       break;
     case 2:
@@ -1324,7 +1348,7 @@ void vtkAxis::GenerateLabelFormat(int notation, double n)
       break;
     case 8:
       ostr.precision(this->Precision);
-      ostr.setf(vtksys_ios::ios::scientific, vtksys_ios::ios::floatfield);
+      ostr.setf(std::ios::scientific, std::ios::floatfield);
       ostr << n/1000.0 ;
       if(!TitleAppended)
         {
@@ -1400,18 +1424,38 @@ double vtkAxis::NiceMinMax(double &min, double &max, float pixelRange,
 //-----------------------------------------------------------------------------
 double vtkAxis::CalculateNiceMinMax(double &min, double &max)
 {
+  if (this->NumberOfTicks > 0)
+    {
+    // An exact number of ticks was requested, use the min/max and exact number.
+    min = this->Minimum;
+    max = this->Maximum;
+    double range = fabs(max - min);
+    return range / double(this->NumberOfTicks - 1);
+    }
+
+  vtkVector2i tileScale(1);
+  if (!this->Scene)
+    {
+    vtkWarningMacro("vtkAxis needs a vtkContextScene to determine window "
+                    "properties. Assuming no tile scaling is set.");
+    }
+  else
+    {
+    tileScale = this->Scene->GetLogicalTileScale();
+    }
+
   float pixelRange = 0;
   float tickPixelSpacing = 0;
   if (this->Position == vtkAxis::LEFT || this->Position == vtkAxis::RIGHT
       || this->Position == vtkAxis::PARALLEL)
     {
     pixelRange = this->Position2.GetY() - this->Position1.GetY();
-    tickPixelSpacing = 30;
+    tickPixelSpacing = 30 * tileScale.GetX();
     }
   else
     {
     pixelRange = this->Position2.GetX() - this->Position1.GetX();
-    tickPixelSpacing = 45;
+    tickPixelSpacing = 45 * tileScale.GetY();
     }
 
   double niceTickSpacing = 0.0;
@@ -1426,18 +1470,7 @@ double vtkAxis::CalculateNiceMinMax(double &min, double &max)
       vtkAxis::NiceMinMax(min, max, pixelRange, tickPixelSpacing);
     }
 
-  if (this->NumberOfTicks > 0)
-    {
-    // An exact number of ticks was requested, use the min/max and exact number.
-    min = this->Minimum;
-    max = this->Maximum;
-    double range = fabs(max - min);
-    return range / double(this->NumberOfTicks - 1);
-    }
-  else
-    {
-    return niceTickSpacing;
-    }
+  return niceTickSpacing;
 }
 
 //-----------------------------------------------------------------------------
@@ -1542,7 +1575,7 @@ void vtkAxis::GenerateLogSpacedLinearTicks(int order, double min, double max)
     this->TickPositions->InsertNextValue(log10(value));
 
     // Now create a label for the tick position
-    vtksys_ios::ostringstream ostr;
+    std::ostringstream ostr;
     ostr.imbue(std::locale::classic());
     if (this->Notation > 0)
       {
@@ -1550,7 +1583,7 @@ void vtkAxis::GenerateLogSpacedLinearTicks(int order, double min, double max)
       }
     if (this->Notation == SCIENTIFIC_NOTATION)
       {
-      ostr.setf(vtksys_ios::ios::scientific, vtksys_ios::ios::floatfield);
+      ostr.setf(std::ios::scientific, std::ios::floatfield);
       }
     else if (this->Notation == FIXED_NOTATION)
       {
@@ -1613,26 +1646,9 @@ void vtkAxis::GenerateLogScaleTickMarks(int order,
     double value = result * pow(10.0, static_cast<double>(order));
     this->TickPositions->InsertNextValue(log10(value));
 
-    // Now create a label for the tick position
-    vtksys_ios::ostringstream ostr;
-    ostr.imbue(std::locale::classic());
-    if (this->Notation > 0)
-      {
-      ostr.precision(this->Precision);
-      }
-    if (this->Notation == SCIENTIFIC_NOTATION)
-      {
-      ostr.setf(vtksys_ios::ios::scientific, vtksys_ios::ios::floatfield);
-      }
-    else if (this->Notation == FIXED_NOTATION)
-      {
-      ostr.setf(ios::fixed, ios::floatfield);
-      }
-    ostr << value;
-
     if (niceTickMark)
       {
-      this->TickLabels->InsertNextValue(ostr.str());
+      this->TickLabels->InsertNextValue(this->GenerateSimpleLabel(value));
       }
     else
       {

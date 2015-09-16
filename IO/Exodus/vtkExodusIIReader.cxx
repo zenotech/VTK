@@ -1010,13 +1010,23 @@ int vtkExodusIIReaderPrivate::AssembleOutputGlobalArrays(
     }
 
   // Add mode_shape/time_step
+  if (this->HasModeShapes)
     {
     vtkNew<vtkIntArray> dataIndexArray;
     dataIndexArray->SetName("mode_shape");
     dataIndexArray->SetNumberOfComponents(1);
     dataIndexArray->SetNumberOfTuples(1);
-    dataIndexArray->SetValue(0, timeStep);
+    // mode-shape == (timestep + 1). See vtkExodusIIReader::SetModeShape().
+    dataIndexArray->SetValue(0, (timeStep + 1));
     ofieldData->AddArray(dataIndexArray.GetPointer());
+
+    vtkNew<vtkIntArray> modeShapeRange;
+    modeShapeRange->SetName("mode_shape_range");
+    modeShapeRange->SetNumberOfComponents(2);
+    modeShapeRange->SetNumberOfTuples(1);
+    modeShapeRange->SetValue(0, this->Parent->GetModeShapesRange()[0]);
+    modeShapeRange->SetValue(1, this->Parent->GetModeShapesRange()[1]);
+    ofieldData->AddArray(modeShapeRange.GetPointer());
     }
 
   vtkExodusIICacheKey infokey( -1, vtkExodusIIReader::INFO_RECORDS, 0, 0 );
@@ -1424,8 +1434,14 @@ void vtkExodusIIReaderPrivate::AddPointArray(
     dest->SetName( src->GetName() );
     dest->SetNumberOfComponents( src->GetNumberOfComponents() );
     dest->SetNumberOfTuples( bsinfop->NextSqueezePoint );
-    std::map<vtkIdType,vtkIdType>::iterator it;
-    for ( it = bsinfop->PointMap.begin(); it != bsinfop->PointMap.end(); ++ it )
+    std::map<vtkIdType,vtkIdType>::iterator it, itEnd;
+    //
+    // I moved the end condition of the loop out of the for(;;) loop.
+    //   Assuming it doesn't change within the loop itself!
+    //   The reason is that the code was making the call every loop.
+    //
+    itEnd = bsinfop->PointMap.end();
+    for ( it = bsinfop->PointMap.begin(); it != itEnd; ++ it )
       {
       pd->CopyTuple( src, dest, it->first, it->second );
       }
@@ -1709,13 +1725,31 @@ vtkDataArray* vtkExodusIIReaderPrivate::GetCacheOrRead( vtkExodusIICacheKey key 
       std::vector<double> tmpTuple;
       tmpTuple.resize( ncomps );
       tmpTuple[ncomps - 1] = 0.; // In case we're embedding a 2-D vector in 3-D
-      for ( t = 0; t < arr->GetNumberOfTuples(); ++t )
+
+      //
+      // Lets unroll the most common case - components == 3.
+      //
+      if ( ainfop->Components == 3)
         {
-        for ( c = 0; c < ainfop->Components; ++c )
+        int maxTuples =  arr->GetNumberOfTuples();
+        for ( t = 0; t < maxTuples; ++t )
           {
-          tmpTuple[c] = tmpVal[c][t];
+          tmpTuple[0] = tmpVal[0][t];
+          tmpTuple[1] = tmpVal[1][t];
+          tmpTuple[2] = tmpVal[2][t];
+          arr->SetTuple( t, &tmpTuple[0] );
           }
-        arr->SetTuple( t, &tmpTuple[0] );
+        }
+      else
+        {
+        for ( t = 0; t < arr->GetNumberOfTuples(); ++t )
+          {
+          for ( c = 0; c < ainfop->Components; ++c )
+            {
+            tmpTuple[c] = tmpVal[c][t];
+            }
+          arr->SetTuple( t, &tmpTuple[0] );
+          }
         }
       }
     }
@@ -1992,7 +2026,11 @@ vtkDataArray* vtkExodusIIReaderPrivate::GetCacheOrRead( vtkExodusIICacheKey key 
         arr = 0;
         return 0;
         }
-      for ( vtkIdType i = 0; i < arr->GetNumberOfTuples(); ++i )
+      //
+      // Move the check of maxTuples out of the for(;;) loop.
+      //
+      vtkIdType maxTuples =  arr->GetNumberOfTuples();
+      for ( vtkIdType i = 0; i < maxTuples; ++i )
         {
         iarr->SetValue( i, tmpMap[i] );
         }
@@ -2269,7 +2307,11 @@ vtkDataArray* vtkExodusIIReaderPrivate::GetCacheOrRead( vtkExodusIICacheKey key 
           }
         else
           {
-          for ( vtkIdType i = 0; i < iarr->GetNumberOfTuples(); ++i )
+          //
+          // Move getting the maxTuples from the for(;;) loop.
+          //
+          vtkIdType maxTuples = iarr->GetNumberOfTuples();
+          for ( vtkIdType i = 0; i < maxTuples ; ++i )
             {
             iarr->SetValue( i, tmpMap[i] );
             }
@@ -2637,7 +2679,24 @@ vtkDataArray* vtkExodusIIReaderPrivate::GetCacheOrRead( vtkExodusIICacheKey key 
         break;
         }
       double* cptr = darr->GetPointer( c );
-      for ( t = 0; t < this->ModelParameters.num_nodes; ++t )
+
+      //
+      // num_nodes can get big.  Lets unroll the loop
+      //
+      for ( t = 0; t+8 < this->ModelParameters.num_nodes; t+=8 )
+        {
+        *(cptr+3*0) = coordTmp[t+0];
+        *(cptr+3*1) = coordTmp[t+1];
+        *(cptr+3*2) = coordTmp[t+2];
+        *(cptr+3*3) = coordTmp[t+3];
+        *(cptr+3*4) = coordTmp[t+4];
+        *(cptr+3*5) = coordTmp[t+5];
+        *(cptr+3*6) = coordTmp[t+6];
+        *(cptr+3*7) = coordTmp[t+7];
+        cptr += 3*8;
+        }
+
+      for ( ; t < this->ModelParameters.num_nodes; ++t )
         {
         *cptr = coordTmp[t];
         cptr += 3;
@@ -2651,29 +2710,66 @@ vtkDataArray* vtkExodusIIReaderPrivate::GetCacheOrRead( vtkExodusIICacheKey key 
         *cptr = 0.;
         }
       }
+    //
+    // Unrolling some of the inner loops for the most common case - dim 3.
+    // Also moving the maxTuples from inside of the for(;;) loops
+    // Also moving cos() calculations out of the bottom of loops.
+    //
     if ( displ )
       {
       double* coords = darr->GetPointer( 0 );
       if ( this->HasModeShapes && this->AnimateModeShapes )
         {
-        for ( vtkIdType idx = 0; idx < displ->GetNumberOfTuples(); ++idx )
+        double tempDouble = this->DisplacementMagnitude * cos(2.0 * vtkMath::Pi() * this->ModeShapeTime);
+        if ( dim == 3)
           {
-          double* dispVal = displ->GetTuple( idx );
-          for ( c = 0; c < dim; ++c )
-            coords[c] += dispVal[c] * this->DisplacementMagnitude * cos( 2. * vtkMath::Pi() * this->ModeShapeTime );
+          vtkIdType  maxTuples =  arr->GetNumberOfTuples();
+          for ( vtkIdType idx = 0; idx < maxTuples; ++idx )
+            {
+            double* dispVal = displ->GetTuple( idx );
+            coords[0] += dispVal[0] * tempDouble;
+            coords[1] += dispVal[1] * tempDouble;
+            coords[2] += dispVal[2] * tempDouble;
+            coords += 3;
+            }
+          }
+        else
+          {
+          for ( vtkIdType idx = 0; idx < displ->GetNumberOfTuples(); ++idx )
+            {
+            double* dispVal = displ->GetTuple( idx );
+            for ( c = 0; c < dim; ++c )
+              coords[c] += dispVal[c] * tempDouble;
 
-          coords += 3;
+            coords += 3;
+            }
           }
         }
       else
         {
-        for ( vtkIdType idx = 0; idx < displ->GetNumberOfTuples(); ++idx )
+        if ( dim == 3)
           {
-          double* dispVal = displ->GetTuple( idx );
-          for ( c = 0; c < dim; ++c )
-            coords[c] += dispVal[c] * this->DisplacementMagnitude;
+          vtkIdType  maxTuples =  arr->GetNumberOfTuples();
+          for ( vtkIdType idx = 0; idx < maxTuples; ++idx )
+            {
+            double* dispVal = displ->GetTuple( idx );
+            coords[0] += dispVal[0] * this->DisplacementMagnitude;
+            coords[1] += dispVal[1] * this->DisplacementMagnitude;
+            coords[2] += dispVal[2] * this->DisplacementMagnitude;
 
-          coords += 3;
+            coords += 3;
+            }
+          }
+        else
+          {
+          for ( vtkIdType idx = 0; idx < displ->GetNumberOfTuples(); ++idx )
+            {
+            double* dispVal = displ->GetTuple( idx );
+            for ( c = 0; c < dim; ++c )
+              coords[c] += dispVal[c] * this->DisplacementMagnitude;
+
+            coords += 3;
+            }
           }
         }
       }
@@ -3060,6 +3156,8 @@ void vtkExodusIIReaderPrivate::DetermineVtkCellType( BlockInfoType& binfo )
     { binfo.CellType=VTK_QUADRATIC_EDGE;           binfo.PointsPerCell = 3; }
   else if ((elemType.substr(0,3) == "EDG") &&      (binfo.BdsPerEntry[0] == 3))
     { binfo.CellType=VTK_QUADRATIC_EDGE;           binfo.PointsPerCell = 3; }
+  else if ((elemType.substr(0,3) == "PYR") &&      (binfo.BdsPerEntry[0] == 13))
+    { binfo.CellType=VTK_QUADRATIC_PYRAMID;        binfo.PointsPerCell = 13; }
 
   // Check for regular elements
   else if (elemType.substr(0,3) == "CIR") { binfo.CellType = VTK_VERTEX;     binfo.PointsPerCell = 1; }
@@ -4382,6 +4480,8 @@ int vtkExodusIIReaderPrivate::SetUpEmptyGrid( vtkMultiBlockDataSet* output )
     mbds = vtkMultiBlockDataSet::New();
     mbds->SetNumberOfBlocks( numObj );
     output->SetBlock( conntypidx, mbds );
+    output->GetMetaData(conntypidx)->Set(vtkCompositeDataSet::NAME(),
+      conn_types_names[conntypidx]);
     mbds->FastDelete();
     int obj;
     int sortIdx;
@@ -5323,7 +5423,6 @@ int vtkExodusIIReader::RequestData(
       }
     }
 
-  //cout << "Requesting step " << this->TimeStep << " for output " << output << "\n";
   this->Metadata->RequestData( this->TimeStep, output );
 
   return 1;
@@ -6196,9 +6295,21 @@ bool vtkExodusIIReader::FindXMLFile()
 
 void vtkExodusIIReader::AdvertiseTimeSteps( vtkInformation* outInfo )
 {
+  // This method is called in vtkExodusIIReader::RequestInformation() to update
+  // information about timesteps. Since this gets called after this->Metadata
+  // has processed the file meta-data it's a good place to update iVars that
+  // reflect the meta-data read from the file about timesteps/mode shapes.
+
+  int nTimes = static_cast<int>(this->Metadata->Times.size());
+  this->TimeStepRange[0] = 0;
+  this->TimeStepRange[1] = (nTimes > 0)? (nTimes-1) : 0;
+
+  // Since modeshape range is 1 indexed.
+  this->ModeShapesRange[0] = this->TimeStepRange[0] + 1;
+  this->ModeShapesRange[1] = this->TimeStepRange[1] + 1;
+
   if ( ! this->GetHasModeShapes() )
     {
-    int nTimes = (int) this->Metadata->Times.size();
     double timeRange[2];
     if ( nTimes )
       {
@@ -6206,7 +6317,6 @@ void vtkExodusIIReader::AdvertiseTimeSteps( vtkInformation* outInfo )
       timeRange[1] = this->Metadata->Times[nTimes - 1];
       outInfo->Set( vtkStreamingDemandDrivenPipeline::TIME_STEPS(), &this->Metadata->Times[0], nTimes );
       outInfo->Set( vtkStreamingDemandDrivenPipeline::TIME_RANGE(), timeRange, 2 );
-      this->TimeStepRange[0] = 0; this->TimeStepRange[1] = nTimes - 1;
       }
     }
   else if (this->GetAnimateModeShapes())
@@ -6256,23 +6366,4 @@ bool vtkExodusIIReader::GetSqueezePoints()
 void vtkExodusIIReader::ResetCache()
 {
   this->Metadata->ResetCache();
-}
-
-void vtkExodusIIReader::UpdateTimeInformation()
-{
-  if ( this->Metadata->OpenFile( this->FileName ) )
-    {
-    this->Metadata->UpdateTimeInformation();
-
-    if ( ! this->GetHasModeShapes() )
-      {
-      int nTimes = (int) this->Metadata->Times.size();
-      if ( nTimes )
-        {
-        this->TimeStepRange[0] = 0;
-        this->TimeStepRange[1] = nTimes - 1;
-        }
-      }
-    this->Metadata->CloseFile();
-    }
 }

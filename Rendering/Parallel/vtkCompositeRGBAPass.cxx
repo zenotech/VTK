@@ -32,7 +32,7 @@
 #include "vtkPixelBufferObject.h"
 #include "vtkImageExtractComponents.h"
 #include "vtkMultiProcessController.h"
-#include <vtksys/ios/sstream>
+#include <sstream>
 #include "vtkTimerLog.h"
 #include "vtkStdString.h"
 #include "vtkImageData.h"
@@ -48,7 +48,9 @@
 # include "vtkOpenGLState.h"
 #endif
 
-#ifndef VTKGL2
+#ifdef VTK_OPENGL2
+# include "vtk_glew.h"
+#else
 # include "vtkgl.h"
 # include "vtkOpenGLExtensionManager.h"
 #endif
@@ -123,7 +125,7 @@ void vtkCompositeRGBAPass::PrintSelf(ostream& os, vtkIndent indent)
 // ----------------------------------------------------------------------------
 bool vtkCompositeRGBAPass::IsSupported(vtkOpenGLRenderWindow *context)
 {
-#ifdef VTKGL2
+#ifdef VTK_OPENGL2
   return (context != 0);
 #else
   vtkOpenGLExtensionManager *extmgr = context->GetExtensionManager();
@@ -302,7 +304,7 @@ void vtkCompositeRGBAPass::Render(const vtkRenderState *s)
 //    rgbaToRgb->SetInputConnection(importer->GetOutputPort());
 //    rgbaToRgb->SetComponents(0,1,2);
 
-    vtksys_ios::ostringstream ostxx;
+    std::ostringstream ostxx;
     ostxx.setf(ios::fixed,ios::floatfield);
     ostxx.precision(5);
     timer->StopTimer();
@@ -354,7 +356,7 @@ void vtkCompositeRGBAPass::Render(const vtkRenderState *s)
 
   // framebuffers have their color premultiplied by alpha.
 
-#ifdef VTKGL2
+#ifdef VTK_OPENGL2
     // save off current state of src / dst blend functions
     GLint blendSrcA;
     GLint blendDstA;
@@ -447,7 +449,7 @@ void vtkCompositeRGBAPass::Render(const vtkRenderState *s)
         glEnable(GL_BLEND);
         blendingEnabled=true;
         }
-#ifdef VTKGL2
+#ifdef VTK_OPENGL2
       to->Activate();
       to->CopyToFrameBuffer(0, 0, w - 1, h - 1, 0, 0, w, h, NULL, NULL);
       to->Deactivate();
@@ -504,7 +506,7 @@ void vtkCompositeRGBAPass::Render(const vtkRenderState *s)
 //    rgbaToRgb->SetInputConnection(importer->GetOutputPort());
 //    rgbaToRgb->SetComponents(0,1,2);
 
-    vtksys_ios::ostringstream osty;
+    std::ostringstream osty;
     osty.setf(ios::fixed,ios::floatfield);
     osty.precision(5);
     timer->StopTimer();
@@ -571,7 +573,7 @@ void vtkCompositeRGBAPass::Render(const vtkRenderState *s)
 //    rgbaToRgb->SetInputConnection(importer->GetOutputPort());
 //    rgbaToRgb->SetComponents(0,1,2);
 
-    vtksys_ios::ostringstream ostxx;
+    std::ostringstream ostxx;
     ostxx.setf(ios::fixed,ios::floatfield);
     ostxx.precision(5);
     timer->StopTimer();

@@ -400,6 +400,8 @@ int vtkSampleFunction::RequestInformation (
   vtkDataObject::
     SetPointDataActiveScalarInfo(outInfo,this->OutputScalarType,1);
 
+  outInfo->Set(vtkAlgorithm::CAN_PRODUCE_SUB_EXTENT(), 1);
+
   return 1;
 }
 
@@ -476,18 +478,6 @@ unsigned long vtkSampleFunction::GetMTime()
 
   return mTime;
 }
-
-//----------------------------------------------------------------------------
-#ifndef VTK_LEGACY_REMOVE
-void vtkSampleFunction::SetScalars(vtkDataArray *da)
-{
-  VTK_LEGACY_BODY(vtkSampleFunction::SetScalars, "VTK 6.0");
-  if (da)
-    {
-    this->SetOutputScalarType(da->GetDataType());
-    }
-}
-#endif
 
 //----------------------------------------------------------------------------
 void vtkSampleFunction::PrintSelf(ostream& os, vtkIndent indent)

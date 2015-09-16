@@ -45,7 +45,6 @@ set(Module_SRCS
   vtkEdgeListIterator.cxx
   vtkEdgeTable.cxx
   vtkEmptyCell.cxx
-  vtkExplicitCell.cxx
   vtkExtractStructuredGridHelper.cxx
   vtkFieldData.cxx
   vtkGenericAdaptorCell.cxx
@@ -117,6 +116,7 @@ set(Module_SRCS
   vtkPiecewiseFunction.cxx
   vtkPixel.cxx
   vtkPixelExtent.cxx
+  vtkPixelTransfer.cxx
   vtkPlaneCollection.cxx
   vtkPlane.cxx
   vtkPlanes.cxx
@@ -227,7 +227,6 @@ set_source_files_properties(
   vtkDataSet
   vtkDataSetGhostGenerator
   vtkDistributedGraphHelper
-  vtkExplicitCell
   vtkGenericAttribute
   vtkGenericAdaptorCell
   vtkGenericCellIterator
@@ -270,6 +269,7 @@ set_source_files_properties(
   vtkImageIterator
   vtkImageProgressIterator
   vtkPixelExtent.cxx
+  vtkPixelTransfer.cxx
   vtkVector
   vtkColor
   vtkRect
@@ -279,6 +279,8 @@ set_source_files_properties(
   )
 
 set_source_files_properties(
+  vtkAtom
+  vtkBond
   vtkCellType.h
   vtkBoundingBox.cxx
   vtkColor.h

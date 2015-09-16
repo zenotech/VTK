@@ -33,7 +33,7 @@
 #include "vtkQuadratureSchemeDefinition.h"
 #include "vtkInformationStringKey.h"
 
-#include <vtksys/ios/sstream>
+#include <sstream>
 #include <sys/stat.h>
 #include <cassert>
 #include <locale> // C++ locale
@@ -60,7 +60,7 @@ static void ReadStringVersion(const char* version, int& major, int& minor)
 
   if (s > begin)
     {
-    vtksys_ios::stringstream str;
+    std::stringstream str;
     str.write(begin, s-begin);
     str >> major;
     if (!str)
@@ -70,7 +70,7 @@ static void ReadStringVersion(const char* version, int& major, int& minor)
     }
   if (++s < end)
     {
-    vtksys_ios::stringstream str;
+    std::stringstream str;
     str.write(s, end-s);
     str >> minor;
     if (!str)
@@ -631,9 +631,9 @@ int vtkXMLReader::ReadVTKFile(vtkXMLDataElement* eVTKFile)
   const char* version = eVTKFile->GetAttribute("version");
   if (version && !this->CanReadFileVersionString(version))
     {
-    vtkErrorMacro("File version: " << version << " is is higher than "
-                  "this reader supports. Cannot read file.");
-    return 0;
+    vtkWarningMacro("File version: " << version << " is higher than "
+                    "this reader supports " << vtkXMLReaderMajorVersion << "."
+                    << vtkXMLReaderMinorVersion);
     }
 
   ::ReadStringVersion(version, this->FileMajorVersion, this->FileMinorVersion);
@@ -786,7 +786,7 @@ vtkAbstractArray* vtkXMLReader::CreateArray(vtkXMLDataElement* da)
 
   //determine what component names have been saved in the file.
   const char* compName = 0;
-  vtksys_ios::ostringstream buff;
+  std::ostringstream buff;
   for (int i = 0; i < components && i < 10; ++i)
     {
     //get the component names
@@ -839,18 +839,7 @@ int vtkXMLReader::CanReadFile(const char* name)
     {
     if (this->CanReadFileWithDataType(tester->GetFileDataType()))
       {
-      const char* version = tester->GetFileVersion();
-      if (version)
-        {
-        if (this->CanReadFileVersionString(version))
-          {
-          result = 3;
-          }
-        }
-      else
-        {
-        result = 3;
-        }
+      result = 1;
       }
     }
 
@@ -1035,7 +1024,7 @@ void vtkXMLReader::SetDataArraySelections(
       }
     else
       {
-      vtksys_ios::ostringstream s;
+      std::ostringstream s;
       s << "Array " << i;
       sel->AddArray(s.str().c_str());
       }

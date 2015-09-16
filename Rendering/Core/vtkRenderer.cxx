@@ -111,6 +111,8 @@ vtkRenderer::vtkRenderer()
 
   this->GL2PSSpecialPropCollection = NULL;
 
+  this->UseShadows = 0;
+
   this->UseDepthPeeling=0;
   this->OcclusionRatio=0.0;
   this->MaximumNumberOfPeels=4;
@@ -1365,6 +1367,8 @@ void vtkRenderer::PrintSelf(ostream& os, vtkIndent indent)
   os << indent << "Layer = " << this->Layer << "\n";
   os << indent << "PreserveDepthBuffer: " <<
     (this->PreserveDepthBuffer? "On" : "Off") << "\n";
+  os << indent << "PreserveColorBuffer: " <<
+    (this->PreserveColorBuffer? "On" : "Off") << "\n";
   os << indent << "Interactive = " << (this->Interactive ? "On" : "Off")
      << "\n";
 

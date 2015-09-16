@@ -114,10 +114,11 @@ int vtkXMLUnstructuredDataWriter::ProcessRequest(vtkInformation* request,
     {
     this->SetErrorCode(vtkErrorCode::NoError);
 
-    if(!this->Stream && !this->FileName)
+    if(!this->Stream && !this->FileName && !this->WriteToOutputString)
       {
       this->SetErrorCode(vtkErrorCode::NoFileNameError);
-      vtkErrorMacro("The FileName or Stream must be set first.");
+      vtkErrorMacro("The FileName or Stream must be set first or "
+        "the output must be written to a string.");
       return 0;
       }
 
@@ -549,7 +550,7 @@ void vtkXMLUnstructuredDataWriter::WriteAppendedPieceData(int index)
   this->SetProgressRange(progressRange, 2, fractions);
 
   // Write the point specification array.
-  // Since we are writting the point let save the Modified Time of vtkPoints:
+  // Since we are writing the point let save the Modified Time of vtkPoints:
   this->WritePointsAppendedData(input->GetPoints(), this->CurrentTimeIndex,
                                 &this->PointsOM->GetPiece(index));
 }
@@ -679,6 +680,21 @@ void vtkXMLUnstructuredDataWriter::WriteCellsInlineWorker(
 }
 
 //----------------------------------------------------------------------------
+// void vtkXMLUnstructuredDataWriter::WriteCellsAppended(const char* name,
+//                                                       vtkDataArray* types,
+//                                                       vtkIdTypeArray* faces,
+//                                                       vtkIdTypeArray* faceOffsets,
+//                                                       vtkIndent indent,
+//                                                       OffsetsManagerGroup *cellsManager)
+// {
+// <<<<<<< HEAD
+//   this->ConvertFaces(faces, faceOffsets);
+
+// =======
+//   this->WriteCellsAppended(name, types, 0, 0, indent, cellsManager);
+// }
+
+//----------------------------------------------------------------------------
 void vtkXMLUnstructuredDataWriter::WriteCellsAppended(const char* name,
                                                       vtkDataArray* types,
                                                       vtkIdTypeArray* faces,
@@ -686,7 +702,7 @@ void vtkXMLUnstructuredDataWriter::WriteCellsAppended(const char* name,
                                                       vtkIndent indent,
                                                       OffsetsManagerGroup *cellsManager)
 {
-  this->ConvertFaces(faces, faceOffsets);
+  this->ConvertFaces(faces,faceOffsets);
 
   ostream& os = *(this->Stream);
   os << indent << "<" << name << ">\n";
@@ -738,7 +754,11 @@ void vtkXMLUnstructuredDataWriter::WriteCellsAppended(
     types->InsertNextValue(static_cast<unsigned char>(cellIter->GetCellType()));
     }
 
+<<<<<<< HEAD
   this->WriteCellsAppended(name, types.GetPointer(), NULL, NULL, indent, cellsManager);
+=======
+  this->WriteCellsAppended(name, types.GetPointer(), 0, 0, indent, cellsManager);
+>>>>>>> upstream/master
 }
 
 //----------------------------------------------------------------------------

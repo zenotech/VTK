@@ -202,6 +202,7 @@ int vtkQuadraticWedge::EvaluatePosition(double* x,
     d=vtkMath::Determinant3x3(rcol,scol,tcol);
     if ( fabs(d) < 1.e-20)
       {
+      vtkDebugMacro (<<"Determinant incorrect, iteration " << iteration);
       return -1;
       }
 
@@ -415,12 +416,12 @@ int vtkQuadraticWedge::IntersectWithLine(double* p1, double* p2,
     {
 // We have 8 nodes on rect face
 // and 6 on triangle faces
-    if(faceNum > 2)
+    if(faceNum < 2)
       {
       for (int i=0; i<6; i++)
         {
-        this->TriangleFace->PointIds->SetId(i,
-              this->PointIds->GetId(WedgeFaces[faceNum][i]));
+        this->TriangleFace->Points->SetPoint(i,
+              this->Points->GetPoint(WedgeFaces[faceNum][i]));
         }
       inter = this->TriangleFace->IntersectWithLine(p1, p2, tol, tTemp,
                                       xTemp, pc, subId);

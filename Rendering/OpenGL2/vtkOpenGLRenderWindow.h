@@ -26,21 +26,15 @@
 #include "vtkRenderWindow.h"
 #include <map> // for ivar
 
-#include "vtk_glew.h" // Needed for GLuint.
-
 class vtkIdList;
 class vtkOpenGLHardwareSupport;
-class vtkTextureUnitManager;
 class vtkOpenGLShaderCache;
+class vtkOpenGLVertexArrayObject;
+class vtkShaderProgram;
 class vtkStdString;
 class vtkTexture;
 class vtkTextureObject;
-class vtkShaderProgram;
-
-namespace vtkgl
-{
-class VertexArrayObject;
-}
+class vtkTextureUnitManager;
 
 class VTKRENDERINGOPENGL2_EXPORT vtkOpenGLRenderWindow : public vtkRenderWindow
 {
@@ -189,13 +183,6 @@ public:
   unsigned int GetFrontBuffer();
 
   // Description:
-  // @deprecated Replaced by
-  // vtkOpenGLCheckErrorMacro
-  VTK_LEGACY(virtual void CheckGraphicError());
-  VTK_LEGACY(virtual int HasGraphicError());
-  VTK_LEGACY(virtual const char *GetLastGraphicErrorString());
-
-  // Description:
   // Get the time when the OpenGL context was created.
   virtual unsigned long GetContextCreationTime();
 
@@ -212,20 +199,6 @@ public:
   // Block the thread until the actual rendering is finished().
   // Useful for measurement only.
   virtual void WaitForCompletion();
-
-  // Description:
-  // Helper function that draws a quad on the screen
-  // at the specified vertex coordinates and if
-  // tcoords are not NULL with the specified
-  // texture coordinates.
-  static void RenderQuad(
-    float *verts, float *tcoords,
-    vtkShaderProgram *program, vtkgl::VertexArrayObject *vao);
-  static void RenderTriangles(
-    float *verts, unsigned int numVerts,
-    GLuint *indices, unsigned int numIndices,
-    float *tcoords,
-    vtkShaderProgram *program, vtkgl::VertexArrayObject *vao);
 
   // Description:
   // Replacement for the old glDrawPixels function
@@ -245,6 +218,11 @@ public:
   // the data to the entire current viewport scaling as needed.
   virtual void DrawPixels(
     int srcWidth, int srcHeight, int numComponents, int dataType, void *data);
+
+  // Description:
+  // Return the largest line width supported by the hardware
+  virtual float GetMaximumHardwareLineWidth() {
+    return this->MaximumHardwareLineWidth; };
 
 protected:
   vtkOpenGLRenderWindow();
@@ -304,6 +282,17 @@ protected:
   // Set the texture unit manager.
   void SetTextureUnitManager(vtkTextureUnitManager *textureUnitManager);
 
+
+  // Description:
+  // Query and save OpenGL state
+  void SaveGLState();
+
+  // Description:
+  // Restore OpenGL state at end of the rendering
+  void RestoreGLState();
+
+  std::map<std::string, int> GLStateIntegers;
+
   unsigned int BackLeftBuffer;
   unsigned int BackRightBuffer;
   unsigned int FrontLeftBuffer;
@@ -329,6 +318,8 @@ protected:
   vtkTextureObject *DrawPixelsTextureObject;
 
   bool Initialized; // ensure glewinit has been called
+
+  float MaximumHardwareLineWidth;
 
 private:
   vtkOpenGLRenderWindow(const vtkOpenGLRenderWindow&);  // Not implemented.

@@ -29,7 +29,7 @@
 #include <cassert>
 #include <limits> // man, I hope all platforms have this nowadays
 
-#include <vtksys/ios/sstream>
+#include <sstream>
 
 #define BEGIN_TRANSACTION "BEGIN"
 #define COMMIT_TRANSACTION "COMMIT"
@@ -315,7 +315,7 @@ bool vtkPostgreSQLQuery::Execute()
     {
     returnStatus = false;
     this->Active = false;
-    vtksys_ios::ostringstream sbuf;
+    std::ostringstream sbuf;
     sbuf << "Unhandled server response: ";
     sbuf << PQresStatus(PQresultStatus(this->QueryInternals->QueryResults));
     this->SetLastErrorText(sbuf.str().c_str());
@@ -912,7 +912,7 @@ vtkVariant ConvertStringToVtkIdType(bool isBinary, const char *rawData)
     }
   else
     {
-    vtksys_ios::stringstream convertStream;
+    std::stringstream convertStream;
     convertStream.str(rawData);
     vtkIdType result;
     convertStream >> result;

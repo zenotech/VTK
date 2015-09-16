@@ -20,16 +20,14 @@
 #include "vtkOpenGLRenderWindow.h"
 #include "vtkShader.h"
 #include "vtkShaderProgram.h"
-#include "vtkglVBOHelper.h"
+#include "vtkOpenGLHelper.h"
 
 #include <math.h>
 #include <sstream>
 
 
-#include "vtksys/MD5.h"
 
-using vtkgl::replace;
-using vtkgl::substitute;
+#include "vtksys/MD5.h"
 
 class vtkOpenGLShaderCache::Private
 {
@@ -94,30 +92,34 @@ vtkOpenGLShaderCache::~vtkOpenGLShaderCache()
   delete this->Internal;
 }
 
-// return NULL if there is an issue
-vtkShaderProgram *vtkOpenGLShaderCache::ReadyShader(
-  const char *vertexCode,
-  const char *fragmentCode,
-  const char *geometryCode)
+// perform System and Output replacments
+unsigned int vtkOpenGLShaderCache::ReplaceShaderValues(
+  std::string &VSSource,
+  std::string &FSSource,
+  std::string &GSSource)
 {
-  // perform system wide shader replacements
-  // desktops to not use percision statements
+  // first handle renaming any Fragment shader inputs
+  // if we have a geometry shader. By deafult fragment shaders
+  // assume their inputs come from a Vertex Shader. When we
+  // have a Geometry shader we rename the frament shader inputs
+  // to come from the geometry shader
+  if (GSSource.size() > 0)
+    {
+    vtkShaderProgram::Substitute(FSSource,"VSOut","GSOut");
+    }
 
 #if GL_ES_VERSION_2_0 != 1
   unsigned int count = 0;
-  std::string VSSource = vertexCode;
-  std::string FSSource = fragmentCode;
-  std::string GSSource = geometryCode;
   if (vtkOpenGLRenderWindow::GetContextSupportsOpenGL32())
     {
-    VSSource = replace(VSSource,"//VTK::System::Dec",
+    vtkShaderProgram::Substitute(VSSource,"//VTK::System::Dec",
       "#version 150\n"
       "#define attribute in\n"
       "#define varying out\n"
       "#define highp\n"
       "#define mediump\n"
       "#define lowp");
-    FSSource = replace(FSSource,"//VTK::System::Dec",
+    vtkShaderProgram::Substitute(FSSource,"//VTK::System::Dec",
       "#version 150\n"
       "#define varying in\n"
       "#define highp\n"
@@ -127,6 +129,12 @@ vtkShaderProgram *vtkOpenGLShaderCache::ReadyShader(
       "#define texture1D texture\n"
       "#define texture2D texture\n"
       "#define texture3D texture\n"
+      );
+    vtkShaderProgram::Substitute(GSSource,"//VTK::System::Dec",
+      "#version 150\n"
+      "#define highp\n"
+      "#define mediump\n"
+      "#define lowp"
       );
     std::string fragDecls;
     bool done = false;
@@ -138,15 +146,15 @@ vtkShaderProgram *vtkOpenGLShaderCache::ReadyShader(
       // this naming has to match the bindings
       // in vtkOpenGLShaderProgram.cxx
       dst << "fragOutput" << count;
-      done = !substitute(FSSource, src.str(),dst.str());
+      done = !vtkShaderProgram::Substitute(FSSource, src.str(),dst.str());
       if (!done)
         {
         fragDecls += "out vec4 " + dst.str() + ";\n";
         count++;
         }
       }
-    FSSource = replace(FSSource,"//VTK::Output::Dec",fragDecls);
-    GSSource = replace(GSSource,"//VTK::System::Dec",
+    vtkShaderProgram::Substitute(FSSource,"//VTK::Output::Dec",fragDecls);
+    vtkShaderProgram::Substitute(GSSource,"//VTK::System::Dec",
       "#version 150\n"
       "#define highp\n"
       "#define mediump\n"
@@ -154,38 +162,82 @@ vtkShaderProgram *vtkOpenGLShaderCache::ReadyShader(
     }
   else
     {
-    VSSource = replace(VSSource,"//VTK::System::Dec",
+    vtkShaderProgram::Substitute(VSSource,"//VTK::System::Dec",
       "#version 120\n"
       "#define highp\n"
       "#define mediump\n"
       "#define lowp");
-    FSSource = replace(FSSource,"//VTK::System::Dec",
+    vtkShaderProgram::Substitute(FSSource,"//VTK::System::Dec",
       "#version 120\n"
       "#extension GL_EXT_gpu_shader4 : require\n"
       "#define highp\n"
       "#define mediump\n"
       "#define lowp");
-    GSSource = replace(GSSource,"//VTK::System::Dec",
+    vtkShaderProgram::Substitute(GSSource,"//VTK::System::Dec",
       "#version 120\n"
       "#define highp\n"
       "#define mediump\n"
       "#define lowp");
     }
-  vtkShaderProgram *shader = this->GetShader(VSSource.c_str(), FSSource.c_str(), GSSource.c_str());
-  shader->SetNumberOfOutputs(count);
+  return count;
 #else
-  std::string FSSource = fragmentCode;
-  FSSource = replace(FSSource,"//VTK::System::Dec",
-                               "#ifdef GL_ES\n"
-                               "#ifdef GL_FRAGMENT_PRECISION_HIGH\n"
-                               "precision highp float;\n"
-                               "#else\n"
-                               "precision mediump float;\n"
-                               "#endif\n"
-                               "#endif\n");
-  vtkShaderProgram *shader = this->GetShader(vertexCode, FSSource.c_str(), geometryCode);
+  vtkShaderProgram::Substitute(FSSource,"//VTK::System::Dec",
+     "#ifdef GL_ES\n"
+     "#ifdef GL_FRAGMENT_PRECISION_HIGH\n"
+     "precision highp float;\n"
+     "#else\n"
+     "precision mediump float;\n"
+     "#endif\n"
+     "#endif\n");
+  return 0;
 #endif
+}
 
+vtkShaderProgram *vtkOpenGLShaderCache::ReadyShaderProgram(
+  std::map<vtkShader::Type,vtkShader *> shaders)
+{
+  std::string VSSource = shaders[vtkShader::Vertex]->GetSource();
+  std::string FSSource = shaders[vtkShader::Fragment]->GetSource();
+  std::string GSSource = shaders[vtkShader::Geometry]->GetSource();
+
+  unsigned int count =
+    this->ReplaceShaderValues(VSSource,FSSource,GSSource);
+  shaders[vtkShader::Vertex]->SetSource(VSSource);
+  shaders[vtkShader::Fragment]->SetSource(FSSource);
+  shaders[vtkShader::Geometry]->SetSource(GSSource);
+
+  vtkShaderProgram *shader = this->GetShaderProgram(shaders);
+  shader->SetNumberOfOutputs(count);
+
+  return this->ReadyShaderProgram(shader);
+}
+
+// return NULL if there is an issue
+vtkShaderProgram *vtkOpenGLShaderCache::ReadyShaderProgram(
+  const char *vertexCode,
+  const char *fragmentCode,
+  const char *geometryCode)
+{
+  // perform system wide shader replacements
+  // desktops to not use percision statements
+  std::string VSSource = vertexCode;
+  std::string FSSource = fragmentCode;
+  std::string GSSource = geometryCode;
+
+  unsigned int count =
+    this->ReplaceShaderValues(VSSource,FSSource,GSSource);
+  vtkShaderProgram *shader =
+    this->GetShaderProgram(
+      VSSource.c_str(), FSSource.c_str(), GSSource.c_str());
+  shader->SetNumberOfOutputs(count);
+
+  return this->ReadyShaderProgram(shader);
+}
+
+// return NULL if there is an issue
+vtkShaderProgram *vtkOpenGLShaderCache::ReadyShaderProgram(
+    vtkShaderProgram *shader)
+{
   if (!shader)
     {
     return NULL;
@@ -206,26 +258,37 @@ vtkShaderProgram *vtkOpenGLShaderCache::ReadyShader(
   return shader;
 }
 
-// return NULL if there is an issue
-vtkShaderProgram *vtkOpenGLShaderCache::ReadyShader(
-    vtkShaderProgram *shader)
+vtkShaderProgram *vtkOpenGLShaderCache::GetShaderProgram(
+  std::map<vtkShader::Type,vtkShader *> shaders)
 {
-  // compile if needed
-  if (!shader->GetCompiled() && !shader->CompileShader())
-    {
-    return NULL;
-    }
+  // compute the MD5 and the check the map
+  std::string result;
+  this->Internal->ComputeMD5(
+    shaders[vtkShader::Vertex]->GetSource().c_str(),
+    shaders[vtkShader::Fragment]->GetSource().c_str(),
+    shaders[vtkShader::Geometry]->GetSource().c_str(), result);
 
-  // bind if needed
-  if (!this->BindShader(shader))
+  // does it already exist?
+  typedef std::map<std::string,vtkShaderProgram*>::const_iterator SMapIter;
+  SMapIter found = this->Internal->ShaderPrograms.find(result);
+  if (found == this->Internal->ShaderPrograms.end())
     {
-    return NULL;
+    // create one
+    vtkShaderProgram *sps = vtkShaderProgram::New();
+    sps->SetVertexShader(shaders[vtkShader::Vertex]);
+    sps->SetFragmentShader(shaders[vtkShader::Fragment]);
+    sps->SetGeometryShader(shaders[vtkShader::Geometry]);
+    sps->SetMD5Hash(result); // needed?
+    this->Internal->ShaderPrograms.insert(std::make_pair(result, sps));
+    return sps;
     }
-
-  return shader;
+  else
+    {
+    return found->second;
+    }
 }
 
-vtkShaderProgram *vtkOpenGLShaderCache::GetShader(
+vtkShaderProgram *vtkOpenGLShaderCache::GetShaderProgram(
   const char *vertexCode,
   const char *fragmentCode,
   const char *geometryCode)

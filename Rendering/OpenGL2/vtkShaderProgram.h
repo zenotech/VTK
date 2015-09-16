@@ -46,14 +46,17 @@ public:
   // Description:
   // Get the vertex shader for this program
   vtkGetObjectMacro(VertexShader, vtkShader);
+  void SetVertexShader(vtkShader*);
 
   // Description:
   // Get the fragment shader for this program
   vtkGetObjectMacro(FragmentShader, vtkShader);
+  void SetFragmentShader(vtkShader*);
 
   // Description:
   // Get the geometry shader for this program
   vtkGetObjectMacro(GeometryShader, vtkShader);
+  void SetGeometryShader(vtkShader*);
 
   // Description:
   // Set/Get flag for if this program is compiled
@@ -171,10 +174,28 @@ public:
   bool SetUniform2fv(const char *name, const int count, const float (*f)[2]);
   bool SetUniform3fv(const char *name, const int count, const float (*f)[3]);
   bool SetUniform4fv(const char *name, const int count, const float (*f)[4]);
+  bool SetUniformMatrix4x4v(const char *name, const int count, float *v);
 
   // How many outputs does this program produce
   // only valid for OpenGL 3.2 or later
   vtkSetMacro(NumberOfOutputs,unsigned int);
+
+//BTX
+  // Description:
+  // perform in place string substitutions, indicate if a substitution was done
+  // this is useful for building up shader strings which typically involve
+  // lots of string substitutions. Return true if a substitution was done.
+  static bool Substitute(
+    std::string &source,
+    const std::string &search,
+    const std::string replace,
+    bool all = true);
+
+  // Description:
+  // methods to inquire as to what uniforms/attributes are used by
+  // this shader.  This can save some compute time if the uniforms
+  // or attributes are expensive to compute
+  bool IsUniformUsed(const char *);
 
 protected:
   vtkShaderProgram();
@@ -238,6 +259,7 @@ protected:
   int Handle;
   int VertexShaderHandle;
   int FragmentShaderHandle;
+  int GeometryShaderHandle;
 
   bool Linked;
   bool Bound;
@@ -253,6 +275,9 @@ protected:
 
   std::map<std::string, int> Attributes;
 
+
+  std::map<std::string, bool> UniformsUsed;
+
   friend class VertexArrayObject;
 
 private:
@@ -261,6 +286,7 @@ private:
 
   vtkShaderProgram(const vtkShaderProgram&);  // Not implemented.
   void operator=(const vtkShaderProgram&);  // Not implemented.
+//ETX
 };
 
 

@@ -56,8 +56,8 @@ class vtkVolumeStateRAII
 
     ~vtkVolumeStateRAII()
       {
-#ifdef __PPLE__
-      if (vtkOpenGLRenderWindow::GetContextSupports32())
+#ifdef __APPLE__
+      if (vtkOpenGLRenderWindow::GetContextSupportsOpenGL32())
 #endif
         {
         glBindVertexArray(0);

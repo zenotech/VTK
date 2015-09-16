@@ -30,7 +30,7 @@ PURPOSE.  See the above copyright notice for more information.
 #include <cassert>
 #include <list>
 
-#include "vtkglVBOHelper.h"
+#include "vtkOpenGLHelper.h"
 
 // the 2D blending shaders we use
 #include "vtkDepthPeelingPassIntermediateFS.h"
@@ -220,18 +220,20 @@ void vtkDepthPeelingPass::BlendIntermediatePeels(
   // take the TranslucentRGBA texture and blend it with the current frame buffer
   if (!this->IntermediateBlendProgram)
     {
-    this->IntermediateBlendProgram = new vtkgl::CellBO;
+    this->IntermediateBlendProgram = new vtkOpenGLHelper;
     std::string VSSource = vtkTextureObjectVS;
     std::string FSSource = vtkDepthPeelingPassIntermediateFS;
     std::string GSSource;
     this->IntermediateBlendProgram->Program =
-        renWin->GetShaderCache()->ReadyShader(VSSource.c_str(),
-                                              FSSource.c_str(),
-                                              GSSource.c_str());
+      renWin->GetShaderCache()->ReadyShaderProgram(
+        VSSource.c_str(),
+        FSSource.c_str(),
+        GSSource.c_str());
     }
   else
     {
-    renWin->GetShaderCache()->ReadyShader(this->IntermediateBlendProgram->Program);
+    renWin->GetShaderCache()->ReadyShaderProgram(
+      this->IntermediateBlendProgram->Program);
     }
   this->IntermediateBlendProgram->Program->SetUniformi(
     "translucentRGBATexture", this->TranslucentRGBATexture->GetTextureUnit());
@@ -245,7 +247,7 @@ void vtkDepthPeelingPass::BlendIntermediatePeels(
          this->ViewportWidth-1, this->ViewportHeight-1,
          0, 0, this->ViewportWidth, this->ViewportHeight,
          this->IntermediateBlendProgram->Program,
-         &this->IntermediateBlendProgram->vao);
+         this->IntermediateBlendProgram->VAO);
 }
 
 
@@ -253,18 +255,20 @@ void vtkDepthPeelingPass::BlendFinalPeel(vtkOpenGLRenderWindow *renWin)
 {
   if (!this->FinalBlendProgram)
     {
-    this->FinalBlendProgram = new vtkgl::CellBO;
+    this->FinalBlendProgram = new vtkOpenGLHelper;
     std::string VSSource = vtkTextureObjectVS;
     std::string FSSource = vtkDepthPeelingPassFinalFS;
     std::string GSSource;
     this->FinalBlendProgram->Program =
-        renWin->GetShaderCache()->ReadyShader(VSSource.c_str(),
-                                              FSSource.c_str(),
-                                              GSSource.c_str());
+      renWin->GetShaderCache()->ReadyShaderProgram(
+        VSSource.c_str(),
+        FSSource.c_str(),
+        GSSource.c_str());
     }
   else
     {
-    renWin->GetShaderCache()->ReadyShader(this->FinalBlendProgram->Program);
+    renWin->GetShaderCache()->ReadyShaderProgram(
+      this->FinalBlendProgram->Program);
     }
 
   this->FinalBlendProgram->Program->SetUniformi(
@@ -280,7 +284,7 @@ void vtkDepthPeelingPass::BlendFinalPeel(vtkOpenGLRenderWindow *renWin)
          this->ViewportWidth-1, this->ViewportHeight-1,
          0, 0, this->ViewportWidth, this->ViewportHeight,
          this->FinalBlendProgram->Program,
-         &this->FinalBlendProgram->vao);
+         this->FinalBlendProgram->VAO);
 }
 
 
@@ -315,39 +319,20 @@ void vtkDepthPeelingPass::Render(const vtkRenderState *s)
     return; // nothing to render.
     }
 
-  // we need alpha planes
-  GLint alphaBits;
-#if GL_ES_VERSION_2_0 != 1 || GL_ES_VERSION_3_0 == 1
-    if (vtkOpenGLRenderWindow::GetContextSupportsOpenGL32())
-      {
-      // wow, this is how you get the alpha depth properly
-      GLint fboBind = 0;
-      glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &fboBind);
-      GLenum attachment = GL_FRONT_LEFT;
-      if (fboBind != 0)
-        {
-        attachment = GL_COLOR_ATTACHMENT0;
-        }
-      glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,
-        attachment,
-        GL_FRAMEBUFFER_ATTACHMENT_ALPHA_SIZE, &alphaBits);
-      }
-    else
-#endif
-      {
-      glGetIntegerv(GL_ALPHA_BITS, &alphaBits);
-      }
+  // check driver support
+  vtkOpenGLRenderWindow *renWin
+    = vtkOpenGLRenderWindow::SafeDownCast(s->GetRenderer()->GetRenderWindow());
 
-  if (alphaBits < 8)
+  // we need alpha planes
+  int rgba[4];
+  renWin->GetColorBufferSizes(rgba);
+
+  if (rgba[3] < 8)
     {
     // just use alpha blending
     this->TranslucentPass->Render(s);
     return;
     }
-
-  // check driver support
-  vtkOpenGLRenderWindow *renWin
-    = vtkOpenGLRenderWindow::SafeDownCast(s->GetRenderer()->GetRenderWindow());
 
   // Depth peeling.
   vtkRenderer *r=s->GetRenderer();
@@ -416,6 +401,7 @@ void vtkDepthPeelingPass::Render(const vtkRenderState *s)
   glClearColor(0.0,0.0,0.0,0.0); // always clear to black
  // glClearDepth(static_cast<GLclampf>(1.0));
 #ifdef GL_MULTISAMPLE
+  GLboolean multiSampleStatus = glIsEnabled(GL_MULTISAMPLE);
   glDisable(GL_MULTISAMPLE);
 #endif
   glDisable(GL_BLEND);
@@ -544,6 +530,13 @@ void vtkDepthPeelingPass::Render(const vtkRenderState *s)
 
   // do the final blend
   this->BlendFinalPeel(renWin);
+
+#ifdef GL_MULTISAMPLE
+   if(multiSampleStatus)
+      {
+      glEnable(GL_MULTISAMPLE);
+      }
+#endif
 
   // unload the last two textures
   this->TranslucentRGBATexture->Deactivate();

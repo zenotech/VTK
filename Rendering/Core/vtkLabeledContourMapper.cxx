@@ -233,6 +233,12 @@ vtkLabeledContourMapper::~vtkLabeledContourMapper()
 //------------------------------------------------------------------------------
 void vtkLabeledContourMapper::Render(vtkRenderer *ren, vtkActor *act)
 {
+  // Make sure input data is synced
+  if (vtkAlgorithm *inputAlgorithm = this->GetInputAlgorithm())
+    {
+    inputAlgorithm->Update();
+    }
+
   if (!this->CheckInputs(ren))
     {
     return;
@@ -557,6 +563,11 @@ bool vtkLabeledContourMapper::PrepareRender(vtkRenderer *ren, vtkActor *act)
   vtkCellArray *lines = input->GetLines();
   vtkDataArray *scalars = input->GetPointData()->GetScalars();
   vtkTextRenderer *tren = vtkTextRenderer::GetInstance();
+  if (!tren)
+    {
+    vtkErrorMacro(<< "Text renderer unavailable.");
+    return false;
+    }
 
   // Maps scalar values to text properties:
   typedef std::map<double, vtkTextProperty*> LabelPropertyMapType;
@@ -638,7 +649,8 @@ bool vtkLabeledContourMapper::PrepareRender(vtkRenderer *ren, vtkActor *act)
     it->TProp = tpropIt->second;
 
     // Assign bounding box/dims.
-    if (!tren->GetBoundingBox(it->TProp, it->Text, it->BoundingBox.GetData()))
+    if (!tren->GetBoundingBox(it->TProp, it->Text, it->BoundingBox.GetData(),
+                              vtkTextActor3D::GetRenderedDPI()))
       {
       vtkErrorMacro(<<"Error calculating bounding box for string '"
                     << it->Text << "'.");

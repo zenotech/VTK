@@ -32,7 +32,7 @@
 #include "vtkPixelBufferObject.h"
 #include "vtkImageExtractComponents.h"
 #include "vtkMultiProcessController.h"
-#include <vtksys/ios/sstream>
+#include <sstream>
 #include "vtkTimerLog.h"
 #include "vtkStdString.h"
 #include "vtkImageData.h"
@@ -45,12 +45,13 @@
 # include "vtkOpenGLState.h"
 #endif
 
-#ifdef VTKGL2
+#ifdef VTK_OPENGL2
 # include "vtkOpenGLShaderCache.h"
 # include "vtkShaderProgram.h"
-# include "vtkglVBOHelper.h"
+# include "vtkOpenGLHelper.h"
 # include "vtkTextureObjectVS.h"
 # include "vtkCompositeZPassFS.h"
+# include "vtk_glew.h"
 #else
 # include "vtkgl.h"
 # include "vtkShaderProgram2.h"
@@ -92,7 +93,7 @@ vtkCompositeZPass::~vtkCompositeZPass()
     }
    if(this->Program!=0)
      {
-#ifdef VTKGL2
+#ifdef VTK_OPENGL2
      delete this->Program;
 #else
      this->Program->Delete();
@@ -121,7 +122,7 @@ void vtkCompositeZPass::PrintSelf(ostream& os, vtkIndent indent)
 // ----------------------------------------------------------------------------
 bool vtkCompositeZPass::IsSupported(vtkOpenGLRenderWindow *context)
 {
-#ifdef VTKGL2
+#ifdef VTK_OPENGL2
   return context != 0;
 #else
   return vtkFrameBufferObject::IsSupported(context)
@@ -160,7 +161,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
   vtkOpenGLRenderWindow *context=static_cast<vtkOpenGLRenderWindow *>(
     r->GetRenderWindow());
 
-#ifndef VTKGL2
+#ifndef VTK_OPENGL2
    // Test for Hardware support. If not supported, return.
   bool supported=vtkFrameBufferObject::IsSupported(context);
 
@@ -288,7 +289,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
 
     state->Update();
     vtkIndent indent;
-    vtksys_ios::ostringstream ost00;
+    std::ostringstream ost00;
     ost00.setf(ios::fixed,ios::floatfield);
     ost00.precision(5);
     ost00 << "OpenGLState_" << pthread_self() << "_" << vtkTimerLog::GetUniversalTime() << "_root00.txt";
@@ -299,7 +300,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
     this->PBO->Download2D(VTK_FLOAT,this->RawZBuffer,dims,1,continuousInc);
 
     state->Update();
-    vtksys_ios::ostringstream ost01;
+    std::ostringstream ost01;
     ost01.setf(ios::fixed,ios::floatfield);
     ost01.precision(5);
     ost01 << "OpenGLState_" << pthread_self() << "_" << vtkTimerLog::GetUniversalTime() << "_root01.txt";
@@ -331,7 +332,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
 //    rgbaToRgb->SetInputConnection(importer->GetOutputPort());
 //    rgbaToRgb->SetComponents(0,1,2);
 
-    vtksys_ios::ostringstream ostxx;
+    std::ostringstream ostxx;
     ostxx.setf(ios::fixed,ios::floatfield);
     ostxx.precision(5);
     timer->StopTimer();
@@ -388,7 +389,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
 //    rgbaToRgb->SetComponents(0,1,2);
 
       writer=vtkPNGWriter::New();
-      vtksys_ios::ostringstream ost;
+      std::ostringstream ost;
       timer->StopTimer();
       ost.setf(ios::fixed,ios::floatfield);
       ost.precision(5);
@@ -414,7 +415,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
 
 #ifdef VTK_COMPOSITE_ZPASS_DEBUG
       state->Update();
-      vtksys_ios::ostringstream ost02;
+      std::ostringstream ost02;
       ost02.setf(ios::fixed,ios::floatfield);
       ost02.precision(5);
       ost02 << "OpenGLState_" << pthread_self() << "_" << vtkTimerLog::GetUniversalTime() << "_root02_proc_" << proc <<"_"<<".txt";
@@ -427,7 +428,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
 
 #ifdef VTK_COMPOSITE_ZPASS_DEBUG
       state->Update();
-      vtksys_ios::ostringstream ost03;
+      std::ostringstream ost03;
       ost03.setf(ios::fixed,ios::floatfield);
       ost03.precision(5);
       ost03 << "OpenGLState_" << pthread_self() << "_" << vtkTimerLog::GetUniversalTime() << "_root03_proc_" << proc << "_"<<".txt";
@@ -456,14 +457,14 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
       cout << "sourceId=" << sourceId << endl;
 #endif
 
-#ifdef VTKGL2
+#ifdef VTK_OPENGL2
       // Apply TO on quad with special zcomposite fragment shader.
       glColorMask(GL_FALSE,GL_FALSE,GL_FALSE,GL_FALSE);
       glEnable(GL_DEPTH_TEST);
       glDepthMask(GL_TRUE);
       glDepthFunc(GL_LEQUAL);
 
-      context->GetShaderCache()->ReadyShader(this->Program->Program);
+      context->GetShaderCache()->ReadyShaderProgram(this->Program->Program);
       this->ZTexture->Activate();
       this->Program->Program->SetUniformi("depth", this->ZTexture->GetTextureUnit());
 #else
@@ -488,7 +489,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
 
 #ifdef VTK_COMPOSITE_ZPASS_DEBUG
       state->Update();
-      vtksys_ios::ostringstream ost04;
+      std::ostringstream ost04;
       ost04.setf(ios::fixed,ios::floatfield);
       ost04.precision(5);
       ost04 << "OpenGLState_" << pthread_self() << "_" << vtkTimerLog::GetUniversalTime() << "_root_proc_" << proc << "_before_copyframe.txt";
@@ -497,11 +498,11 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
       outfile04.close();
 #endif
 
-#ifdef VTKGL2
+#ifdef VTK_OPENGL2
       this->ZTexture->CopyToFrameBuffer(0, 0, w - 1, h - 1,
                                         0, 0, w, h,
                                         this->Program->Program,
-                                        &this->Program->vao);
+                                        this->Program->VAO);
 #else
       this->ZTexture->Bind();
       this->ZTexture->CopyToFrameBuffer(0,0,
@@ -511,7 +512,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
 
 #ifdef VTK_COMPOSITE_ZPASS_DEBUG
       state->Update();
-      vtksys_ios::ostringstream ost05;
+      std::ostringstream ost05;
       ost05.setf(ios::fixed,ios::floatfield);
       ost05.precision(5);
       ost05 << "OpenGLState_" << pthread_self() << "_" << vtkTimerLog::GetUniversalTime() << "_root_proc_" << proc << "_after_copyframe.txt";
@@ -520,7 +521,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
       outfile05.close();
 #endif
 
-#ifdef VTKGL2
+#ifdef VTK_OPENGL2
       this->ZTexture->Deactivate();
 #else
       this->ZTexture->UnBind();
@@ -531,7 +532,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
 
 #ifdef VTK_COMPOSITE_ZPASS_DEBUG
       state->Update();
-      vtksys_ios::ostringstream ost06;
+      std::ostringstream ost06;
       ost06.setf(ios::fixed,ios::floatfield);
       ost06.precision(5);
       ost06 << "OpenGLState_" << pthread_self() << "_" << vtkTimerLog::GetUniversalTime() << "_root_proc_" << proc << "_before_popattrib.txt";
@@ -540,13 +541,13 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
       outfile06.close();
 #endif
 
-#ifndef VTKGL2
+#ifndef VTK_OPENGL2
       glPopAttrib();
 #endif
 
 #ifdef VTK_COMPOSITE_ZPASS_DEBUG
       state->Update();
-      vtksys_ios::ostringstream ost07;
+      std::ostringstream ost07;
       ost07.setf(ios::fixed,ios::floatfield);
       ost07.precision(5);
       ost07 << "OpenGLState_" << pthread_self() << "_" << vtkTimerLog::GetUniversalTime() << "_root_proc_" << proc << "_after_popattrib.txt";
@@ -594,7 +595,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
 //    rgbaToRgb->SetComponents(0,1,2);
 
 
-    vtksys_ios::ostringstream ost3;
+    std::ostringstream ost3;
     ost3.setf(ios::fixed,ios::floatfield);
     ost3.precision(5);
 
@@ -670,7 +671,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
 //    rgbaToRgb->SetInputConnection(importer->GetOutputPort());
 //    rgbaToRgb->SetComponents(0,1,2);
 
-    vtksys_ios::ostringstream ost;
+    std::ostringstream ost;
     ost.setf(ios::fixed,ios::floatfield);
     ost.precision(5);
     timer->StopTimer();
@@ -722,7 +723,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
 //    rgbaToRgb->SetInputConnection(importer->GetOutputPort());
 //    rgbaToRgb->SetComponents(0,1,2);
 
-    vtksys_ios::ostringstream ost2;
+    std::ostringstream ost2;
     ost2.setf(ios::fixed,ios::floatfield);
     ost2.precision(5);
     timer->StopTimer();
@@ -763,14 +764,14 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
       this->CreateProgram(context);
       }
 
-#ifdef VTKGL2
-    context->GetShaderCache()->ReadyShader(this->Program->Program);
+#ifdef VTK_OPENGL2
+    context->GetShaderCache()->ReadyShaderProgram(this->Program->Program);
     this->ZTexture->Activate();
     this->Program->Program->SetUniformi("depth", this->ZTexture->GetTextureUnit());
     this->ZTexture->CopyToFrameBuffer(0, 0, w - 1, h - 1,
                                       0, 0, w, h,
                                       this->Program->Program,
-                                      &this->Program->vao);
+                                      this->Program->VAO);
     this->ZTexture->Deactivate();
 #else
     vtkTextureUnitManager *tu=context->GetTextureUnitManager();
@@ -804,10 +805,10 @@ void vtkCompositeZPass::CreateProgram(vtkOpenGLRenderWindow *context)
   assert("pre: context_exists" && context!=0);
   assert("pre: Program_void" && this->Program==0);
 
-#ifdef VTKGL2
-  this->Program = new vtkgl::CellBO;
+#ifdef VTK_OPENGL2
+  this->Program = new vtkOpenGLHelper;
   this->Program->Program =
-    context->GetShaderCache()->ReadyShader(vtkTextureObjectVS,
+    context->GetShaderCache()->ReadyShaderProgram(vtkTextureObjectVS,
                                            vtkCompositeZPassFS,
                                            "");
   if (!this->Program->Program)
@@ -858,7 +859,7 @@ void vtkCompositeZPass::ReleaseGraphicsResources(vtkWindow *w)
     }
   if(this->Program!=0)
     {
-#ifdef VTKGL2
+#ifdef VTK_OPENGL2
     this->Program->ReleaseGraphicsResources(w);
 #else
     this->Program->ReleaseGraphicsResources();

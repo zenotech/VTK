@@ -27,13 +27,14 @@ set(vtkCommonCore_EXPORT_OPTIONS
   )
 
 # Choose which multi-threaded parallelism library to use
-set(VTK_SMP_IMPLEMENTATION_TYPE_DOC_STRING "Which multi-threaded parallelism implementation to use. Options are Sequential, Simple, Kaapi or TBB")
+set(VTK_SMP_IMPLEMENTATION_TYPE_DOC_STRING "Which multi-threaded parallelism implementation to use. Options are Sequential, Simple, Kaapi, OpenMP or TBB")
 
 set(VTK_SMP_IMPLEMENTATION_TYPE "Sequential" CACHE STRING ${VTK_SMP_IMPLEMENTATION_TYPE_DOC_STRING})
 
-set_property(CACHE VTK_SMP_IMPLEMENTATION_TYPE PROPERTY STRINGS Sequential Simple Kaapi TBB)
+set_property(CACHE VTK_SMP_IMPLEMENTATION_TYPE PROPERTY STRINGS Sequential Simple Kaapi OpenMP TBB)
 
 if( NOT ("${VTK_SMP_IMPLEMENTATION_TYPE}" STREQUAL "Kaapi" OR
+         "${VTK_SMP_IMPLEMENTATION_TYPE}" STREQUAL "OpenMP" OR
          "${VTK_SMP_IMPLEMENTATION_TYPE}" STREQUAL "TBB" OR
          "${VTK_SMP_IMPLEMENTATION_TYPE}" STREQUAL "Simple") )
   set(VTK_SMP_IMPLEMENTATION_TYPE "Sequential" CACHE STRING ${VTK_SMP_IMPLEMENTATION_TYPE_DOC_STRING} FORCE)
@@ -55,7 +56,26 @@ if ("${VTK_SMP_IMPLEMENTATION_TYPE}" STREQUAL "TBB")
   set(VTK_SMP_IMPLEMENTATION_DIR "${CMAKE_CURRENT_SOURCE_DIR}/SMP/TBB")
   set(VTK_SMP_SOURCES ${VTK_SMP_IMPLEMENTATION_DIR}/vtkSMPTools.cxx)
   set(VTK_SMP_HEADERS_TO_CONFIG
-    vtkAtomicInt.h vtkSMPToolsInternal.h vtkSMPThreadLocal.h)
+    vtkAtomic.h vtkSMPToolsInternal.h vtkSMPThreadLocal.h)
+
+elseif ("${VTK_SMP_IMPLEMENTATION_TYPE}" STREQUAL "OpenMP")
+  find_package(OpenMP REQUIRED)
+  add_definitions(${OpenMP_CXX_FLAGS})
+  set(VTK_SMP_IMPLEMENTATION_LIBRARIES "${OpenMP_CXX_LIBRARIES}")
+
+  set(VTK_SMP_IMPLEMENTATION_DIR "${CMAKE_CURRENT_SOURCE_DIR}/SMP/OpenMP")
+  set(VTK_SMP_SOURCES ${VTK_SMP_IMPLEMENTATION_DIR}/vtkSMPTools.cxx
+    ${VTK_SMP_IMPLEMENTATION_DIR}/vtkSMPThreadLocalImpl.cxx)
+  set(VTK_SMP_HEADERS_TO_CONFIG
+    vtkSMPToolsInternal.h vtkSMPThreadLocal.h vtkSMPThreadLocalImpl.h)
+
+  if (OpenMP_CXX_SPEC_DATE AND NOT ${OpenMP_CXX_SPEC_DATE} LESS 201107)
+    set(VTK_SMP_USE_DEFAULT_ATOMICS OFF)
+    list(APPEND VTK_SMP_SOURCES ${VTK_SMP_IMPLEMENTATION_DIR}/vtkAtomic.cxx)
+    list(APPEND VTK_SMP_HEADERS_TO_CONFIG vtkAtomic.h)
+  else()
+    message(WARNING "Required OpenMP version (3.1) for atomics not detected. Using default atomics implementation.")
+  endif()
 
 elseif ("${VTK_SMP_IMPLEMENTATION_TYPE}" STREQUAL "Kaapi")
   find_package(XKaapi REQUIRED)
@@ -85,10 +105,10 @@ endif()
 
 if (${VTK_SMP_USE_DEFAULT_ATOMICS})
   set(VTK_ATOMICS_DEFAULT_IMPL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/SMP/Sequential")
-  list(APPEND VTK_SMP_SOURCES ${VTK_ATOMICS_DEFAULT_IMPL_DIR}/vtkAtomicInt.cxx)
-  configure_file(${VTK_ATOMICS_DEFAULT_IMPL_DIR}/vtkAtomicInt.h.in
-    ${CMAKE_CURRENT_BINARY_DIR}/vtkAtomicInt.h COPYONLY)
-  list(APPEND VTK_SMP_HEADERS ${CMAKE_CURRENT_BINARY_DIR}/vtkAtomicInt.h)
+  list(APPEND VTK_SMP_SOURCES ${VTK_ATOMICS_DEFAULT_IMPL_DIR}/vtkAtomic.cxx)
+  configure_file(${VTK_ATOMICS_DEFAULT_IMPL_DIR}/vtkAtomic.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/vtkAtomic.h COPYONLY)
+  list(APPEND VTK_SMP_HEADERS ${CMAKE_CURRENT_BINARY_DIR}/vtkAtomic.h)
 endif()
 
 foreach (HDR_FILE ${VTK_SMP_HEADERS_TO_CONFIG})
@@ -106,6 +126,7 @@ include_directories(${VTK_SOURCE_DIR}/ThirdParty/utf8/source)
 SET(Module_SRCS
   vtkAbstractArray.cxx
   vtkAnimationCue.cxx
+  vtkAngularPeriodicDataArray.txx
   vtkArrayCoordinates.cxx
   vtkArray.cxx
   vtkArrayExtents.cxx
@@ -189,6 +210,7 @@ SET(Module_SRCS
   vtkOutputWindow.cxx
   vtkOverrideInformationCollection.cxx
   vtkOverrideInformation.cxx
+  vtkPeriodicDataArray.txx
   vtkPoints2D.cxx
   vtkPoints.cxx
   vtkPriorityQueue.cxx
@@ -235,6 +257,7 @@ SET(Module_SRCS
 
 set(${vtk-module}_HDRS
   vtkABI.h
+  vtkAngularPeriodicDataArray.h
   vtkArrayInterpolate.h
   vtkArrayInterpolate.txx
   vtkArrayIteratorIncludes.h
@@ -243,6 +266,8 @@ set(${vtk-module}_HDRS
   vtkArrayIteratorTemplateImplicit.txx
   vtkArrayPrint.h
   vtkArrayPrint.txx
+  vtkAtomicTypeConcepts.h
+  vtkAtomicTypes.h
   vtkAutoInit.h
   vtkDataArrayIteratorMacro.h
   vtkDataArrayTemplateImplicit.txx
@@ -251,6 +276,7 @@ set(${vtk-module}_HDRS
   vtkMappedDataArray.h
   vtkMathUtilities.h
   vtkNew.h
+  vtkPeriodicDataArray.h
   vtkSetGet.h
   vtkSmartPointer.h
   vtkTemplateAliasMacro.h
@@ -528,6 +554,7 @@ set_source_files_properties(
   vtkDataArrayPrivate.txx
 
   vtkABI.h
+  vtkAngularPeriodicDataArray.txx
   vtkArrayInterpolate.h
   vtkArrayInterpolate.txx
   vtkArrayIteratorIncludes.h
@@ -536,6 +563,8 @@ set_source_files_properties(
   vtkArrayIteratorTemplateImplicit.txx
   vtkArrayPrint.h
   vtkArrayPrint.txx
+  vtkAtomicTypeConcepts.h
+  vtkAtomicTypes.h
   vtkAutoInit.h
   vtkDataArrayTemplate.txx
   vtkDataArrayTemplateHelper.cxx
@@ -546,6 +575,7 @@ set_source_files_properties(
   vtkMathUtilities.h
   vtkMappedDataArray.txx
   vtkNew.h
+  vtkPeriodicDataArray.txx
   vtkSetGet.h
   vtkSmartPointer.h
   vtkSparseArray.txx

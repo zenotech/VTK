@@ -16,13 +16,15 @@
 
 #include "vtkDataObjectTreeIterator.h"
 #include "vtkCompositeDataSet.h"
+#include "vtkInformationVector.h"
 #include "vtkMultiProcessController.h"
 #include "vtkObjectFactory.h"
 #include "vtkSmartPointer.h"
+#include "vtkStreamingDemandDrivenPipeline.h"
 #include "vtkXMLDataElement.h"
 #include "vtkInformation.h"
 
-#include <vtksys/ios/sstream>
+#include <sstream>
 #include <vector>
 
 //----------------------------------------------------------------------------
@@ -37,24 +39,20 @@ class vtkXMLPMultiBlockDataWriter::vtkInternal
 public:
   vtkInternal()
     {
-      this->PieceProcessList = 0;
     }
   ~vtkInternal()
     {
-      delete []this->PieceProcessList;
-      this->PieceProcessList = 0;
     }
   void Allocate(int numPieces, int numProcs)
     {
       this->NumberOfPieces = numPieces;
       this->NumberOfProcesses = numProcs;
-      delete []this->PieceProcessList;
-      this->PieceProcessList = new int[numPieces*numProcs];
+      this->PieceProcessList.resize(numPieces*numProcs);
     }
 
   void GetPieceProcessList(int piece, int* processList)
     {
-      if(!this->PieceProcessList || piece >= this->NumberOfPieces ||
+      if(this->PieceProcessList.empty() || piece >= this->NumberOfPieces ||
          piece < 0)
         {
         return;
@@ -69,7 +67,10 @@ public:
   // For each piece it keeps the processes that have that piece.
   // This is built and used only on the root node.
   // PieceProcessList[piece+NumPieces*process] = dataset type (-1 for NULL)
-  int* PieceProcessList;
+  // This NumberOfPieces is based on the number of blocks in the multiblock
+  // which is different than the vtkXMLPMultiBlockDataWriter::NumberOfPieces
+  // which is usually the number of parallel processes.
+  std::vector<int> PieceProcessList;
   int NumberOfPieces;
   int NumberOfProcesses;
 };
@@ -77,6 +78,8 @@ public:
 //----------------------------------------------------------------------------
 vtkXMLPMultiBlockDataWriter::vtkXMLPMultiBlockDataWriter()
 {
+  this->StartPiece = 0;
+  this->NumberOfPieces = 1;
   this->Internal = new vtkInternal();
   this->Controller = 0;
   this->SetController(vtkMultiProcessController::GetGlobalController());
@@ -121,6 +124,30 @@ void vtkXMLPMultiBlockDataWriter::PrintSelf(ostream& os, vtkIndent indent)
     {
     os << "(none)" << endl;
     }
+  os << indent << "NumberOfPieces: " << this->NumberOfPieces << "\n";
+  os << indent << "StartPiece: " << this->StartPiece << "\n";
+}
+
+//----------------------------------------------------------------------------
+int vtkXMLPMultiBlockDataWriter::ProcessRequest(
+  vtkInformation* request,
+  vtkInformationVector** inputVector,
+  vtkInformationVector* outputVector)
+{
+  if (request->Has(vtkStreamingDemandDrivenPipeline::REQUEST_UPDATE_EXTENT()))
+    {
+    vtkInformation* inInfo = inputVector[0]->GetInformationObject(0);
+    inInfo->Set(
+      vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES(),
+      this->NumberOfPieces);
+    inInfo->Set(
+      vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER(), this->StartPiece);
+    inInfo->Set(
+      vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(),
+      this->GhostLevel);
+    return 1;
+    }
+  return this->Superclass::ProcessRequest(request, inputVector, outputVector);
 }
 
 //----------------------------------------------------------------------------
@@ -145,8 +172,11 @@ void vtkXMLPMultiBlockDataWriter::FillDataTypes(vtkCompositeDataSet* hdInput)
   this->Internal->Allocate(numBlocks, this->Controller->GetNumberOfProcesses());
 
   // gather on to root node.
-  this->Controller->Gather(myDataTypes, this->Internal->PieceProcessList,
-                           numBlocks, 0);
+  if(numBlocks)
+    {
+    this->Controller->Gather(myDataTypes, &this->Internal->PieceProcessList[0],
+                             numBlocks, 0);
+    }
 }
 
 //----------------------------------------------------------------------------
@@ -176,14 +206,17 @@ int vtkXMLPMultiBlockDataWriter::WriteComposite(
        iter->GoToNextItem(), indexCounter++)
     {
     vtkDataObject* curDO = iter->GetCurrentDataObject();
+    const char *name = NULL;
+    if(iter->HasCurrentMetaData())
+      {
+      name = iter->GetCurrentMetaData()->Get(vtkCompositeDataSet::NAME());
+      }
+
     if (curDO && curDO->IsA("vtkCompositeDataSet"))
       {
       // if node is a supported composite dataset
       // note in structure file and recurse.
       vtkXMLDataElement* tag = vtkXMLDataElement::New();
-
-      const char *name =
-        iter->GetCurrentMetaData()->Get(vtkCompositeDataSet::NAME());
 
       if (curDO->IsA("vtkMultiPieceDataSet"))
         {
@@ -222,6 +255,10 @@ int vtkXMLPMultiBlockDataWriter::WriteComposite(
       // if this piece is on different processes.
       datasetXML->SetName("DataSet");
       datasetXML->SetIntAttribute("index", indexCounter);
+      if (name)
+        {
+        datasetXML->SetAttribute("name", name);
+        }
       if (this->ParallelWriteNonCompositeData(
             curDO, datasetXML, currentFileIndex) )
         {
@@ -341,7 +378,7 @@ vtkStdString vtkXMLPMultiBlockDataWriter::CreatePieceFileName(
     }
     }
 
-  vtksys_ios::ostringstream fn_with_warning_C4701;
+  std::ostringstream fn_with_warning_C4701;
   fn_with_warning_C4701
     << this->GetFilePrefix() << "/"
     << this->GetFilePrefix() << "_" << currentFileIndex

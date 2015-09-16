@@ -20,6 +20,9 @@
 #include "vtkPainterCommunicator.h"
 #include "vtkPPainterCommunicator.h"
 #include "vtkRenderWindow.h"
+#ifdef VTK_OPENGL2
+# include "vtkOpenGLRenderUtilities.h"
+#endif
 #include "vtkOpenGLRenderWindow.h"
 #include "vtkTextureObject.h"
 #include "vtkPixelBufferObject.h"
@@ -29,7 +32,7 @@
 
 
 #ifdef VTK_OPENGL2
-# include "vtkglVBOHelper.h"
+# include "vtkOpenGLHelper.h"
 # include "vtkOpenGLShaderCache.h"
 # include "vtkShaderProgram.h"
 # include "vtkTextureObjectVS.h"
@@ -392,10 +395,10 @@ void vtkPSurfaceLICComposite::SetContext(vtkOpenGLRenderWindow *rwin)
     {
     // load, compile, and link the shader
 #ifdef VTK_OPENGL2
-    this->CompositeShader = new vtkgl::CellBO;
+    this->CompositeShader = new vtkOpenGLHelper;
     std::string GSSource;
     this->CompositeShader->Program =
-        rwin->GetShaderCache()->ReadyShader(vtkTextureObjectVS,
+        rwin->GetShaderCache()->ReadyShaderProgram(vtkTextureObjectVS,
                                           vtkPSurfaceLICComposite_CompFS,
                                             GSSource.c_str());
 #else
@@ -1423,7 +1426,7 @@ int vtkPSurfaceLICComposite::Gather(
   glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
 #ifdef VTK_OPENGL2
-  this->Context->GetShaderCache()->ReadyShader(
+  this->Context->GetShaderCache()->ReadyShaderProgram(
     this->CompositeShader->Program);
 #else
   vtkUniformVariables *uniforms = this->CompositeShader->GetUniformVariables();
@@ -1622,8 +1625,8 @@ int vtkPSurfaceLICComposite::ExecuteShader(
       fext[1]*2.0-1.0, fext[3]*2.0-1.0, 0.0f,
       fext[0]*2.0-1.0, fext[3]*2.0-1.0, 0.0f};
 
-    vtkOpenGLRenderWindow::RenderQuad(verts, tcoords,
-      this->CompositeShader->Program, &this->CompositeShader->vao);
+    vtkOpenGLRenderUtilities::RenderQuad(verts, tcoords,
+      this->CompositeShader->Program, this->CompositeShader->VAO);
     tex->Deactivate();
 #else
   tex->Activate(GL_TEXTURE0);

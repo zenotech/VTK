@@ -46,8 +46,8 @@
 #include "vtkUnicodeStringArray.h"
 #include "vtkViewport.h"
 
-#include <vtksys/ios/fstream>
-using vtksys_ios::ofstream;
+#include <fstream>
+using std::ofstream;
 
 #if defined(_WIN32) && !defined(__CYGWIN__)
 # define SNPRINTF _snprintf

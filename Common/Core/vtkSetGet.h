@@ -29,6 +29,16 @@
 #include "vtkSystemIncludes.h"
 #include <math.h>
 
+//----------------------------------------------------------------------------
+// Check for unsupported old compilers.
+#if defined(_MSC_VER) && _MSC_VER <= 1400
+# error VTK requires MSVC++ 9.0 aka Visual Studio 2008 or newer
+#endif
+
+#if defined(__GNUC__) && (__GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 1))
+# error VTK requires gcc 4.1 or newer
+#endif
+
 // Convert a macro representing a value to a string.
 //
 // Example: vtkQuoteMacro(__LINE__) will expand to "1234" whereas
@@ -637,15 +647,6 @@ virtual double *Get##name() \
   } \
   public:
 
-// Legacy versions of vtkTypeMacro and helpers.
-#if !defined(VTK_LEGACY_REMOVE)
-# define vtkExportedTypeRevisionMacro(thisClass,superclass,dllExport) \
-  vtkTypeMacro(thisClass,superclass)
-# define vtkTypeRevisionMacro(thisClass,superclass) \
-  vtkTypeMacro(thisClass,superclass)
-# define vtkCxxRevisionMacro(thisClass, revision)
-#endif
-
 // Macro to implement the instantiator's wrapper around the New()
 // method.  Use this macro if and only if vtkStandardNewMacro or
 // vtkObjectFactoryNewMacro is not used by the class.
@@ -690,6 +691,61 @@ virtual double *Get##name() \
 #define vtkExtendedTemplateMacro(call)                                 \
   vtkTemplateMacro(call);                                                   \
   vtkTemplateMacroCase(VTK_STRING, vtkStdString, call)
+
+// The vtkTemplate2Macro is used to dispatch like vtkTemplateMacro but
+// over two template arguments instead of one.
+//
+// Example usage:
+// switch(vtkTemplate2PackMacro(array1->GetDataType(),
+//                              array2->GetDataType()))
+//   {
+//   vtkTemplateMacro(myFunc(static_cast<VTK_T1*>(data1),
+//                           static_cast<VTK_T2*>(data2),
+//                           otherArg));
+//   }
+#define vtkTemplate2Macro(call) \
+  vtkTemplate2MacroCase1(VTK_DOUBLE, double, call);                           \
+  vtkTemplate2MacroCase1(VTK_FLOAT, float, call);                             \
+  vtkTemplate2MacroCase1_ll(VTK_LONG_LONG, long long, call)                   \
+  vtkTemplate2MacroCase1_ll(VTK_UNSIGNED_LONG_LONG, unsigned long long, call) \
+  vtkTemplate2MacroCase1_si64(VTK___INT64, __int64, call)                     \
+  vtkTemplate2MacroCase1_ui64(VTK_UNSIGNED___INT64, unsigned __int64, call)   \
+  vtkTemplate2MacroCase1(VTK_ID_TYPE, vtkIdType, call);                       \
+  vtkTemplate2MacroCase1(VTK_LONG, long, call);                               \
+  vtkTemplate2MacroCase1(VTK_UNSIGNED_LONG, unsigned long, call);             \
+  vtkTemplate2MacroCase1(VTK_INT, int, call);                                 \
+  vtkTemplate2MacroCase1(VTK_UNSIGNED_INT, unsigned int, call);               \
+  vtkTemplate2MacroCase1(VTK_SHORT, short, call);                             \
+  vtkTemplate2MacroCase1(VTK_UNSIGNED_SHORT, unsigned short, call);           \
+  vtkTemplate2MacroCase1(VTK_CHAR, char, call);                               \
+  vtkTemplate2MacroCase1(VTK_SIGNED_CHAR, signed char, call);                 \
+  vtkTemplate2MacroCase1(VTK_UNSIGNED_CHAR, unsigned char, call)
+#define vtkTemplate2MacroCase1(type1N, type1, call) \
+  vtkTemplate2MacroCase2(type1N, type1, VTK_DOUBLE, double, call);                 \
+  vtkTemplate2MacroCase2(type1N, type1, VTK_FLOAT, float, call);                   \
+  vtkTemplate2MacroCase2_ll(type1N, type1, VTK_LONG_LONG, long long, call)                   \
+  vtkTemplate2MacroCase2_ll(type1N, type1, VTK_UNSIGNED_LONG_LONG, unsigned long long, call) \
+  vtkTemplate2MacroCase2_si64(type1N, type1, VTK___INT64, __int64, call)                     \
+  vtkTemplate2MacroCase2_ui64(type1N, type1, VTK_UNSIGNED___INT64, unsigned __int64, call)   \
+  vtkTemplate2MacroCase2(type1N, type1, VTK_ID_TYPE, vtkIdType, call);             \
+  vtkTemplate2MacroCase2(type1N, type1, VTK_LONG, long, call);                     \
+  vtkTemplate2MacroCase2(type1N, type1, VTK_UNSIGNED_LONG, unsigned long, call);   \
+  vtkTemplate2MacroCase2(type1N, type1, VTK_INT, int, call);                       \
+  vtkTemplate2MacroCase2(type1N, type1, VTK_UNSIGNED_INT, unsigned int, call);     \
+  vtkTemplate2MacroCase2(type1N, type1, VTK_SHORT, short, call);                   \
+  vtkTemplate2MacroCase2(type1N, type1, VTK_UNSIGNED_SHORT, unsigned short, call); \
+  vtkTemplate2MacroCase2(type1N, type1, VTK_CHAR, char, call);                     \
+  vtkTemplate2MacroCase2(type1N, type1, VTK_SIGNED_CHAR, signed char, call);       \
+  vtkTemplate2MacroCase2(type1N, type1, VTK_UNSIGNED_CHAR, unsigned char, call)
+#define vtkTemplate2MacroCase2(type1N, type1, type2N, type2, call) \
+  case vtkTemplate2PackMacro(type1N, type2N): { \
+    typedef type1 VTK_T1; \
+    typedef type2 VTK_T2; \
+    call; \
+  }; break
+#define vtkTemplate2PackMacro(type1N, type2N) \
+  ((((type1N) & 0xFF) << 8) | \
+    ((type2N) & 0xFF))
 
 // The vtkArrayIteratorTemplateMacro is used to centralize the set of types
 // supported by Execute methods.  It also avoids duplication of long
@@ -737,10 +793,16 @@ virtual double *Get##name() \
 #if defined(VTK_TYPE_USE_LONG_LONG)
 # define vtkTemplateMacroCase_ll(typeN, type, call) \
             vtkTemplateMacroCase(typeN, type, call);
+# define vtkTemplate2MacroCase1_ll(type1N, type1, call) \
+            vtkTemplate2MacroCase1(type1N, type1, call);
+# define vtkTemplate2MacroCase2_ll(type1N, type1, type2N, type2, call) \
+            vtkTemplate2MacroCase2(type1N, type1, type2N, type2, call);
 # define vtkArrayIteratorTemplateMacroCase_ll(typeN, type, call) \
             vtkArrayIteratorTemplateMacroCase(typeN, type, call)
 #else
 # define vtkTemplateMacroCase_ll(typeN, type, call)
+# define vtkTemplate2MacroCase1_ll(type1N, type1, call)
+# define vtkTemplate2MacroCase2_ll(type1N, type1, type2N, type2, call)
 # define vtkArrayIteratorTemplateMacroCase_ll(typeN, type, call)
 #endif
 
@@ -748,10 +810,16 @@ virtual double *Get##name() \
 #if defined(VTK_TYPE_USE___INT64)
 # define vtkTemplateMacroCase_si64(typeN, type, call) \
              vtkTemplateMacroCase(typeN, type, call);
+# define vtkTemplate2MacroCase1_si64(type1N, type1, call) \
+             vtkTemplate2MacroCase1(type1N, type1, call);
+# define vtkTemplate2MacroCase2_si64(type1N, type1, type2N, type2, call) \
+             vtkTemplate2MacroCase2(type1N, type1, type2N, type2, call);
 # define vtkArrayIteratorTemplateMacroCase_si64(typeN, type, call) \
              vtkArrayIteratorTemplateMacroCase(typeN, type, call)
 #else
 # define vtkTemplateMacroCase_si64(typeN, type, call)
+# define vtkTemplate2MacroCase1_si64(type1N, type1, call)
+# define vtkTemplate2MacroCase2_si64(type1N, type1, type2N, type2, call)
 # define vtkArrayIteratorTemplateMacroCase_si64(typeN, type, call)
 #endif
 
@@ -760,10 +828,16 @@ virtual double *Get##name() \
 #if defined(VTK_TYPE_USE___INT64) && defined(VTK_TYPE_CONVERT_UI64_TO_DOUBLE)
 # define vtkTemplateMacroCase_ui64(typeN, type, call) \
              vtkTemplateMacroCase(typeN, type, call);
+# define vtkTemplate2MacroCase1_ui64(type1N, type1, call) \
+             vtkTemplate2MacroCase1(type1N, type1, call);
+# define vtkTemplate2MacroCase2_ui64(type1N, type1, type2N, type2, call) \
+             vtkTemplate2MacroCase2(type1N, type1, type2N, type2, call);
 # define vtkArrayIteratorTemplateMacroCase_ui64(typeN, type, call) \
              vtkArrayIteratorTemplateMacroCase(typeN, type, call);
 #else
 # define vtkTemplateMacroCase_ui64(typeN, type, call)
+# define vtkTemplate2MacroCase1_ui64(type1N, type1, call)
+# define vtkTemplate2MacroCase2_ui64(type1N, type1, type2N, type2, call)
 # define vtkArrayIteratorTemplateMacroCase_ui64(typeN, type, call)
 #endif
 
@@ -791,7 +865,7 @@ virtual double *Get##name() \
 #else
   // Setup compile-time warnings for uses of deprecated methods if
   // possible on this compiler.
-# if defined(__GNUC__) && !defined(__INTEL_COMPILER) && (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1))
+# if defined(__GNUC__) && !defined(__INTEL_COMPILER)
 #  define VTK_LEGACY(method) method __attribute__((deprecated))
 # elif defined(_MSC_VER)
 #  define VTK_LEGACY(method) __declspec(deprecated) method

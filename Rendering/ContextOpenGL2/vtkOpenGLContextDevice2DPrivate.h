@@ -172,14 +172,16 @@ struct TextPropertyKey
   // Transform a text property into an unsigned long
   static unsigned int GetIdFromTextProperty(vtkTextProperty* textProperty)
   {
-    unsigned long id;
+    size_t id;
     vtkFreeTypeTools::GetInstance()->MapTextPropertyToId(textProperty, &id);
+    // Truncation on 64-bit machines! The id is a pointer.
     return static_cast<unsigned int>(id);
   }
 
   // Description:
   // Creates a TextPropertyKey.
-  TextPropertyKey(vtkTextProperty* textProperty, const StringType& text)
+  TextPropertyKey(vtkTextProperty* textProperty, const StringType& text,
+                  int dpi)
   {
     this->TextPropertyId = GetIdFromTextProperty(textProperty);
     this->FontSize = textProperty->GetFontSize();
@@ -190,6 +192,7 @@ struct TextPropertyKey
                     static_cast<unsigned char>(color[2] * 255),
                     static_cast<unsigned char>(textProperty->GetOpacity() * 255));
     this->Text = text;
+    this->DPI = dpi;
   }
 
   // Description:
@@ -203,7 +206,8 @@ struct TextPropertyKey
       this->Color[0] == other.Color[0] &&
       this->Color[1] == other.Color[1] &&
       this->Color[2] == other.Color[2] &&
-      this->Color[3] == other.Color[3];
+      this->Color[3] == other.Color[3] &&
+      this->DPI == other.DPI;
   }
 
   unsigned short FontSize;
@@ -211,6 +215,7 @@ struct TextPropertyKey
   // States in the function not to use more than 32 bits - int works fine here.
   unsigned int TextPropertyId;
   StringType Text;
+  int DPI;
 };
 
 typedef TextPropertyKey<vtkStdString> UTF8TextPropertyKey;
@@ -415,9 +420,6 @@ public:
     glGenTextures(1, &tmpIndex);
     glBindTexture(GL_TEXTURE_2D, tmpIndex);
 
-    glTexEnvf(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_REPLACE);
-    glTexEnvf(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_REPLACE);
-
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
@@ -428,8 +430,6 @@ public:
     glTexImage2D(GL_TEXTURE_2D, 0 , glInternalFormat,
                  newImg[0], newImg[1], 0, glFormat,
                  GL_UNSIGNED_BYTE, static_cast<const GLvoid *>(dataPtr));
-    glAlphaFunc(GL_GREATER, static_cast<GLclampf>(0));
-    glEnable(GL_ALPHA_TEST);
     delete [] dataPtr;
     return tmpIndex;
     }
@@ -454,9 +454,6 @@ public:
     glGenTextures(1, &tmpIndex);
     glBindTexture(GL_TEXTURE_2D, tmpIndex);
 
-    glTexEnvf(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_REPLACE);
-    glTexEnvf(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_REPLACE);
-
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
@@ -467,8 +464,6 @@ public:
     glTexImage2D(GL_TEXTURE_2D, 0 , glInternalFormat,
                  size[0], size[1], 0, glFormat,
                  GL_UNSIGNED_BYTE, static_cast<const GLvoid *>(dataPtr));
-    glAlphaFunc(GL_GREATER, static_cast<GLclampf>(0));
-    glEnable(GL_ALPHA_TEST);
     return tmpIndex;
   }
 

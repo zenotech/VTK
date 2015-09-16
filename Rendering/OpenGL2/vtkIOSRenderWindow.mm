@@ -21,9 +21,10 @@ PURPOSE.  See the above copyright notice for more information.
 #import "vtkIdList.h"
 #import "vtkObjectFactory.h"
 #import "vtkRendererCollection.h"
-#import "vtkIOSGLView.h"
 
-#import <vtksys/ios/sstream>
+#import <sstream>
+
+#include "vtk_glew.h"
 
 vtkStandardNewMacro(vtkIOSRenderWindow);
 
@@ -197,7 +198,7 @@ const char* vtkIOSRenderWindow::ReportCapabilities()
   const char* glVersion = (const char*) glGetString(GL_VERSION);
   const char* glExtensions = (const char*) glGetString(GL_EXTENSIONS);
 
-  vtksys_ios::ostringstream strm;
+  std::ostringstream strm;
   strm << "OpenGL vendor string:  " << glVendor
        << "\nOpenGL renderer string:  " << glRenderer
        << "\nOpenGL version string:  " << glVersion

@@ -44,7 +44,7 @@
 #include "vtkQuadratureSchemeDefinition.h"
 #include "vtkInformationStringKey.h"
 
-#include <vtksys/auto_ptr.hxx>
+#include <memory>
 
 #include <cassert>
 #include <string>
@@ -751,7 +751,7 @@ int vtkXMLWriter::OpenFile()
 int vtkXMLWriter::OpenString()
 {
   delete this->OutStringStream;
-  this->OutStringStream = new vtksys_ios::ostringstream();
+  this->OutStringStream = new std::ostringstream();
   this->Stream = this->OutStringStream;
 
   return 1;
@@ -1167,7 +1167,7 @@ int vtkXMLWriter::WriteBinaryData(vtkAbstractArray* a)
       }
 
     // No data compression.  The header is just the length of the data.
-    vtksys::auto_ptr<vtkXMLDataHeader>
+    std::auto_ptr<vtkXMLDataHeader>
       uh(vtkXMLDataHeader::New(this->HeaderType, 1));
     if (!uh->Set(0, data_size*outWordSize))
       {
@@ -1822,15 +1822,12 @@ inline ostream& vtkXMLWriteAsciiValue(ostream& os, const signed char &c)
 VTK_TEMPLATE_SPECIALIZE
 inline ostream& vtkXMLWriteAsciiValue(ostream& os, const vtkStdString& str)
 {
-  vtkStdString::const_iterator iter = str.begin();
-  vtkXMLWriteAsciiValue(os, *iter);
-  iter++;
-  for (; iter != str.end(); ++iter)
+  vtkStdString::const_iterator iter;
+  for (iter = str.begin(); iter != str.end(); ++iter)
     {
-    os << " ";
     vtkXMLWriteAsciiValue(os, *iter);
+    os << " ";
     }
-  os << " ";
   char delim = 0x0;
   return vtkXMLWriteAsciiValue(os, delim);
 }
@@ -2003,7 +2000,7 @@ void vtkXMLWriter::WriteArrayHeader(vtkAbstractArray* a,  vtkIndent indent,
   else
     {
     // Generate a name for this array.
-    vtksys_ios::ostringstream name;
+    std::ostringstream name;
     void* p = a;
     name << "Array " << p;
     this->WriteStringAttribute("Name", name.str().c_str());
@@ -2015,7 +2012,7 @@ void vtkXMLWriter::WriteArrayHeader(vtkAbstractArray* a,  vtkIndent indent,
     }
 
   //always write out component names, even if only 1 component
-  vtksys_ios::ostringstream buff;
+  std::ostringstream buff;
   const char* compName = NULL;
   for (int i = 0; i < a->GetNumberOfComponents(); ++i)
     {

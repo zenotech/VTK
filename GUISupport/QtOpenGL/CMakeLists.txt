@@ -9,6 +9,10 @@ set(LibSrcs ${QVTKLibSrcs}
   QVTKWidget2.cxx
   )
 
+if (VTK_RENDERING_BACKEND STREQUAL "OpenGL2")
+  add_definitions(-DVTK_OPENGL2)
+endif ()
+
 if(VTK_QT_VERSION VERSION_GREATER "4")
   find_package(Qt5 COMPONENTS OpenGL REQUIRED QUIET)
   include_directories(${Qt5OpenGL_INCLUDE_DIRS})
@@ -30,4 +34,6 @@ endif()
 
 set(${vtk-module}_NO_HeaderTest 1)
 vtk_module_library(${vtk-module} ${LibSrcs} ${LibMocSrcs})
+include(vtkOpenGL)
+vtk_opengl_link(${vtk-module})
 vtk_module_link_libraries(${vtk-module} LINK_PRIVATE ${QT_LIBRARIES})

@@ -1146,7 +1146,7 @@ int main(int argc, char *argv[])
   fprintf(fp,"#include \"vtkTclUtil.h\"\n");
   fprintf(fp,"#include \"vtkStdString.h\"\n");
   fprintf(fp,"#include <stdexcept>\n");
-  fprintf(fp,"#include <vtksys/ios/sstream>\n");
+  fprintf(fp,"#include <sstream>\n");
   if (!data->IsAbstract && strcmp(data->Name, "vtkObjectBase") != 0)
     {
     if (strcmp(data->Name, "vtkRenderWindowInteractor") == 0)
@@ -1541,7 +1541,7 @@ int main(int argc, char *argv[])
   if (!strcmp("vtkObjectBase",data->Name))
     {
     fprintf(fp,"  if ((!strcmp(\"Print\",argv[1]))&&(argc == 2))\n    {\n");
-    fprintf(fp,"    vtksys_ios::ostringstream buf_with_warning_C4701;\n");
+    fprintf(fp,"    std::ostringstream buf_with_warning_C4701;\n");
     fprintf(fp,"    op->Print(buf_with_warning_C4701);\n");
     fprintf(fp,"    buf_with_warning_C4701.put('\\0');\n");
     fprintf(fp,"    Tcl_SetResult(interp,const_cast<char *>(buf_with_warning_C4701.str().c_str()),\n");
@@ -1550,7 +1550,7 @@ int main(int argc, char *argv[])
 #ifndef VTK_LEGACY_REMOVE
     /* Add the PrintRevisions method to vtkObjectBase. */
     fprintf(fp,"  if ((!strcmp(\"PrintRevisions\",argv[1]))&&(argc == 2))\n    {\n");
-    fprintf(fp,"    vtksys_ios::ostringstream buf_with_warning_C4701;\n");
+    fprintf(fp,"    std::ostringstream buf_with_warning_C4701;\n");
     fprintf(fp,"    op->PrintRevisions(buf_with_warning_C4701);\n");
     fprintf(fp,"    buf_with_warning_C4701.put('\\0');\n");
     fprintf(fp,"    Tcl_SetResult(interp,const_cast<char *>(buf_with_warning_C4701.str().c_str()),\n");

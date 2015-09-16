@@ -18,7 +18,7 @@
 
 #include "vtkToolkits.h"
 
-#ifdef VTK_OPENGL_HAS_OSMESA
+#ifdef VTK_USE_OSMESA
 #include <GL/osmesa.h>
 #endif
 
@@ -30,7 +30,9 @@
 
 #include "vtksys/SystemTools.hxx"
 
-#include <vtksys/ios/sstream>
+#include <sstream>
+
+#include "vtk_glew.h"
 
 vtkStandardNewMacro(vtkEGLRenderWindow);
 

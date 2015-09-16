@@ -28,7 +28,7 @@
 #include "vtkChartLegend.h"
 #include "vtkTooltipItem.h"
 
-#include "vtksys/ios/sstream"
+#include <sstream>
 
 class vtkChartPiePrivate
 {
@@ -98,7 +98,11 @@ bool vtkChartPie::Paint(vtkContext2D *painter)
     {
     // Take up the entire window right now, this could be made configurable
     this->SetGeometry(geometry);
-    this->SetBorders(20, 20, 20, 20);
+
+    vtkVector2i tileScale = this->Scene->GetLogicalTileScale();
+    this->SetBorders(20 * tileScale.GetX(), 20 * tileScale.GetY(),
+                     20 * tileScale.GetX(), 20 * tileScale.GetY());
+
     // Put the legend in the top corner of the chart
     vtkRectf rect = this->Legend->GetBoundingRect(painter);
     this->Legend->SetPoint(this->Point2[0] - rect.GetWidth(),
@@ -268,7 +272,7 @@ bool vtkChartPie::LocatePointInPlots(const vtkContextMouseEvent &mouse)
       if (labelIndex >= 0)
         {
         const char *label = this->Private->Plot->GetLabel(labelIndex);
-        vtksys_ios::ostringstream ostr;
+        std::ostringstream ostr;
         ostr << label << ": " << plotPos.GetY();
         this->Tooltip->SetText(ostr.str().c_str());
         this->Tooltip->SetPosition(mouse.GetScreenPos()[0] + 2,

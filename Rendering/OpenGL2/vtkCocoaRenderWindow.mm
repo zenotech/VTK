@@ -17,6 +17,7 @@ PURPOSE.  See the above copyright notice for more information.
 #import <Cocoa/Cocoa.h>
 #import "vtkCocoaMacOSXSDKCompatibility.h" // Needed to support old SDKs
 
+#import "vtkOpenGL.h"
 #import "vtkCocoaRenderWindow.h"
 #import "vtkRenderWindowInteractor.h"
 #import "vtkCommand.h"
@@ -25,7 +26,7 @@ PURPOSE.  See the above copyright notice for more information.
 #import "vtkRendererCollection.h"
 #import "vtkCocoaGLView.h"
 
-#import <vtksys/ios/sstream>
+#import <sstream>
 
 vtkStandardNewMacro(vtkCocoaRenderWindow);
 
@@ -415,7 +416,7 @@ const char* vtkCocoaRenderWindow::ReportCapabilities()
   const char* glVersion = (const char*) glGetString(GL_VERSION);
   const char* glExtensions = (const char*) glGetString(GL_EXTENSIONS);
 
-  vtksys_ios::ostringstream strm;
+  std::ostringstream strm;
   strm << "OpenGL vendor string:  " << glVendor
        << "\nOpenGL renderer string:  " << glRenderer
        << "\nOpenGL version string:  " << glVersion
@@ -888,7 +889,8 @@ void vtkCocoaRenderWindow::CreateGLContext()
 
     attribs[i++] = NSOpenGLPFAOpenGLProfile;
     attribs[i++] = NSOpenGLProfileVersion3_2Core;
-    attribs[i++] = NSOpenGLPFAAccelerated;
+  //  OSX always preferrs an accelerated context
+  //    attribs[i++] = NSOpenGLPFAAccelerated;
     attribs[i++] = NSOpenGLPFADepthSize;
     attribs[i++] = (NSOpenGLPixelFormatAttribute)32;
 

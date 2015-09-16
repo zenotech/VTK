@@ -32,11 +32,11 @@
 #include "vtkStringArray.h"
 #include "vtkIntArray.h"
 
-#include <vtksys/ios/fstream>
-#include <vtksys/ios/sstream>
-#include <vtksys/ios/iostream>
-using vtksys_ios::ifstream;
-using vtksys_ios::istringstream;
+#include <fstream>
+#include <sstream>
+#include <iostream>
+using std::ifstream;
+using std::istringstream;
 
 #define VTK_CREATE(type, name) \
   vtkSmartPointer<type> name = vtkSmartPointer<type>::New()

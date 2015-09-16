@@ -23,6 +23,7 @@ set (GenericVolumeCxxTests
   TestGPURayCastNearestDataTypesMIP.cxx
   TestGPURayCastPerspectiveParallel.cxx
   TestGPURayCastVolumeUpdate.cxx
+  TestGPUVolumeRayCastMapper.cxx
   TestMinIntensityRendering.cxx
   TestProjectedTetrahedra.cxx
   TestSmartVolumeMapper.cxx
@@ -47,10 +48,15 @@ set (VolumeOpenGLCxxTests
 
 # These tests are only built for the OpenGL2 backend
 set (VolumeOpenGL2CxxTests
+  TestGPURayCastCameraInside.cxx
+  TestGPURayCastCameraInsideSmallSpacing.cxx
   TestGPURayCastClipping.cxx
   TestGPURayCastGradientOpacity.cxx
   TestGPURayCastPositionalLights.cxx
   TestGPURayCastReleaseResources.cxx
+  TestGPURayCastRenderDepthToImage.cxx
+  TestGPURayCastRenderDepthToImage2.cxx
+  TestGPURayCastRenderToTexture.cxx
   TestGPURayCastThreeComponentsIndependent.cxx
   TestGPURayCastTwoComponentsDependent.cxx
   TestGPURayCastTwoComponentsIndependent.cxx

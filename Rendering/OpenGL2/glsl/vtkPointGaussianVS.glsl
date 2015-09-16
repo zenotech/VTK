@@ -18,16 +18,8 @@
 // default precisions, or defining precisions to null
 //VTK::System::Dec
 
-// all variables that represent positions or directions have a suffix
-// indicating the coordinate system they are in. The possible values are
-// MC - Model Coordinates
-// WC - WC world coordinates
-// VC - View Coordinates
-// DC - Display Coordinates
-
 attribute vec4 vertexMC;
 attribute vec2 offsetMC;
-//attribute float radiusMC;
 
 // optional normal declaration
 //VTK::Normal::Dec
@@ -44,8 +36,10 @@ attribute vec2 offsetMC;
 // camera and actor matrix values
 //VTK::Camera::Dec
 
-varying vec2 offsetVC;
+varying vec2 offsetVCVSOutput;
 uniform int cameraParallel;
+
+uniform float triangleScale;
 
 void main()
 {
@@ -61,10 +55,10 @@ void main()
   vec4 vertexVC = MCVCMatrix * vertexMC;
 
   // the offsets sent down are positioned
-  // at 2.0*radius*3.0 from the center of the
+  // at 2.0*radius*triangleScale from the center of the
   // gaussian.  This has to be consistent
   // with the offsets we build into the VBO
-  float radius = sqrt(dot(offsetMC,offsetMC))/6.0;
+  float radius = 0.5*sqrt(dot(offsetMC,offsetMC))/triangleScale;
 
   // make the triangle face the camera
   if (cameraParallel == 0)
@@ -80,6 +74,6 @@ void main()
     vertexVC.xy = vertexVC.xy + offsetMC;
     }
 
-  offsetVC = offsetMC/radius;
+  offsetVCVSOutput = offsetMC/radius;
   gl_Position = VCDCMatrix * vertexVC;
 }

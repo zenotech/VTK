@@ -283,7 +283,8 @@ public:
   vtkGetMacro(AxisVisible, bool);
 
   // Description:
-  // Get/set the numerical precision to use, default is 2.
+  // Get/set the numerical precision to use, default is 2. This is ignored
+  // when Notation is STANDARD_NOTATION or PRINTF_NOTATION.
   virtual void SetPrecision(int precision);
   vtkGetMacro(Precision, int);
 
@@ -293,17 +294,19 @@ public:
     STANDARD_NOTATION = 0,
     SCIENTIFIC_NOTATION,
     FIXED_NOTATION,
-
-#ifndef VTK_LEGACY_REMOVE
-    // deprecated, use the *_NOTATION versions above
-    STANDARD = STANDARD_NOTATION,
-    SCIENTIFIC = SCIENTIFIC_NOTATION,
-    MIXED = FIXED_NOTATION
-#endif
+    PRINTF_NOTATION
   };
 
   // Description:
-  // Get/set the numerical notation, standard, scientific or mixed (0, 1, 2).
+  // Get/Set the printf-style format string used when TickLabelAlgorithm is
+  // TICK_SIMPLE and Notation is PRINTF_NOTATION. The default is "%g".
+  virtual void SetLabelFormat(const std::string &fmt);
+  vtkGetMacro(LabelFormat, std::string)
+
+  // Description:
+  // Get/set the numerical notation, standard, scientific, fixed, or a
+  // printf-style format string.
+  // \sa SetPrecision SetLabelFormat
   virtual void SetNotation(int notation);
   vtkGetMacro(Notation, int);
 
@@ -390,16 +393,6 @@ public:
                                       vtkStringArray* labels = 0);
 
   // Description:
-  // Set the tick positions (in plot coordinates).
-  // \deprecated 6.0 Use the two parameter SetTickPositions function.
-  VTK_LEGACY(virtual void SetTickPositions(vtkDoubleArray* positions));
-
-  // Description:
-  // Set the tick labels for the axis.
-  // \deprecated 6.0 Use the two parameter SetTickPositions function.
-  VTK_LEGACY(virtual void SetTickLabels(vtkStringArray* labels));
-
-  // Description:
   // Request the space the axes require to be drawn. This is returned as a
   // vtkRectf, with the corner being the offset from Point1, and the width/
   // height being the total width/height required by the axis. In order to
@@ -417,6 +410,11 @@ public:
   // values.
   static double NiceMinMax(double &min, double &max, float pixelRange,
                            float tickPixelSpacing);
+
+  // Description:
+  // Generate a single label using the current settings when TickLabelAlgorithm
+  // is TICK_SIMPLE.
+  vtkStdString GenerateSimpleLabel(double val);
 
 //BTX
 protected:
@@ -514,6 +512,7 @@ protected:
   bool AxisVisible;    // Should the axis line be visible.
   int Precision;       // Numerical precision to use, defaults to 2.
   int Notation;        // The notation to use (standard, scientific, mixed)
+  std::string LabelFormat; // The printf-style format string used for labels.
   int Behavior;        // The behaviour of the axis (auto, fixed, custom).
   float MaxLabel[2];   // The widest/tallest axis label.
   bool TitleAppended;  // Track if the title is updated when the label formats

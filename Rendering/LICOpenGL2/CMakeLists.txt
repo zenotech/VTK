@@ -1,7 +1,6 @@
 set(Module_SRCS
   vtkImageDataLIC2D.cxx
   vtkLineIntegralConvolution2D.cxx
-  vtkPixelTransfer.cxx
   vtkStructuredGridLIC2D.cxx
   vtkSurfaceLICComposite.cxx
   vtkSurfaceLICMapper.cxx
@@ -11,7 +10,6 @@ set(Module_SRCS
 
 set_source_files_properties(
   vtkLineIntegralConvolution2D.cxx
-  vtkPixelTransfer.cxx
   vtkSurfaceLICComposite.cxx
   vtkTextureIO.cxx
   WRAP_EXCLUDE
@@ -58,5 +56,3 @@ endforeach()
 
 
 vtk_module_library(${vtk-module} ${Module_SRCS})
-
-include_directories(${OPENGL_INCLUDE_DIR})

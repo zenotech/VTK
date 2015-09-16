@@ -15,44 +15,40 @@
 
 #include "vtkOpenGLContextDevice2D.h"
 
-#include "vtkMathTextUtilities.h"
-#include "vtkTextRendererStringToImage.h"
-
-#include "vtkVector.h"
-#include "vtkRect.h"
-#include "vtkPen.h"
+#include "vtkAbstractContextBufferId.h"
 #include "vtkBrush.h"
-#include "vtkTextProperty.h"
-#include "vtkPoints2D.h"
-#include "vtkMatrix3x3.h"
 #include "vtkFloatArray.h"
-#include "vtkSmartPointer.h"
-
+#include "vtkImageData.h"
 #include "vtkMath.h"
+#include "vtkMathTextUtilities.h"
+#include "vtkMatrix3x3.h"
 #include "vtkObjectFactory.h"
-
+#include "vtkOpenGLError.h"
+#include "vtkOpenGLIndexBufferObject.h"
+#include "vtkOpenGLRenderWindow.h"
+#include "vtkOpenGLRenderer.h"
+#include "vtkOpenGLShaderCache.h"
+#include "vtkOpenGLTexture.h"
+#include "vtkOpenGLVertexArrayObject.h"
+#include "vtkOpenGLVertexBufferObject.h"
+#include "vtkPen.h"
+#include "vtkPoints2D.h"
+#include "vtkRect.h"
+#include "vtkShaderProgram.h"
+#include "vtkSmartPointer.h"
+#include "vtkTextProperty.h"
+#include "vtkTextRendererStringToImage.h"
+#include "vtkTexture.h"
+#include "vtkTextureUnitManager.h"
+#include "vtkTransform.h"
+#include "vtkVector.h"
 #include "vtkViewport.h"
 #include "vtkWindow.h"
-
-#include "vtkTexture.h"
-#include "vtkImageData.h"
-
-#include "vtkOpenGLRenderer.h"
-#include "vtkOpenGLRenderWindow.h"
-#include "vtkOpenGLError.h"
+#include "vtkOpenGLHelper.h"
 
 #include "vtkObjectFactory.h"
 
 #include "vtkOpenGLContextDevice2DPrivate.h"
-#include "vtkAbstractContextBufferId.h"
-
-#include "vtkOpenGLShaderCache.h"
-#include "vtkShaderProgram.h"
-
-#include "vtkTransform.h"
-#include "vtkOpenGLTexture.h"
-#include "vtkglVBOHelper.h"
-#include "vtkTextureUnitManager.h"
 
 #include <algorithm>
 
@@ -73,11 +69,11 @@ vtkOpenGLContextDevice2D::vtkOpenGLContextDevice2D()
   this->MaximumMarkerCacheSize = 20;
   this->ProjectionMatrix = vtkTransform::New();
   this->ModelMatrix = vtkTransform::New();
-  this->VBO =  new vtkgl::CellBO;
-  this->VCBO =  new vtkgl::CellBO;
-  this->VTBO =  new vtkgl::CellBO;
-  this->SBO =  new vtkgl::CellBO;
-  this->SCBO =  new vtkgl::CellBO;
+  this->VBO =  new vtkOpenGLHelper;
+  this->VCBO =  new vtkOpenGLHelper;
+  this->VTBO =  new vtkOpenGLHelper;
+  this->SBO =  new vtkOpenGLHelper;
+  this->SCBO =  new vtkOpenGLHelper;
 }
 
 //-----------------------------------------------------------------------------
@@ -298,7 +294,7 @@ void vtkOpenGLContextDevice2D::SetMatrices(vtkShaderProgram *prog)
 }
 
 void vtkOpenGLContextDevice2D::BuildVBO(
-  vtkgl::CellBO *cellBO,
+  vtkOpenGLHelper *cellBO,
   float *f, int nv,
   unsigned char *colors, int nc,
   float *tcoords)
@@ -319,25 +315,25 @@ void vtkOpenGLContextDevice2D::BuildVBO(
 
   std::vector<float> va;
   va.resize(nv*stride);
-  unsigned char c[4];
+  vtkucfloat c;
   for (int i = 0; i < nv; i++)
     {
     va[i*stride] = f[i*2];
     va[i*stride+1] = f[i*2+1];
     if (colors)
       {
-      c[0] = colors[nc*i];
-      c[1] = colors[nc*i+1];
-      c[2] = colors[nc*i+2];
+      c.c[0] = colors[nc*i];
+      c.c[1] = colors[nc*i+1];
+      c.c[2] = colors[nc*i+2];
       if (nc == 4)
         {
-        c[3] = colors[nc*i+3];
+        c.c[3] = colors[nc*i+3];
         }
       else
         {
-        c[3] =  255;
+        c.c[3] =  255;
         }
-      va[i*stride+cOffset] = *reinterpret_cast<float *>(c);
+      va[i*stride+cOffset] = c.f;
       }
     if (tcoords)
       {
@@ -347,10 +343,10 @@ void vtkOpenGLContextDevice2D::BuildVBO(
     }
 
   // upload the data
-  cellBO->ibo.Upload(va, vtkgl::BufferObject::ArrayBuffer);
-  cellBO->vao.Bind();
-  if (!cellBO->vao.AddAttributeArray(
-        cellBO->Program, cellBO->ibo,
+  cellBO->IBO->Upload(va, vtkOpenGLBufferObject::ArrayBuffer);
+  cellBO->VAO->Bind();
+  if (!cellBO->VAO->AddAttributeArray(
+        cellBO->Program, cellBO->IBO,
         "vertexMC", 0,
         sizeof(float)*stride,
         VTK_FLOAT, 2, false))
@@ -359,8 +355,8 @@ void vtkOpenGLContextDevice2D::BuildVBO(
     }
   if (colors)
     {
-    if (!cellBO->vao.AddAttributeArray(
-          cellBO->Program, cellBO->ibo,
+    if (!cellBO->VAO->AddAttributeArray(
+          cellBO->Program, cellBO->IBO,
           "vertexScalar", sizeof(float)*cOffset,
           sizeof(float)*stride,
           VTK_UNSIGNED_CHAR, 4, true))
@@ -370,8 +366,8 @@ void vtkOpenGLContextDevice2D::BuildVBO(
     }
   if (tcoords)
     {
-    if (!cellBO->vao.AddAttributeArray(
-          cellBO->Program, cellBO->ibo,
+    if (!cellBO->VAO->AddAttributeArray(
+          cellBO->Program, cellBO->IBO,
           "tcoordMC", sizeof(float)*tOffset,
           sizeof(float)*stride,
           VTK_FLOAT, 2, false))
@@ -380,7 +376,7 @@ void vtkOpenGLContextDevice2D::BuildVBO(
       }
     }
 
-  cellBO->vao.Bind();
+  cellBO->VAO->Bind();
 }
 
 void vtkOpenGLContextDevice2D::ReadyVBOProgram()
@@ -388,7 +384,7 @@ void vtkOpenGLContextDevice2D::ReadyVBOProgram()
   if (!this->VBO->Program)
     {
     this->VBO->Program  =
-        this->RenderWindow->GetShaderCache()->ReadyShader(
+        this->RenderWindow->GetShaderCache()->ReadyShaderProgram(
         // vertex shader
         "//VTK::System::Dec\n"
         "attribute vec2 vertexMC;\n"
@@ -407,7 +403,7 @@ void vtkOpenGLContextDevice2D::ReadyVBOProgram()
     }
   else
     {
-    this->RenderWindow->GetShaderCache()->ReadyShader(this->VBO->Program);
+    this->RenderWindow->GetShaderCache()->ReadyShaderProgram(this->VBO->Program);
     }
 }
 
@@ -416,7 +412,7 @@ void vtkOpenGLContextDevice2D::ReadyVCBOProgram()
   if (!this->VCBO->Program)
     {
     this->VCBO->Program  =
-        this->RenderWindow->GetShaderCache()->ReadyShader(
+        this->RenderWindow->GetShaderCache()->ReadyShaderProgram(
         // vertex shader
         "//VTK::System::Dec\n"
         "attribute vec2 vertexMC;\n"
@@ -438,7 +434,7 @@ void vtkOpenGLContextDevice2D::ReadyVCBOProgram()
     }
   else
     {
-    this->RenderWindow->GetShaderCache()->ReadyShader(this->VCBO->Program);
+    this->RenderWindow->GetShaderCache()->ReadyShaderProgram(this->VCBO->Program);
     }
 }
 
@@ -447,7 +443,7 @@ void vtkOpenGLContextDevice2D::ReadyVTBOProgram()
   if (!this->VTBO->Program)
     {
     this->VTBO->Program  =
-        this->RenderWindow->GetShaderCache()->ReadyShader(
+        this->RenderWindow->GetShaderCache()->ReadyShaderProgram(
         // vertex shader
         "//VTK::System::Dec\n"
         "attribute vec2 vertexMC;\n"
@@ -470,7 +466,7 @@ void vtkOpenGLContextDevice2D::ReadyVTBOProgram()
     }
   else
     {
-    this->RenderWindow->GetShaderCache()->ReadyShader(this->VTBO->Program);
+    this->RenderWindow->GetShaderCache()->ReadyShaderProgram(this->VTBO->Program);
     }
 }
 
@@ -479,7 +475,7 @@ void vtkOpenGLContextDevice2D::ReadySBOProgram()
   if (!this->SBO->Program)
     {
     this->SBO->Program  =
-        this->RenderWindow->GetShaderCache()->ReadyShader(
+        this->RenderWindow->GetShaderCache()->ReadyShaderProgram(
         // vertex shader
         "//VTK::System::Dec\n"
         "attribute vec2 vertexMC;\n"
@@ -499,7 +495,7 @@ void vtkOpenGLContextDevice2D::ReadySBOProgram()
     }
   else
     {
-    this->RenderWindow->GetShaderCache()->ReadyShader(this->SBO->Program);
+    this->RenderWindow->GetShaderCache()->ReadyShaderProgram(this->SBO->Program);
     }
 }
 
@@ -508,7 +504,7 @@ void vtkOpenGLContextDevice2D::ReadySCBOProgram()
   if (!this->SCBO->Program)
     {
     this->SCBO->Program  =
-        this->RenderWindow->GetShaderCache()->ReadyShader(
+        this->RenderWindow->GetShaderCache()->ReadyShaderProgram(
         // vertex shader
         "//VTK::System::Dec\n"
         "attribute vec2 vertexMC;\n"
@@ -531,7 +527,7 @@ void vtkOpenGLContextDevice2D::ReadySCBOProgram()
     }
   else
     {
-    this->RenderWindow->GetShaderCache()->ReadyShader(this->SCBO->Program);
+    this->RenderWindow->GetShaderCache()->ReadyShaderProgram(this->SCBO->Program);
     }
 }
 
@@ -562,7 +558,7 @@ void vtkOpenGLContextDevice2D::DrawPoly(float *f, int n, unsigned char *colors,
   vtkOpenGLClearErrorMacro();
   this->SetLineType(this->Pen->GetLineType());
 
-  vtkgl::CellBO *cbo = 0;
+  vtkOpenGLHelper *cbo = 0;
   if (colors)
     {
     this->ReadyVCBOProgram();
@@ -656,7 +652,7 @@ void vtkOpenGLContextDevice2D::DrawLines(float *f, int n, unsigned char *colors,
 
   this->SetLineType(this->Pen->GetLineType());
 
-  vtkgl::CellBO *cbo = 0;
+  vtkOpenGLHelper *cbo = 0;
   if (colors)
     {
     this->ReadyVCBOProgram();
@@ -740,7 +736,7 @@ void vtkOpenGLContextDevice2D::DrawPoints(float *f, int n, unsigned char *c,
 {
   vtkOpenGLClearErrorMacro();
 
-  vtkgl::CellBO *cbo = 0;
+  vtkOpenGLHelper *cbo = 0;
   if (c)
     {
     this->ReadyVCBOProgram();
@@ -778,7 +774,7 @@ void vtkOpenGLContextDevice2D::DrawPointSprites(vtkImageData *sprite,
     {
     this->SetPointSize(this->Pen->GetWidth());
 
-    vtkgl::CellBO *cbo = 0;
+    vtkOpenGLHelper *cbo = 0;
     if (colors)
       {
       this->ReadySCBOProgram();
@@ -883,7 +879,7 @@ void vtkOpenGLContextDevice2D::CoreDrawTriangles(
   vtkOpenGLClearErrorMacro();
 
   float* texCoord = 0;
-  vtkgl::CellBO *cbo = 0;
+  vtkOpenGLHelper *cbo = 0;
   if (this->Brush->GetTexture())
     {
     this->ReadyVTBOProgram();
@@ -895,11 +891,6 @@ void vtkOpenGLContextDevice2D::CoreDrawTriangles(
 
     int tunit = vtkOpenGLTexture::SafeDownCast(this->Storage->Texture)->GetTextureUnit();
     cbo->Program->SetUniformi("texture1", tunit);
-    cerr << "have tcoords\n";
-    if (this->Storage->Texture->GetTransform())
-      {
-        cerr << "have a transform\n";
-      }
     }
   else
     {
@@ -1248,15 +1239,24 @@ void vtkOpenGLContextDevice2D::DrawString(float *point,
   float p[] = { std::floor(point[0] * xScale) / xScale,
                 std::floor(point[1] * yScale) / yScale };
 
+  // TODO this currently ignores vtkContextScene::ScaleTiles. Not sure how to
+  // get at that from here, but this is better than ignoring scaling altogether.
+  // TODO Also, FreeType supports anisotropic DPI. Might be needed if the
+  // tileScale isn't homogeneous, but we'll need to update the textrenderer API
+  // and see if MPL/mathtext can support it.
+  int tileScale[2];
+  this->RenderWindow->GetTileScale(tileScale);
+  int dpi = this->RenderWindow->GetDPI() * std::max(tileScale[0], tileScale[1]);
+
   // Cache rendered text strings
   vtkTextureImageCache<UTF16TextPropertyKey>::CacheData &cache =
       this->Storage->TextTextureCache.GetCacheData(
-        UTF16TextPropertyKey(this->TextProp, string));
+        UTF16TextPropertyKey(this->TextProp, string, dpi));
   vtkImageData* image = cache.ImageData;
   if (image->GetNumberOfPoints() == 0 && image->GetNumberOfCells() == 0)
     {
     int textDims[2];
-    if (!this->TextRenderer->RenderString(this->TextProp, string, image,
+    if (!this->TextRenderer->RenderString(this->TextProp, string, dpi, image,
                                           textDims))
       {
       return;
@@ -1294,7 +1294,7 @@ void vtkOpenGLContextDevice2D::DrawString(float *point,
 
   vtkOpenGLClearErrorMacro();
 
-  vtkgl::CellBO *cbo = 0;
+  vtkOpenGLHelper *cbo = 0;
   this->ReadyVTBOProgram();
   cbo = this->VTBO;
   int tunit = vtkOpenGLTexture::SafeDownCast(texture)->GetTextureUnit();
@@ -1317,7 +1317,16 @@ void vtkOpenGLContextDevice2D::DrawString(float *point,
 void vtkOpenGLContextDevice2D::ComputeStringBounds(const vtkUnicodeString &string,
                                                    float bounds[4])
 {
-  vtkVector2i box = this->TextRenderer->GetBounds(this->TextProp, string);
+  // TODO this currently ignores vtkContextScene::ScaleTiles. Not sure how to
+  // get at that from here, but this is better than ignoring scaling altogether.
+  // TODO Also, FreeType supports anisotropic DPI. Might be needed if the
+  // tileScale isn't homogeneous, but we'll need to update the textrenderer API
+  // and see if MPL/mathtext can support it.
+  int tileScale[2];
+  this->RenderWindow->GetTileScale(tileScale);
+  int dpi = this->RenderWindow->GetDPI() * std::max(tileScale[0], tileScale[1]);
+
+  vtkVector2i box = this->TextRenderer->GetBounds(this->TextProp, string, dpi);
   // Check for invalid bounding box
   if (box[0] == VTK_INT_MIN || box[0] == VTK_INT_MAX ||
       box[1] == VTK_INT_MIN || box[1] == VTK_INT_MAX)
@@ -1328,6 +1337,7 @@ void vtkOpenGLContextDevice2D::ComputeStringBounds(const vtkUnicodeString &strin
     bounds[3] = static_cast<float>(0);
     return;
     }
+
   double *mv = this->ModelMatrix->GetMatrix()->Element[0];
   float xScale = mv[0];
   float yScale = mv[5];
@@ -1342,7 +1352,7 @@ void vtkOpenGLContextDevice2D::DrawMathTextString(float point[2],
                                                   const vtkStdString &string)
 {
   vtkMathTextUtilities *mathText = vtkMathTextUtilities::GetInstance();
-  if (!mathText)
+  if (!mathText || !mathText->IsAvailable())
     {
     vtkWarningMacro(<<"MathText is not available to parse string "
                     << string.c_str() << ". Install matplotlib and enable "
@@ -1354,16 +1364,25 @@ void vtkOpenGLContextDevice2D::DrawMathTextString(float point[2],
 
   float p[] = { std::floor(point[0]), std::floor(point[1]) };
 
+  // TODO this currently ignores vtkContextScene::ScaleTiles. Not sure how to
+  // get at that from here, but this is better than ignoring scaling altogether.
+  // TODO Also, FreeType supports anisotropic DPI. Might be needed if the
+  // tileScale isn't homogeneous, but we'll need to update the textrenderer API
+  // and see if MPL/mathtext can support it.
+  int tileScale[2];
+  this->RenderWindow->GetTileScale(tileScale);
+  int dpi = this->RenderWindow->GetDPI() * std::max(tileScale[0], tileScale[1]);
+
   // Cache rendered text strings
   vtkTextureImageCache<UTF8TextPropertyKey>::CacheData &cache =
     this->Storage->MathTextTextureCache.GetCacheData(
-      UTF8TextPropertyKey(this->TextProp, string));
+      UTF8TextPropertyKey(this->TextProp, string, dpi));
   vtkImageData* image = cache.ImageData;
   if (image->GetNumberOfPoints() == 0 && image->GetNumberOfCells() == 0)
     {
     int textDims[2];
-    if (!mathText->RenderString(string.c_str(), image, this->TextProp,
-                                this->RenderWindow->GetDPI(), textDims))
+    if (!mathText->RenderString(string.c_str(), image, this->TextProp, dpi,
+                                textDims))
       {
       return;
       }
@@ -1405,7 +1424,7 @@ void vtkOpenGLContextDevice2D::DrawMathTextString(float point[2],
 
   vtkOpenGLClearErrorMacro();
 
-  vtkgl::CellBO *cbo = 0;
+  vtkOpenGLHelper *cbo = 0;
   this->ReadyVTBOProgram();
   cbo = this->VTBO;
   int tunit = vtkOpenGLTexture::SafeDownCast(texture)->GetTextureUnit();
@@ -1449,7 +1468,7 @@ void vtkOpenGLContextDevice2D::DrawImage(float p[2], float scale,
 
   vtkOpenGLClearErrorMacro();
 
-  vtkgl::CellBO *cbo = 0;
+  vtkOpenGLHelper *cbo = 0;
   this->ReadyVTBOProgram();
   cbo = this->VTBO;
   int tunit = vtkOpenGLTexture::SafeDownCast(
@@ -1506,7 +1525,7 @@ void vtkOpenGLContextDevice2D::DrawImage(const vtkRectf& pos,
                        0.0f,   tex[1]};
 
 
-  vtkgl::CellBO *cbo = 0;
+  vtkOpenGLHelper *cbo = 0;
   this->ReadyVTBOProgram();
   cbo = this->VTBO;
   int tunit =  this->RenderWindow->GetTextureUnitManager()->Allocate();
@@ -1860,6 +1879,7 @@ vtkImageData *vtkOpenGLContextDevice2D::GenerateMarker(int shape, int width,
       }
     default: // Maintaining old behavior, which produces plus for unknown shape
       vtkWarningMacro(<<"Invalid marker shape: " << shape);
+      VTK_FALLTHROUGH;
     case VTK_MARKER_PLUS:
       {
       int center = (width + 1) / 2;
@@ -1935,20 +1955,20 @@ void vtkOpenGLContextDevice2D::PrintSelf(ostream &os, vtkIndent indent)
   this->Superclass::PrintSelf(os, indent);
   os << indent << "Renderer: ";
   if (this->Renderer)
-  {
+    {
     os << endl;
     this->Renderer->PrintSelf(os, indent.GetNextIndent());
-  }
+    }
   else
     {
     os << "(none)" << endl;
     }
   os << indent << "Text Renderer: ";
-  if (this->Renderer)
-  {
+  if (this->TextRenderer)
+    {
     os << endl;
     this->TextRenderer->PrintSelf(os, indent.GetNextIndent());
-  }
+    }
   else
     {
     os << "(none)" << endl;

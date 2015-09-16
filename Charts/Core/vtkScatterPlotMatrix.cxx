@@ -387,6 +387,15 @@ bool vtkScatterPlotMatrix::Paint(vtkContext2D *painter)
   return Superclass::Paint(painter);
 }
 
+void vtkScatterPlotMatrix::SetScene(vtkContextScene *scene)
+{
+  // The internal axis shouldn't be a child as it isn't rendered with the
+  // chart, but it does need access to the scene.
+  this->Private->TestAxis->SetScene(scene);
+
+  this->Superclass::SetScene(scene);
+}
+
 bool vtkScatterPlotMatrix::SetActivePlot(const vtkVector2i &pos)
 {
   if (pos.GetX() + pos.GetY() + 1 < this->Size.GetX() && pos.GetX() < this->Size.GetX() &&
@@ -773,18 +782,6 @@ void vtkScatterPlotMatrix::ProcessEvents(vtkObject *, unsigned long event,
     }
 }
 
-#ifndef VTK_LEGACY_REMOVE
-vtkAnnotationLink* vtkScatterPlotMatrix::GetActiveAnnotationLink()
-{
-  // Never made it into a release, deprecating for shorter, more consistent
-  // naming of the function.
-  VTK_LEGACY_REPLACED_BODY(vtkScatterPlotMatrix::GetActiveAnnotationLink,
-                           "VTK 5.8",
-                           vtkScatterPlotMatrix::GetAnnotationLink);
-  return this->GetAnnotationLink();
-}
-#endif
-
 vtkAnnotationLink* vtkScatterPlotMatrix::GetAnnotationLink()
 {
   return this->Private->Link.GetPointer();
@@ -1128,6 +1125,12 @@ bool vtkScatterPlotMatrix::MouseButtonPressEvent(const vtkContextMouseEvent &)
 bool vtkScatterPlotMatrix::MouseButtonReleaseEvent(
     const vtkContextMouseEvent &mouse)
 {
+  // Check we are not currently already animating
+  if (this->Private->TimerCallbackInitialized)
+    {
+    return true;
+    }
+
   // Work out which scatter plot was clicked - make that one the active plot.
   vtkVector2i pos = this->GetChartIndex(mouse.GetPos());
 

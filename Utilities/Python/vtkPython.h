@@ -50,7 +50,7 @@
 # include <time.h>
 # include <wchar.h>
 # undef _DEBUG
-# if defined(_MSC_VER) && _MSC_VER >= 1400
+# if defined(_MSC_VER)
 #  define _CRT_NOFORCE_MANIFEST 1
 # endif
 #endif
@@ -73,7 +73,7 @@ they are system headers.  Do NOT add any #undef lines here.  */
 #endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1800
-#define HAVE_ROUND
+#define HAVE_ROUND 1
 #endif
 
 #include <Python.h>

@@ -24,7 +24,7 @@ PURPOSE.  See the above copyright notice for more information.
 #include "vtkWin32RenderWindowInteractor.h"
 
 #include <math.h>
-#include <vtksys/ios/sstream>
+#include <sstream>
 
 #include "vtkOpenGLError.h"
 
@@ -436,10 +436,14 @@ const char* vtkWin32OpenGLRenderWindow::ReportCapabilities()
   const char *glRenderer = (const char *) glGetString(GL_RENDERER);
   const char *glVersion = (const char *) glGetString(GL_VERSION);
 
-  vtksys_ios::ostringstream strm;
-  strm << "OpenGL vendor string:  " << glVendor << endl;
-  strm << "OpenGL renderer string:  " << glRenderer << endl;
-  strm << "OpenGL version string:  " << glVersion << endl;
+std::ostringstream strm;
+  if(glVendor)
+    strm << "OpenGL vendor string:  " << glVendor << endl;
+  if(glRenderer)
+    strm << "OpenGL renderer string:  " << glRenderer << endl;
+  if(glVersion)
+    strm << "OpenGL version string:  " << glVersion << endl;
+
   strm << "OpenGL extensions:  " << endl;
   GLint n, i;
   glGetIntegerv(GL_NUM_EXTENSIONS, &n);
@@ -499,27 +503,6 @@ const char* vtkWin32OpenGLRenderWindow::ReportCapabilities()
 }
 
 typedef bool (APIENTRY *wglChoosePixelFormatARBType)(HDC, const int*, const float*, unsigned int, int*, unsigned int*);
-
-bool WGLisExtensionSupported(const char *extension)
-{
-  const char *supported = NULL;
-
-  // If That Failed, Try Standard Opengl Extensions String
-  if (supported == NULL)
-    {
-    GLint n, i;
-    glGetIntegerv(GL_NUM_EXTENSIONS, &n);
-    for (i = 0; i < n; i++)
-      {
-      const char *ext = (const char *)glGetStringi(GL_EXTENSIONS, i);
-      if (!strcmp(ext,extension))
-        {
-        return true;
-        }
-      }
-    }
-  return false;
-}
 
 void vtkWin32OpenGLRenderWindow::SetupPixelFormatPaletteAndContext(
   HDC hDC, DWORD dwFlags,
@@ -584,7 +567,8 @@ void vtkWin32OpenGLRenderWindow::SetupPixelFormatPaletteAndContext(
       n += 2;
       }
     unsigned int multiSampleAttributeIndex = 0;
-    if (this->MultiSamples > 1 && WGLisExtensionSupported("WGL_ARB_multisample"))
+    if (this->MultiSamples > 1 &&
+        wglewIsSupported("WGL_ARB_multisample"))
       {
       attrib[n] = WGL_SAMPLE_BUFFERS_ARB;
       attrib[n+1] = 1;
@@ -631,7 +615,7 @@ void vtkWin32OpenGLRenderWindow::SetupPixelFormatPaletteAndContext(
     this->SetupPalette(hDC);
 
     // create a context
-//#define USE_32_CONTEXT
+#define USE_32_CONTEXT
 #ifdef USE_32_CONTEXT
     PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB =
       reinterpret_cast<PFNWGLCREATECONTEXTATTRIBSARBPROC>(wglGetProcAddress("wglCreateContextAttribsARB"));
@@ -678,19 +662,21 @@ void vtkWin32OpenGLRenderWindow::SetupPixelFormatPaletteAndContext(
     return;
     }
 
+  BYTE bpp_byte = static_cast<BYTE>(bpp);
+  BYTE zbpp_byte = static_cast<BYTE>(zbpp);
   PIXELFORMATDESCRIPTOR pfd2 = {
     sizeof(PIXELFORMATDESCRIPTOR),  /* size */
     1,                              /* version */
-    dwFlags         ,               /* support double-buffering */
+    dwFlags,                        /* support double-buffering */
     PFD_TYPE_RGBA,                  /* color type */
-    bpp,                             /* preferred color depth */
+    bpp_byte,                       /* preferred color depth */
     0, 0, 0, 0, 0, 0,               /* color bits (ignored) */
-    this->AlphaBitPlanes ? bpp/4 : 0, /* no alpha buffer */
+    static_cast<BYTE>(this->AlphaBitPlanes ? bpp/4 : 0), /* no alpha buffer */
     0,                              /* alpha bits (ignored) */
     0,                              /* no accumulation buffer */
     0, 0, 0, 0,                     /* accum bits (ignored) */
-    zbpp,                           /* depth buffer */
-    this->StencilCapable,           /* stencil buffer */
+    zbpp_byte,                      /* depth buffer */
+    static_cast<BYTE>(this->StencilCapable), /* stencil buffer */
     0,                              /* no auxiliary buffers */
     PFD_MAIN_PLANE,                 /* main layer */
     0,                              /* reserved */
@@ -704,26 +690,14 @@ void vtkWin32OpenGLRenderWindow::SetupPixelFormatPaletteAndContext(
     {
     DescribePixelFormat(hDC, currentPixelFormat,sizeof(pfd2), &pfd2);
     if (!(pfd2.dwFlags & PFD_SUPPORT_OPENGL))
-      {
-#ifdef UNICODE
-      MessageBox(WindowFromDC(hDC),
-                 L"Invalid pixel format, no OpenGL support",
-                 L"Error",
-                 MB_ICONERROR | MB_OK);
-#else
-      MessageBox(WindowFromDC(hDC),
-                 "Invalid pixel format, no OpenGL support",
-                 "Error",
-                 MB_ICONERROR | MB_OK);
-#endif
+      { // @note see https://msdn.microsoft.com/en-us/library/windows/desktop/dd369049(v=vs.85).aspx
+        // "Once a window's pixel format is set, it cannot be changed."
+        vtkErrorMacro("Call to DescribePixelFormat failed. "
+                      "Illegal duplicate invocation or no OpenGL support.");
       if (this->HasObserver(vtkCommand::ExitEvent))
         {
         this->InvokeEvent(vtkCommand::ExitEvent, NULL);
         return;
-        }
-      else
-        {
-        exit(1);
         }
       }
     }
@@ -1110,9 +1084,6 @@ void vtkWin32OpenGLRenderWindow::WindowInitialize()
     this->MakeCurrent(); // hsr
     this->OpenGLInit();
     }
-
-  // set the DPI
-  this->SetDPI(GetDeviceCaps(this->DeviceContext, LOGPIXELSY));
 }
 
 // Initialize the rendering window.
@@ -1765,4 +1736,11 @@ void vtkWin32OpenGLRenderWindow::SetCurrentCursor(int shape)
       LoadImage(0,cursorName,IMAGE_CURSOR,0,0,LR_SHARED | LR_DEFAULTSIZE);
     SetCursor((HCURSOR)cursor);
     }
+}
+
+//----------------------------------------------------------------------------
+bool vtkWin32OpenGLRenderWindow::DetectDPI()
+{
+  this->SetDPI(GetDeviceCaps(this->DeviceContext, LOGPIXELSY));
+  return true;
 }

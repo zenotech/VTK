@@ -863,15 +863,24 @@ void vtkOpenGLContextDevice2D::DrawString(float *point,
   float p[] = { std::floor(point[0] * xScale) / xScale,
                 std::floor(point[1] * yScale) / yScale };
 
+  // TODO this currently ignores vtkContextScene::ScaleTiles. Not sure how to
+  // get at that from here, but this is better than ignoring scaling altogether.
+  // TODO Also, FreeType supports anisotropic DPI. Might be needed if the
+  // tileScale isn't homogeneous, but we'll need to update the textrenderer API
+  // and see if MPL/mathtext can support it.
+  int tileScale[2];
+  this->RenderWindow->GetTileScale(tileScale);
+  int dpi = this->RenderWindow->GetDPI() * std::max(tileScale[0], tileScale[1]);
+
   // Cache rendered text strings
   vtkTextureImageCache<UTF16TextPropertyKey>::CacheData &cache =
       this->Storage->TextTextureCache.GetCacheData(
-        UTF16TextPropertyKey(this->TextProp, string));
+        UTF16TextPropertyKey(this->TextProp, string, dpi));
   vtkImageData* image = cache.ImageData;
   if (image->GetNumberOfPoints() == 0 && image->GetNumberOfCells() == 0)
     {
     int textDims[2];
-    if (!this->TextRenderer->RenderString(this->TextProp, string, image,
+    if (!this->TextRenderer->RenderString(this->TextProp, string, dpi, image,
                                           textDims))
       {
       return;
@@ -923,7 +932,16 @@ void vtkOpenGLContextDevice2D::DrawString(float *point,
 void vtkOpenGLContextDevice2D::ComputeStringBounds(const vtkUnicodeString &string,
                                                    float bounds[4])
 {
-  vtkVector2i box = this->TextRenderer->GetBounds(this->TextProp, string);
+  // TODO this currently ignores vtkContextScene::ScaleTiles. Not sure how to
+  // get at that from here, but this is better than ignoring scaling altogether.
+  // TODO Also, FreeType supports anisotropic DPI. Might be needed if the
+  // tileScale isn't homogeneous, but we'll need to update the textrenderer API
+  // and see if MPL/mathtext can support it.
+  int tileScale[2];
+  this->RenderWindow->GetTileScale(tileScale);
+  int dpi = this->RenderWindow->GetDPI() * std::max(tileScale[0], tileScale[1]);
+
+  vtkVector2i box = this->TextRenderer->GetBounds(this->TextProp, string, dpi);
   // Check for invalid bounding box
   if (box[0] == VTK_INT_MIN || box[0] == VTK_INT_MAX ||
       box[1] == VTK_INT_MIN || box[1] == VTK_INT_MAX)
@@ -934,6 +952,7 @@ void vtkOpenGLContextDevice2D::ComputeStringBounds(const vtkUnicodeString &strin
     bounds[3] = static_cast<float>(0);
     return;
     }
+
   GLfloat mv[16];
   glGetFloatv(GL_MODELVIEW_MATRIX, mv);
   float xScale = mv[0];
@@ -949,7 +968,7 @@ void vtkOpenGLContextDevice2D::DrawMathTextString(float point[2],
                                                   const vtkStdString &string)
 {
   vtkMathTextUtilities *mathText = vtkMathTextUtilities::GetInstance();
-  if (!mathText)
+  if (!mathText || !mathText->IsAvailable())
     {
     vtkWarningMacro(<<"MathText is not available to parse string "
                     << string.c_str() << ". Install matplotlib and enable "
@@ -961,16 +980,25 @@ void vtkOpenGLContextDevice2D::DrawMathTextString(float point[2],
 
   float p[] = { std::floor(point[0]), std::floor(point[1]) };
 
+  // TODO this currently ignores vtkContextScene::ScaleTiles. Not sure how to
+  // get at that from here, but this is better than ignoring scaling altogether.
+  // TODO Also, FreeType supports anisotropic DPI. Might be needed if the
+  // tileScale isn't homogeneous, but we'll need to update the textrenderer API
+  // and see if MPL/mathtext can support it.
+  int tileScale[2];
+  this->RenderWindow->GetTileScale(tileScale);
+  int dpi = this->RenderWindow->GetDPI() * std::max(tileScale[0], tileScale[1]);
+
   // Cache rendered text strings
   vtkTextureImageCache<UTF8TextPropertyKey>::CacheData &cache =
     this->Storage->MathTextTextureCache.GetCacheData(
-      UTF8TextPropertyKey(this->TextProp, string));
+      UTF8TextPropertyKey(this->TextProp, string, dpi));
   vtkImageData* image = cache.ImageData;
   if (image->GetNumberOfPoints() == 0 && image->GetNumberOfCells() == 0)
     {
     int textDims[2];
-    if (!mathText->RenderString(string.c_str(), image, this->TextProp,
-                                this->RenderWindow->GetDPI(), textDims))
+    if (!mathText->RenderString(string.c_str(), image, this->TextProp, dpi,
+                                textDims))
       {
       return;
       }
@@ -1586,20 +1614,20 @@ void vtkOpenGLContextDevice2D::PrintSelf(ostream &os, vtkIndent indent)
   this->Superclass::PrintSelf(os, indent);
   os << indent << "Renderer: ";
   if (this->Renderer)
-  {
+    {
     os << endl;
     this->Renderer->PrintSelf(os, indent.GetNextIndent());
-  }
+    }
   else
     {
     os << "(none)" << endl;
     }
   os << indent << "Text Renderer: ";
-  if (this->Renderer)
-  {
+  if (this->TextRenderer)
+    {
     os << endl;
     this->TextRenderer->PrintSelf(os, indent.GetNextIndent());
-  }
+    }
   else
     {
     os << "(none)" << endl;

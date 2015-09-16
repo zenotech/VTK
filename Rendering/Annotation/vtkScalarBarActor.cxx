@@ -144,6 +144,11 @@ vtkScalarBarActor::vtkScalarBarActor()
   this->P->AnnotationLeadersActor->GetPositionCoordinate()->
     SetReferenceCoordinate(this->PositionCoordinate);
 
+  this->P->TitleBox.Posn[0] = 0;
+  this->P->TitleBox.Posn[1] = 0;
+  this->P->TitleBox.Size[0] = 0;
+  this->P->TitleBox.Size[1] = 0;
+
   // If opacity is on, a jail like texture is displayed behind it..
 
   this->UseOpacity       = 0;
@@ -1622,6 +1627,26 @@ void vtkScalarBarActor::ConfigureAnnotations()
 void vtkScalarBarActor::FreeLayoutStorage()
 {
   // Delete previously constructed objects
+  if (this->P->Viewport && this->P->Viewport->GetVTKWindow())
+    {
+    vtkWindow *win = this->P->Viewport->GetVTKWindow();
+    if (!this->P->TextActors.empty())
+      {
+      vtkScalarBarActorInternal::ActorVector::iterator it;
+      for (
+        it = this->P->TextActors.begin();
+        it != this->P->TextActors.end();
+        ++it)
+        {
+        (*it)->ReleaseGraphicsResources(win);
+        }
+      }
+    for (vtkScalarBarActorInternal::ActorVector::size_type i = 0; i < this->P->AnnotationLabels.size(); ++ i )
+      {
+      this->P->AnnotationLabels[i]->ReleaseGraphicsResources(win);
+      }
+    }
+
   this->P->TextActors.clear();
   this->P->AnnotationLabels.clear();
   this->P->AnnotationAnchors.clear();
@@ -2061,7 +2086,7 @@ struct vtkScalarBarHLabelPlacer
 
     // II. Loop over all labels checking for interference.
     // Where found, close current line and start new one on the other side.
-    int ic = this->Places.size() / 2;
+    int ic = static_cast<int>(this->Places.size()) / 2;
     int lf, rt;
     bool done = false;
     if (!this->HaveCtr)
