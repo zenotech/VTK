@@ -680,19 +680,13 @@ void vtkXMLUnstructuredDataWriter::WriteCellsInlineWorker(
 }
 
 //----------------------------------------------------------------------------
-// void vtkXMLUnstructuredDataWriter::WriteCellsAppended(const char* name,
-//                                                       vtkDataArray* types,
-//                                                       vtkIdTypeArray* faces,
-//                                                       vtkIdTypeArray* faceOffsets,
-//                                                       vtkIndent indent,
-//                                                       OffsetsManagerGroup *cellsManager)
-// {
-// <<<<<<< HEAD
-//   this->ConvertFaces(faces, faceOffsets);
-
-// =======
-//   this->WriteCellsAppended(name, types, 0, 0, indent, cellsManager);
-// }
+void vtkXMLUnstructuredDataWriter::WriteCellsAppended(const char* name,
+                                                      vtkDataArray* types,
+                                                      vtkIndent indent,
+                                                      OffsetsManagerGroup *cellsManager)
+{
+  this->WriteCellsAppended(name, types, 0, 0, indent, cellsManager);
+}
 
 //----------------------------------------------------------------------------
 void vtkXMLUnstructuredDataWriter::WriteCellsAppended(const char* name,
@@ -703,7 +697,6 @@ void vtkXMLUnstructuredDataWriter::WriteCellsAppended(const char* name,
                                                       OffsetsManagerGroup *cellsManager)
 {
   this->ConvertFaces(faces,faceOffsets);
-
   ostream& os = *(this->Stream);
   os << indent << "<" << name << ">\n";
 
@@ -754,11 +747,7 @@ void vtkXMLUnstructuredDataWriter::WriteCellsAppended(
     types->InsertNextValue(static_cast<unsigned char>(cellIter->GetCellType()));
     }
 
-<<<<<<< HEAD
-  this->WriteCellsAppended(name, types.GetPointer(), NULL, NULL, indent, cellsManager);
-=======
   this->WriteCellsAppended(name, types.GetPointer(), 0, 0, indent, cellsManager);
->>>>>>> upstream/master
 }
 
 //----------------------------------------------------------------------------
