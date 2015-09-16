@@ -7,11 +7,11 @@
   All rights reserved.
   See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
 
-  This software is distributed WITHOUT ANY WARRANTY; without even
-  the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-  PURPOSE.  See the above copyright notice for more information.
+     This software is distributed WITHOUT ANY WARRANTY; without even
+     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+     PURPOSE.  See the above copyright notice for more information.
 
-  =========================================================================*/
+=========================================================================*/
 #include "vtkStripper.h"
 
 #include "vtkSmartPointer.h"
@@ -38,9 +38,9 @@ vtkStripper::vtkStripper()
 }
 
 int vtkStripper::RequestData(
-                             vtkInformation *vtkNotUsed(request),
-                             vtkInformationVector **inputVector,
-                             vtkInformationVector *outputVector)
+  vtkInformation *vtkNotUsed(request),
+  vtkInformationVector **inputVector,
+  vtkInformationVector *outputVector)
 {
   // get the info objects
   vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
@@ -48,9 +48,9 @@ int vtkStripper::RequestData(
 
   // get the input and output
   vtkPolyData *input = vtkPolyData::SafeDownCast(
-                                                 inInfo->Get(vtkDataObject::DATA_OBJECT()));
+    inInfo->Get(vtkDataObject::DATA_OBJECT()));
   vtkPolyData *output = vtkPolyData::SafeDownCast(
-                                                  outInfo->Get(vtkDataObject::DATA_OBJECT()));
+    outInfo->Get(vtkDataObject::DATA_OBJECT()));
 
   vtkIdType cellId, numCells, i;
   int longestStrip, longestLine, j, numPts;
@@ -98,13 +98,13 @@ int vtkStripper::RequestData(
   // check input
   if ( (numCells=mesh->GetNumberOfCells()) < 1  && inStrips->GetNumberOfCells() < 1)
     {
-      // pass through verts
-      output->CopyStructure(input);
-      output->GetPointData()->PassData(input->GetPointData());
-      output->GetCellData()->PassData(input->GetCellData());
-      mesh->Delete();
-      vtkDebugMacro(<<"No data to strip!");
-      return 1;
+    // pass through verts
+    output->CopyStructure(input);
+    output->GetPointData()->PassData(input->GetPointData());
+    output->GetCellData()->PassData(input->GetCellData());
+    mesh->Delete();
+    vtkDebugMacro(<<"No data to strip!");
+    return 1;
     }
 
   pts = new vtkIdType[this->MaximumLength + 2]; //working array
@@ -114,23 +114,23 @@ int vtkStripper::RequestData(
   // The new field data object that maintains the transformed cell data.
   if (this->PassCellDataAsFieldData)
     {
-      newfd = vtkFieldData::New();
-      newfd->CopyStructure(cd);
-      newfd->Allocate(3*numCells + 3);
+    newfd = vtkFieldData::New();
+    newfd->CopyStructure(cd);
+    newfd->Allocate(3*numCells + 3);
 
-      newfdPolys = vtkFieldData::New();
-      newfdPolys->CopyStructure(cd);
-      newfdPolys->Allocate(inNumPolys + 1);
+    newfdPolys = vtkFieldData::New();
+    newfdPolys->CopyStructure(cd);
+    newfdPolys->Allocate(inNumPolys + 1);
 
-      newfdLines = vtkFieldData::New();
-      newfdLines->CopyStructure(cd);
-      newfdLines->Allocate(inNumLines + 1);
+    newfdLines = vtkFieldData::New();
+    newfdLines->CopyStructure(cd);
+    newfdLines->Allocate(inNumLines + 1);
 
-      newfdStrips = vtkFieldData::New();
-      newfdStrips->CopyStructure(cd);
-      // this is a very gross estimate since we cannot know how long the already
-      // present strips are.
-      newfdStrips->Allocate(3*inNumPolys + 3);
+    newfdStrips = vtkFieldData::New();
+    newfdStrips->CopyStructure(cd);
+    // this is a very gross estimate since we cannot know how long the already
+    // present strips are.
+    newfdStrips->Allocate(3*inNumPolys + 3);
     }
 
   vtkIdTypeArray* OriginalCellIds = NULL;
@@ -139,84 +139,84 @@ int vtkStripper::RequestData(
   vtkIdTypeArray* origStripIds = NULL;
   if (this->PassThroughCellIds)
     {
-      OriginalCellIds = vtkIdTypeArray::New();
-      OriginalCellIds->SetName("vtkOriginalCellIds");
-      OriginalCellIds->SetNumberOfComponents(1);
-      OriginalCellIds->Allocate(3*numCells + 3);
+    OriginalCellIds = vtkIdTypeArray::New();
+    OriginalCellIds->SetName("vtkOriginalCellIds");
+    OriginalCellIds->SetNumberOfComponents(1);
+    OriginalCellIds->Allocate(3*numCells + 3);
 
-      origPolyIds = vtkIdTypeArray::New();
-      origPolyIds->SetNumberOfComponents(1);
-      origPolyIds->Allocate(inNumPolys + 1);
+    origPolyIds = vtkIdTypeArray::New();
+    origPolyIds->SetNumberOfComponents(1);
+    origPolyIds->Allocate(inNumPolys + 1);
 
-      origLineIds = vtkIdTypeArray::New();
-      origLineIds->SetNumberOfComponents(1);
-      origLineIds->Allocate(inNumLines + 1);
+    origLineIds = vtkIdTypeArray::New();
+    origLineIds->SetNumberOfComponents(1);
+    origLineIds->Allocate(inNumLines + 1);
 
-      origStripIds = vtkIdTypeArray::New();
-      origStripIds->SetNumberOfComponents(1);
-      origStripIds->Allocate(3*inNumPolys + 3);
+    origStripIds = vtkIdTypeArray::New();
+    origStripIds->SetNumberOfComponents(1);
+    origStripIds->Allocate(3*inNumPolys + 3);
     }
 
   // pre-load existing strips
   if ( inStrips->GetNumberOfCells() > 0 || inPolys->GetNumberOfCells() > 0 )
     {
-      newStrips = vtkCellArray::New();
-      newStrips->Allocate(newStrips->EstimateSize(numCells,6));
-      cellId = inNumVerts + inNumLines + inNumPolys;
-      for(inStrips->InitTraversal();
-          inStrips->GetNextCell(numStripPts,stripPts); )
+    newStrips = vtkCellArray::New();
+    newStrips->Allocate(newStrips->EstimateSize(numCells,6));
+    cellId = inNumVerts + inNumLines + inNumPolys;
+    for(inStrips->InitTraversal();
+        inStrips->GetNextCell(numStripPts,stripPts); )
+      {
+      newStrips->InsertNextCell(numStripPts,stripPts);
+      if (this->PassCellDataAsFieldData)
         {
-          newStrips->InsertNextCell(numStripPts,stripPts);
-          if (this->PassCellDataAsFieldData)
-            {
-              for (i=2; i < numStripPts; i++)
-                {
-                  newfdStrips->InsertNextTuple(cellId, cd);
-                }
-            }
-          if (this->PassThroughCellIds)
-            {
-              origStripIds->InsertNextValue(cellId);
-              for (i=2; i < numStripPts; i++)
-                {
-                  origStripIds->InsertNextValue(cellId);
-                }
-            }
-          cellId++;
+        for (i=2; i < numStripPts; i++)
+          {
+          newfdStrips->InsertNextTuple(cellId, cd);
+          }
         }
-      // These are for passing through non-triangle polygons
-      newPolys = vtkCellArray::New();
-      newPolys->Allocate(newStrips->EstimateSize(numCells/2,4));
+      if (this->PassThroughCellIds)
+        {
+        origStripIds->InsertNextValue(cellId);
+        for (i=2; i < numStripPts; i++)
+          {
+          origStripIds->InsertNextValue(cellId);
+          }
+        }
+      cellId++;
+      }
+    // These are for passing through non-triangle polygons
+    newPolys = vtkCellArray::New();
+    newPolys->Allocate(newStrips->EstimateSize(numCells/2,4));
     }
 
   // pre-load existing poly-lines
   if ( inLines->GetNumberOfCells() > 0 )
     {
-      newLines = vtkCellArray::New();
-      newLines->Allocate(newLines->EstimateSize(numCells,6));
-      cellId = inNumVerts;
-      for (inLines->InitTraversal(); inLines->GetNextCell(numLinePts,linePts); cellId++)
+    newLines = vtkCellArray::New();
+    newLines->Allocate(newLines->EstimateSize(numCells,6));
+    cellId = inNumVerts;
+    for (inLines->InitTraversal(); inLines->GetNextCell(numLinePts,linePts); cellId++)
+      {
+      if ( numLinePts > 2 )
         {
-          if ( numLinePts > 2 )
-            {
-              newLines->InsertNextCell(numLinePts,linePts);
-              if (this->PassCellDataAsFieldData)
-                {
-                  newfdLines->InsertNextTuple(cellId, cd);
-                }
-              if (this->PassThroughCellIds)
-                {
-                  origLineIds->InsertNextValue(cellId);
-                }
-            }
+        newLines->InsertNextCell(numLinePts,linePts);
+        if (this->PassCellDataAsFieldData)
+          {
+          newfdLines->InsertNextTuple(cellId, cd);
+          }
+        if (this->PassThroughCellIds)
+          {
+          origLineIds->InsertNextValue(cellId);
+          }
         }
+      }
     }
 
   // array keeps track of data that's been visited
   visited = new char[numCells];
   for (i=0; i < numCells; i++)
     {
-      visited[i] = 0;
+    visited[i] = 0;
     }
 
   // Loop over all cells and find one that hasn't been visited.
@@ -232,224 +232,224 @@ int vtkStripper::RequestData(
   vtkIdType progressInterval=numCells/20 + 1;
   for ( cellId=0; cellId < numCells && !abort; cellId++)
     {
-      if ( !(cellId % progressInterval) )
+    if ( !(cellId % progressInterval) )
+      {
+      this->UpdateProgress ((float) cellId/numCells);
+      abort = this->GetAbortExecute();
+      }
+    if ( ! visited[cellId] )
+      {
+      visited[cellId] = 1;
+      if ( (cellType=mesh->GetCellType(cellId)) == VTK_TRIANGLE )
         {
-          this->UpdateProgress ((float) cellId/numCells);
-          abort = this->GetAbortExecute();
-        }
-      if ( ! visited[cellId] )
-        {
-          visited[cellId] = 1;
-          if ( (cellType=mesh->GetCellType(cellId)) == VTK_TRIANGLE )
+        //  Got a starting point for the strip.  Initialize.  Find a neighbor
+        //  to extend strip.
+        //
+        numStrips++;
+        numPts = 3;
+
+        mesh->GetCellPoints(cellId,numTriPts,triPts);
+
+        for (i=0; i<3; i++)
+          {
+          pts[1] = triPts[i];
+          pts[2] = triPts[(i+1)%3];
+
+          mesh->GetCellEdgeNeighbors(cellId, pts[1], pts[2], cellIds);
+          if ( cellIds->GetNumberOfIds() > 0 &&
+          !visited[neighbor=cellIds->GetId(0)] &&
+          mesh->GetCellType(neighbor) == VTK_TRIANGLE )
             {
-              //  Got a starting point for the strip.  Initialize.  Find a neighbor
-              //  to extend strip.
-              //
-              numStrips++;
-              numPts = 3;
-
-              mesh->GetCellPoints(cellId,numTriPts,triPts);
-
-              for (i=0; i<3; i++)
-                {
-                  pts[1] = triPts[i];
-                  pts[2] = triPts[(i+1)%3];
-
-                  mesh->GetCellEdgeNeighbors(cellId, pts[1], pts[2], cellIds);
-                  if ( cellIds->GetNumberOfIds() > 0 &&
-                       !visited[neighbor=cellIds->GetId(0)] &&
-                       mesh->GetCellType(neighbor) == VTK_TRIANGLE )
-                    {
-                      pts[0] = triPts[(i+2)%3];
-                      break;
-                    }
-                }
-              //  If no unvisited neighbor, just create the strip of one triangle.
-              //
-              if ( i >= 3 )
-                {
-                  pts[0] = triPts[0];;
-                  pts[1] = triPts[1];
-                  pts[2] = triPts[2];
-                  newStrips->InsertNextCell(3,pts);
-                  if (this->PassCellDataAsFieldData)
-                    {
-                      newfdStrips->InsertNextTuple(cellId, cd);
-                    }
-                  if (this->PassThroughCellIds)
-                    {
-                      origStripIds->InsertNextValue(cellId);
-                    }
-                }
-              else // continue strip
-                {
-                  //  Have a neighbor.  March along grabbing new points
-                  //
-                  if (this->PassCellDataAsFieldData)
-                    {
-                      newfdStrips->InsertNextTuple(cellId, cd);
-                    }
-                  if (this->PassThroughCellIds)
-                    {
-                      origStripIds->InsertNextValue(cellId);
-                    }
-                  while ( neighbor >= 0 )
-                    {
-                      visited[neighbor] = 1;
-                      mesh->GetCellPoints(neighbor,numTriPts, triPts);
-                      if (this->PassCellDataAsFieldData)
-                        {
-                          newfdStrips->InsertNextTuple(neighbor, cd);
-                        }
-                      if (this->PassThroughCellIds)
-                        {
-                          origStripIds->InsertNextValue(neighbor);
-                        }
-                      for (i=0; i<3; i++)
-                        {
-                          if ( triPts[i] != pts[numPts-2] &&
-                               triPts[i] != pts[numPts-1] )
-                            {
-                              break;
-                            }
-                        }
-
-                      // only add the triangle to the strip if it isn't degenerate.
-                      if (i < 3)
-                        {
-                          pts[numPts] = triPts[i];
-                          mesh->GetCellEdgeNeighbors(neighbor, pts[numPts],
-                                                     pts[numPts-1], cellIds);
-                          numPts++;
-                        }
-
-                      if ( numPts > longestStrip )
-                        {
-                          longestStrip = numPts;
-                        }
-
-                      // note: if updates value of neighbor
-                      // Note2: for a degenerate triangle this test will
-                      // correctly fail because the visited[neighbor] will
-                      // now be visited
-                      if ( cellIds->GetNumberOfIds() <= 0 ||
-                           visited[neighbor=cellIds->GetId(0)] ||
-                           mesh->GetCellType(neighbor) != VTK_TRIANGLE ||
-                           numPts >= (this->MaximumLength+2) )
-                        {
-                          newStrips->InsertNextCell(numPts,pts);
-                          neighbor = (-1);
-                        }
-                    } // while
-                } // else continue strip
-            } // if triangle
-
-          else if ( cellType == VTK_LINE )
-            {
-              //
-              //  Got a starting point for the line.  Initialize.  Find a neighbor
-              //  to extend poly-line.
-              //
-              numLines++;
-              numPts = 2;
-
-              mesh->GetCellPoints(cellId,numLinePts,linePts);
-
-              for ( foundOne=i=0; !foundOne && i<2; i++)
-                {
-                  pts[0] = linePts[i];
-                  pts[1] = linePts[(i+1)%2];
-                  mesh->GetPointCells(pts[1], cellIds);
-                  for (j=0; j < cellIds->GetNumberOfIds(); j++ )
-                    {
-                      neighbor = cellIds->GetId(j);
-                      if ( neighbor != cellId && !visited[neighbor] &&
-                           mesh->GetCellType(neighbor) == VTK_LINE )
-                        {
-                          foundOne = 1;
-                          break;
-                        }
-                    }
-                }
-
-              // for each polyline that we construct, we set the cell data to be that
-              // for the first cell that formed the polyline. We may build the field data
-              // for the mini-cells in the polyline, similar to triangle strips,
-              // but that is not required currently.
-              if (this->PassCellDataAsFieldData)
-                {
-                  newfdLines->InsertNextTuple(cellId, cd);
-                }
-              if (this->PassThroughCellIds)
-                {
-                  origLineIds->InsertNextValue(cellId);
-                }
-              //  If no unvisited neighbor, just create the poly-line from one line.
-              //
-              if ( !foundOne )
-                {
-                  newLines->InsertNextCell(2,linePts);
-                }
-              else // continue poly-line
-                {
-                  //  Have a neighbor.  March along grabbing new points
-                  //
-                  while ( neighbor >= 0 )
-                    {
-                      visited[neighbor] = 1;
-                      mesh->GetCellPoints(neighbor, numLinePts, linePts);
-                      for (i=0; i<2; i++)
-                        {
-                          if ( linePts[i] != pts[numPts-1] )
-                            {
-                              break;
-                            }
-                        }
-                      pts[numPts] = linePts[i];
-                      mesh->GetPointCells(pts[numPts], cellIds);
-                      if ( ++numPts > longestLine )
-                        {
-                          longestLine = numPts;
-                        }
-
-                      // get new neighbor
-                      for ( j=0; j < cellIds->GetNumberOfIds(); j++ )
-                        {
-                          nei = cellIds->GetId(j);
-                          if ( nei != neighbor && !visited[nei] &&
-                               mesh->GetCellType(nei) == VTK_LINE )
-                            {
-                              neighbor = nei;
-                              break;
-                            }
-                        }
-
-                      if ( j >= cellIds->GetNumberOfIds() ||
-                           numPts >= (this->MaximumLength+1) )
-                        {
-                          newLines->InsertNextCell(numPts,pts);
-                          neighbor = (-1);
-                        }
-                    } // while
-                } // else continue line
-            } // if line
-
-          //not line, triangle, or strip must be quad or tpolygon which we pass through
-          else if ( cellType == VTK_POLYGON || cellType == VTK_QUAD )
-            {
-              mesh->GetCellPoints(cellId,numTriPts,triPts);
-              newPolys->InsertNextCell(numTriPts,triPts);
-              if (this->PassCellDataAsFieldData)
-                {
-                  newfdPolys->InsertNextTuple(cellId, cd);
-                }
-              if (this->PassThroughCellIds)
-                {
-                  origPolyIds->InsertNextValue(cellId);
-                }
+            pts[0] = triPts[(i+2)%3];
+            break;
             }
+          }
+        //  If no unvisited neighbor, just create the strip of one triangle.
+        //
+        if ( i >= 3 )
+          {
+          pts[0] = triPts[0];;
+          pts[1] = triPts[1];
+          pts[2] = triPts[2];
+          newStrips->InsertNextCell(3,pts);
+          if (this->PassCellDataAsFieldData)
+            {
+            newfdStrips->InsertNextTuple(cellId, cd);
+            }
+          if (this->PassThroughCellIds)
+            {
+            origStripIds->InsertNextValue(cellId);
+            }
+          }
+        else // continue strip
+          {
+          //  Have a neighbor.  March along grabbing new points
+          //
+          if (this->PassCellDataAsFieldData)
+            {
+            newfdStrips->InsertNextTuple(cellId, cd);
+            }
+          if (this->PassThroughCellIds)
+            {
+            origStripIds->InsertNextValue(cellId);
+            }
+          while ( neighbor >= 0 )
+            {
+            visited[neighbor] = 1;
+            mesh->GetCellPoints(neighbor,numTriPts, triPts);
+            if (this->PassCellDataAsFieldData)
+              {
+              newfdStrips->InsertNextTuple(neighbor, cd);
+              }
+            if (this->PassThroughCellIds)
+              {
+              origStripIds->InsertNextValue(neighbor);
+              }
+            for (i=0; i<3; i++)
+              {
+              if ( triPts[i] != pts[numPts-2] &&
+              triPts[i] != pts[numPts-1] )
+                {
+                break;
+                }
+              }
 
-        } // if not visited
+            // only add the triangle to the strip if it isn't degenerate.
+            if (i < 3)
+              {
+              pts[numPts] = triPts[i];
+              mesh->GetCellEdgeNeighbors(neighbor, pts[numPts],
+                                         pts[numPts-1], cellIds);
+              numPts++;
+              }
+
+            if ( numPts > longestStrip )
+              {
+              longestStrip = numPts;
+              }
+
+            // note: if updates value of neighbor
+            // Note2: for a degenerate triangle this test will
+            // correctly fail because the visited[neighbor] will
+            // now be visited
+            if ( cellIds->GetNumberOfIds() <= 0 ||
+                 visited[neighbor=cellIds->GetId(0)] ||
+                 mesh->GetCellType(neighbor) != VTK_TRIANGLE ||
+                 numPts >= (this->MaximumLength+2) )
+              {
+              newStrips->InsertNextCell(numPts,pts);
+              neighbor = (-1);
+              }
+            } // while
+          } // else continue strip
+        } // if triangle
+
+      else if ( cellType == VTK_LINE )
+        {
+        //
+        //  Got a starting point for the line.  Initialize.  Find a neighbor
+        //  to extend poly-line.
+        //
+        numLines++;
+        numPts = 2;
+
+        mesh->GetCellPoints(cellId,numLinePts,linePts);
+
+        for ( foundOne=i=0; !foundOne && i<2; i++)
+          {
+          pts[0] = linePts[i];
+          pts[1] = linePts[(i+1)%2];
+          mesh->GetPointCells(pts[1], cellIds);
+          for (j=0; j < cellIds->GetNumberOfIds(); j++ )
+            {
+            neighbor = cellIds->GetId(j);
+            if ( neighbor != cellId && !visited[neighbor] &&
+            mesh->GetCellType(neighbor) == VTK_LINE )
+              {
+              foundOne = 1;
+              break;
+              }
+            }
+          }
+
+        // for each polyline that we construct, we set the cell data to be that
+        // for the first cell that formed the polyline. We may build the field data
+        // for the mini-cells in the polyline, similar to triangle strips,
+        // but that is not required currently.
+        if (this->PassCellDataAsFieldData)
+          {
+          newfdLines->InsertNextTuple(cellId, cd);
+          }
+        if (this->PassThroughCellIds)
+          {
+          origLineIds->InsertNextValue(cellId);
+          }
+        //  If no unvisited neighbor, just create the poly-line from one line.
+        //
+        if ( !foundOne )
+          {
+          newLines->InsertNextCell(2,linePts);
+          }
+        else // continue poly-line
+          {
+          //  Have a neighbor.  March along grabbing new points
+          //
+          while ( neighbor >= 0 )
+            {
+            visited[neighbor] = 1;
+            mesh->GetCellPoints(neighbor, numLinePts, linePts);
+            for (i=0; i<2; i++)
+              {
+              if ( linePts[i] != pts[numPts-1] )
+                {
+                break;
+                }
+              }
+            pts[numPts] = linePts[i];
+            mesh->GetPointCells(pts[numPts], cellIds);
+            if ( ++numPts > longestLine )
+              {
+              longestLine = numPts;
+              }
+
+            // get new neighbor
+            for ( j=0; j < cellIds->GetNumberOfIds(); j++ )
+              {
+              nei = cellIds->GetId(j);
+              if ( nei != neighbor && !visited[nei] &&
+              mesh->GetCellType(nei) == VTK_LINE )
+                {
+                neighbor = nei;
+                break;
+                }
+              }
+
+            if ( j >= cellIds->GetNumberOfIds() ||
+            numPts >= (this->MaximumLength+1) )
+              {
+              newLines->InsertNextCell(numPts,pts);
+              neighbor = (-1);
+              }
+            } // while
+          } // else continue line
+        } // if line
+
+      //not line, triangle, or strip must be quad or tpolygon which we pass through
+      else if ( cellType == VTK_POLYGON || cellType == VTK_QUAD )
+        {
+        mesh->GetCellPoints(cellId,numTriPts,triPts);
+        newPolys->InsertNextCell(numTriPts,triPts);
+        if (this->PassCellDataAsFieldData)
+          {
+          newfdPolys->InsertNextTuple(cellId, cd);
+          }
+        if (this->PassThroughCellIds)
+          {
+          origPolyIds->InsertNextValue(cellId);
+          }
+        }
+
+      } // if not visited
     } // for all elements
 
   // Update output and release memory
@@ -462,170 +462,43 @@ int vtkStripper::RequestData(
   output->GetPointData()->PassData(pd);
   if (this->PassThroughPointIds)
     {
-      //make a 1:1 mapping
-      vtkIdTypeArray *originalPointIds = vtkIdTypeArray::New();
-      originalPointIds->SetName("vtkOriginalPointIds");
-      originalPointIds->SetNumberOfComponents(1);
-      vtkPointData *outputPD = output->GetPointData();
-      outputPD->AddArray(originalPointIds);
-      vtkIdType numTup = output->GetNumberOfPoints();
-      originalPointIds->SetNumberOfValues(numTup);
-      for (vtkIdType cId = 0; cId < numTup; cId++)
-        {
-          originalPointIds->SetValue(cId, cId);
-        }
-      originalPointIds->Delete();
+    //make a 1:1 mapping
+    vtkIdTypeArray *originalPointIds = vtkIdTypeArray::New();
+    originalPointIds->SetName("vtkOriginalPointIds");
+    originalPointIds->SetNumberOfComponents(1);
+    vtkPointData *outputPD = output->GetPointData();
+    outputPD->AddArray(originalPointIds);
+    vtkIdType numTup = output->GetNumberOfPoints();
+    originalPointIds->SetNumberOfValues(numTup);
+    for (vtkIdType cId = 0; cId < numTup; cId++)
+      {
+      originalPointIds->SetValue(cId, cId);
+      }
+    originalPointIds->Delete();
     }
 
   // output strips
   if ( newStrips )
     {
-      newStrips->Squeeze();
-      output->SetStrips(newStrips);
-      newStrips->Delete();
-      vtkDebugMacro (<<"Reduced " << numCells << " cells to " << numStrips
-                     << " triangle strips \n\t(Average "
-                     << (float)numCells/numStrips
-                     << " triangles per strip, longest strip = "
-                     << ((longestStrip-2)>0?(longestStrip-2):0) << " triangles)");
+    newStrips->Squeeze();
+    output->SetStrips(newStrips);
+    newStrips->Delete();
+    vtkDebugMacro (<<"Reduced " << numCells << " cells to " << numStrips
+                  << " triangle strips \n\t(Average "
+                  << (float)numCells/numStrips
+                  << " triangles per strip, longest strip = "
+                  << ((longestStrip-2)>0?(longestStrip-2):0) << " triangles)");
 
-      if ( newPolys->GetNumberOfCells() > 0 )
-        {
-          vtkDebugMacro(<<"Passed " << newPolys->GetNumberOfCells()
-                        << " polygons");
-          newPolys->Squeeze();
-          output->SetPolys(newPolys);
-        }
-      newPolys->Delete();
+    if ( newPolys->GetNumberOfCells() > 0 )
+      {
+      vtkDebugMacro(<<"Passed " << newPolys->GetNumberOfCells()
+                    << " polygons");
+      newPolys->Squeeze();
+      output->SetPolys(newPolys);
+      }
+    newPolys->Delete();
     }
 
-  // output poly-lines //SK// PATCH APPLIED HERE
-  if ( newLines ) {
-
-    // In some cases it may be possible to optimise the output
-    // poly-lines a bit.  The algorithm thus-far sometimes outputs
-    // polylines that could be joined together but are not.  We now
-    // go through joining any lines that we can.
-    //
-
-    // compressedLines will be our output line set, possibly
-    // with some lines joined together.
-    vtkCellArray* compressedLines = vtkCellArray::New();
-
-    bool* used = new bool[newLines->GetNumberOfCells()];
-    for (i = 0; i < newLines->GetNumberOfCells(); i++)
-      used[i] = 0;
-
-    bool done = false;
-    while (!done)
-      {
-        int out_n = 0;
-        vtkIdType* out_p = new vtkIdType[newLines->GetNumberOfConnectivityEntries()];
-
-        newLines->InitTraversal();
-        int id = -1;
-        vtkIdType n;
-        vtkIdType* p;
-
-        // Find a line from the original set that has not yet been used
-        do
-          {
-            if (newLines->GetNextCell(n, p) == 0)
-              done = true;
-            id++;
-          } while (!done && (used[id] == 1));
-
-        if (done == false)
-          {
-            // Write it into our output line
-            memcpy(out_p + out_n, p, n * sizeof(vtkIdType));
-            out_n += n;
-            used[id] = 1;
-
-            // Now add any unused lines that adjoin this current line
-            bool done_this = false;
-            while (!done_this)
-              {
-
-                // Here's the start and end of our current line
-                vtkIdType ca = out_p[0];
-                vtkIdType cb = out_p[out_n - 1];
-
-                vtkIdType ta;
-                vtkIdType tb;
-                bool found = false;
-
-                // Look for any lines which adjoin this one
-                newLines->InitTraversal(); //SK: init traversal of all polygons so as not to miss previous lines
-                int idt = -1;
-                while (!done_this && !found)
-                  {
-
-                    if (newLines->GetNextCell(n, p) == 0)
-                      done_this = true;
-                    idt++;
-
-                    if (!done_this && (used[idt] == 0))
-                      {
-                        ta = p[0];
-                        tb = p[n - 1];
-                        if ((ca == ta) || (ca == tb) || (cb == ta) || (cb == tb))
-                          found = true;
-                      }
-                  }
-
-                if (found)
-                  {
-                    // Here's a line which adjoins this one somehow; add it in
-                    vtkIdType* add_to;
-
-                    if (ca == ta || ca == tb)
-                      {
-                        // This line will go in before our current one; move
-                        // the current one forwards to make room
-                        memmove(out_p + n, out_p, out_n * sizeof(vtkIdType));
-                        add_to = out_p;
-                      }
-                    else
-                      {
-                        // This line will go in after our current one
-                        add_to = out_p + out_n;
-                      }
-
-                    // Add the new line to our current one, either forwards
-                    // or backwards as appropriate
-                    if (ca == ta || cb == tb)
-                      {
-                        for (vtkIdType x = 0; x < n; x++)
-                          add_to[x] = p[n - x - 1];
-                      }
-                    else
-                      {
-                        memcpy(add_to, p, n * sizeof(vtkIdType));
-                      }
-
-                    out_n += n;
-                    used[idt] = 1;
-
-                  }
-                else
-                  done_this = true;
-              }
-
-            // We've finished this new line, so add it to the list
-            compressedLines->InsertNextCell(out_n, out_p);
-          }
-
-        delete out_p;
-      }
-
-// <<<<<<< HEAD
-//     newLines->Delete();
-//     compressedLines->Squeeze();
-//     output->SetLines(compressedLines);
-//     compressedLines->Delete();
-//     delete used;
-// =======
   // output poly-lines
   if (newLines)
     {
@@ -769,7 +642,7 @@ int vtkStripper::RequestData(
                    << " lines per poly-line, longest poly-line = "
                    << ((longestLine-1)>0?(longestLine-1):0) << " lines)");
 
-  }
+    }
 
   // pass through verts
   output->SetVerts(input->GetVerts());
@@ -777,82 +650,82 @@ int vtkStripper::RequestData(
 
   if (this->PassCellDataAsFieldData)
     {
-      cellId = 0;
-      int max;
-      for (i=0; i < inNumVerts; i++, cellId++)
+    cellId = 0;
+    int max;
+    for (i=0; i < inNumVerts; i++, cellId++)
+      {
+      newfd->InsertNextTuple(cellId, cd);
+      }
+    if (newfdLines)
+      {
+      max = newfdLines->GetNumberOfTuples();
+      for (i=0; i < max; i++)
         {
-          newfd->InsertNextTuple(cellId, cd);
+        newfd->InsertNextTuple(i, newfdLines);
         }
-      if (newfdLines)
+      newfdLines->Delete();
+      }
+    if (newfdPolys)
+      {
+      max = newfdPolys->GetNumberOfTuples();
+      for (i=0; i < max; i++)
         {
-          max = newfdLines->GetNumberOfTuples();
-          for (i=0; i < max; i++)
-            {
-              newfd->InsertNextTuple(i, newfdLines);
-            }
-          newfdLines->Delete();
+        newfd->InsertNextTuple(i, newfdPolys);
         }
-      if (newfdPolys)
+      newfdPolys->Delete();
+      }
+    if (newfdStrips)
+      {
+      max = newfdStrips->GetNumberOfTuples();
+      for (i=0; i < max; i++)
         {
-          max = newfdPolys->GetNumberOfTuples();
-          for (i=0; i < max; i++)
-            {
-              newfd->InsertNextTuple(i, newfdPolys);
-            }
-          newfdPolys->Delete();
+        newfd->InsertNextTuple(i, newfdStrips);
         }
-      if (newfdStrips)
-        {
-          max = newfdStrips->GetNumberOfTuples();
-          for (i=0; i < max; i++)
-            {
-              newfd->InsertNextTuple(i, newfdStrips);
-            }
-          newfdStrips->Delete();
-        }
-      newfd->Squeeze();
-      output->SetFieldData(newfd);
-      newfd->Delete();
+      newfdStrips->Delete();
+      }
+    newfd->Squeeze();
+    output->SetFieldData(newfd);
+    newfd->Delete();
     }
 
   if (this->PassThroughCellIds)
     {
-      cellId = 0;
-      int max;
-      for (i=0; i < inNumVerts; i++, cellId++)
+    cellId = 0;
+    int max;
+    for (i=0; i < inNumVerts; i++, cellId++)
+      {
+      OriginalCellIds->InsertNextValue(cellId);
+      }
+    if (origLineIds)
+      {
+      max = origLineIds->GetNumberOfTuples();
+      for (i=0; i < max; i++)
         {
-          OriginalCellIds->InsertNextValue(cellId);
+        OriginalCellIds->InsertNextTuple(i, origLineIds);
         }
-      if (origLineIds)
+      origLineIds->Delete();
+      }
+    if (origPolyIds)
+      {
+      max = origPolyIds->GetNumberOfTuples();
+      for (i=0; i < max; i++)
         {
-          max = origLineIds->GetNumberOfTuples();
-          for (i=0; i < max; i++)
-            {
-              OriginalCellIds->InsertNextTuple(i, origLineIds);
-            }
-          origLineIds->Delete();
+        OriginalCellIds->InsertNextTuple(i, origPolyIds);
         }
-      if (origPolyIds)
+      origPolyIds->Delete();
+      }
+    if (origStripIds)
+      {
+      max = origStripIds->GetNumberOfTuples();
+      for (i=0; i < max; i++)
         {
-          max = origPolyIds->GetNumberOfTuples();
-          for (i=0; i < max; i++)
-            {
-              OriginalCellIds->InsertNextTuple(i, origPolyIds);
-            }
-          origPolyIds->Delete();
+        OriginalCellIds->InsertNextTuple(i, origStripIds);
         }
-      if (origStripIds)
-        {
-          max = origStripIds->GetNumberOfTuples();
-          for (i=0; i < max; i++)
-            {
-              OriginalCellIds->InsertNextTuple(i, origStripIds);
-            }
-          origStripIds->Delete();
-        }
-      OriginalCellIds->Squeeze();
-      output->GetFieldData()->AddArray(OriginalCellIds);
-      OriginalCellIds->Delete();
+      origStripIds->Delete();
+      }
+    OriginalCellIds->Squeeze();
+    output->GetFieldData()->AddArray(OriginalCellIds);
+    OriginalCellIds->Delete();
     }
 
 
