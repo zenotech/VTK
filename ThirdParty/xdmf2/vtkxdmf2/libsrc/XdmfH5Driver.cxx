@@ -696,7 +696,7 @@ H5FD_dsm_set_eoa(H5FD_t *_file, haddr_t addr)
 static haddr_t
 #if (H5_VERS_MAJOR>1)||((H5_VERS_MAJOR==1)&&(H5_VERS_MINOR>=8))
 #if (H5_VERS_MAJOR>1)||((H5_VERS_MAJOR==1)&&(H5_VERS_MINOR>=10))
-H5FD_dsm_get_eof(const H5FD_t *_file, H5FD_mem_t type);
+H5FD_dsm_get_eof(const H5FD_t *_file, H5FD_mem_t type)
 #else
 H5FD_dsm_get_eof(const H5FD_t *_file)
 #endif
