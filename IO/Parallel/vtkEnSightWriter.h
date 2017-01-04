@@ -109,6 +109,15 @@ public:
 
   //@{
   /**
+   * Description
+   * Override to disable geometry output
+   */
+  vtkSetMacro(DisableGeometryOutput,bool);
+  vtkGetMacro(DisableGeometryOutput,bool);
+  //@}
+
+  //@{
+  /**
    * set the number of block ID's
    */
   vtkSetMacro(NumberOfBlocks,int);

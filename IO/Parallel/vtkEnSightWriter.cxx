@@ -561,7 +561,7 @@ void vtkEnSightWriter::WriteData()
               // For each element write number of faces  per element
               int numFaces=0;
               for (k=0;k<CellsByElement[elementType].size();k++)
-                {
+              {
                   int CellId=CellsByElement[elementType][k];
                   vtkIdType nfaces;
                   vtkIdType *ptids;
@@ -570,10 +570,10 @@ void vtkEnSightWriter::WriteData()
                   this->WriteIntToFile(nfaces,fd);
 
                   numFaces += nfaces;
-                }
+              }
               // For each face number of nodes per face
               for (k=0;k<CellsByElement[elementType].size();k++)
-                {
+              {
                   int CellId=CellsByElement[elementType][k];
                   vtkIdType nfaces;
                   vtkIdType *ptids;
@@ -585,10 +585,10 @@ void vtkEnSightWriter::WriteData()
                     this->WriteIntToFile(nnodes,fd);
                     count += nnodes + 1;
                   }
-                }
+              }
 
               for (k=0;k<CellsByElement[elementType].size();k++)
-                {
+              {
                   int CellId=CellsByElement[elementType][k];
                   vtkIdType nfaces;
                   vtkIdType *ptids;
@@ -605,12 +605,12 @@ void vtkEnSightWriter::WriteData()
                       count++;
                     }
                   }
-                }
-            }
+              }
           }
         }
       }
     }
+    
 
     //write the Cell Data for this part
     for (j=0;j<cellArrayFiles.size();j++)
