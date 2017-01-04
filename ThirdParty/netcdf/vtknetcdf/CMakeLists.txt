@@ -329,7 +329,7 @@ VTK_ADD_LIBRARY(vtkNetCDF
     ${netcdf_src4_SOURCES}
     ${netcdf_dispatch_SOURCES}
     ${netcdf_liblib_SOURCES})
-target_link_libraries(vtkNetCDF ${vtkhdf5_LIBRARIES})
+target_link_libraries(vtkNetCDF ${vtkhdf5_LIBRARIES} ${HDF5_hdf5_hl_LIBRARY} ${HDF5_hdf5_hl_LIBRARY_RELEASE})
 
 if (UNIX)
   # link against the math library.
