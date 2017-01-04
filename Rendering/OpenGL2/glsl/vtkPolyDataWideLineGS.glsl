@@ -1,3 +1,5 @@
+//VTK::System::Dec
+
 /*=========================================================================
 
   Program:   Visualization Toolkit
@@ -13,10 +15,6 @@
 
 =========================================================================*/
 // Template for the polydata mappers geometry shader
-
-// The following line handle system declarations such a
-// default precisions, or defining precisions to null
-//VTK::System::Dec
 
 // VC position of this fragment
 //VTK::PositionVC::Dec
@@ -62,6 +60,8 @@ void main()
 
   // rotate 90 degrees
   normal = vec2(-1.0*normal.y,normal.x);
+
+  //VTK::Normal::Start
 
   for (int j = 0; j < 4; j++)
     {

@@ -40,6 +40,7 @@ SET(Module_SRCS
   vtkScalarTree.cxx
   vtkSimpleImageToImageFilter.cxx
   vtkSimpleScalarTree.cxx
+  vtkSpanSpace.cxx
   vtkStreamingDemandDrivenPipeline.cxx
   vtkStructuredGridAlgorithm.cxx
   vtkTableAlgorithm.cxx
@@ -47,6 +48,7 @@ SET(Module_SRCS
   vtkThreadedCompositeDataPipeline.cxx
   vtkThreadedImageAlgorithm.cxx
   vtkTreeAlgorithm.cxx
+  vtkTrivialConsumer.cxx
   vtkTrivialProducer.cxx
   vtkUndirectedGraphAlgorithm.cxx
   vtkUnstructuredGridAlgorithm.cxx

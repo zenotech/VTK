@@ -12,13 +12,15 @@
      PURPOSE.  See the above copyright notice for more information.
 
 =========================================================================*/
-// .NAME vtkImageResample - Resamples an image to be larger or smaller.
-// .SECTION Description
-// This filter produces an output with different spacing (and extent)
-// than the input.  Linear interpolation can be used to resample the data.
-// The Output spacing can be set explicitly or relative to input spacing
-// with the SetAxisMagnificationFactor method.
-
+/**
+ * @class   vtkImageResample
+ * @brief   Resamples an image to be larger or smaller.
+ *
+ * This filter produces an output with different spacing (and extent)
+ * than the input.  Linear interpolation can be used to resample the data.
+ * The Output spacing can be set explicitly or relative to input spacing
+ * with the SetAxisMagnificationFactor method.
+*/
 
 #ifndef vtkImageResample_h
 #define vtkImageResample_h
@@ -32,26 +34,33 @@ class VTKIMAGINGCORE_EXPORT vtkImageResample : public vtkImageReslice
 public:
   static vtkImageResample *New();
   vtkTypeMacro(vtkImageResample,vtkImageReslice);
-  void PrintSelf(ostream& os, vtkIndent indent);
+  void PrintSelf(ostream& os, vtkIndent indent) VTK_OVERRIDE;
 
-  // Description:
-  // Set desired spacing.
-  // Zero is a reserved value indicating spacing has not been set.
+  /**
+   * Set desired spacing.
+   * Zero is a reserved value indicating spacing has not been set.
+   */
   void SetAxisOutputSpacing(int axis, double spacing);
 
-  // Description:
-  // Set/Get Magnification factors.
-  // Zero is a reserved value indicating values have not been computed.
+  //@{
+  /**
+   * Set/Get Magnification factors.
+   * Zero is a reserved value indicating values have not been computed.
+   */
   void SetAxisMagnificationFactor(int axis, double factor);
   double GetAxisMagnificationFactor(int axis, vtkInformation *inInfo=0);
+  //@}
 
-  // Description:
-  // Dimensionality is the number of axes which are considered during
-  // execution. To process images dimensionality would be set to 2.
-  // This has the same effect as setting the magnification of the third
-  // axis to 1.0
+  //@{
+  /**
+   * Dimensionality is the number of axes which are considered during
+   * execution. To process images dimensionality would be set to 2.
+   * This has the same effect as setting the magnification of the third
+   * axis to 1.0
+   */
   vtkSetMacro(Dimensionality,int);
   vtkGetMacro(Dimensionality,int);
+  //@}
 
 protected:
   vtkImageResample();
@@ -61,11 +70,13 @@ protected:
   double OutputSpacing[3];
   int Dimensionality;
 
-  virtual int RequestInformation(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
+  virtual int RequestInformation(vtkInformation *,
+                                 vtkInformationVector **,
+                                 vtkInformationVector *) VTK_OVERRIDE;
 
 private:
-  vtkImageResample(const vtkImageResample&);  // Not implemented.
-  void operator=(const vtkImageResample&);  // Not implemented.
+  vtkImageResample(const vtkImageResample&) VTK_DELETE_FUNCTION;
+  void operator=(const vtkImageResample&) VTK_DELETE_FUNCTION;
 };
 
 #endif

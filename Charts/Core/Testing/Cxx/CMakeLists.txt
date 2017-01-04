@@ -47,6 +47,7 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestBarGraphHorizontal.cxx
   TestBarGraphSelection.cxx
   TestBoxPlot.cxx
+  TestBoxPlot2.cxx
   TestCategoryLegend.cxx
   TestColorTransferFunction.cxx
   TestChartDouble.cxx
@@ -58,6 +59,10 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestChartXYInvertedAxis.cxx
   TestChartXYZ.cxx
   TestContext.cxx
+  TestContextArea.cxx
+  TestContextAreaFixedAspect.cxx
+  TestContextAreaFixedMargins.cxx
+  TestContextAreaFixedRect.cxx
   TestContextImage.cxx
   TestContextItemStacking.cxx
   TestContextUnicode.cxx
@@ -83,6 +88,7 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestParallelCoordinatesDouble.cxx
   TestPieChart.cxx
   TestPlotMatrix.cxx
+  TestPropItem.cxx
   TestScalarsToColors.cxx
   TestScatterPlot.cxx
   TestScatterPlotMatrix.cxx

@@ -24,8 +24,7 @@
 // Silence warning like
 // "dereferencing type-punned pointer will break strict-aliasing rules"
 // it happens because this kind of expression: (long *)&ptr
-// pragma GCC diagnostic is available since gcc>=4.2
-#if defined(__GNUC__) && (__GNUC__>4) || (__GNUC__==4 && __GNUC_MINOR__>=2)
+#if defined(__GNUC__)
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
 
@@ -99,11 +98,11 @@ PyObject *PyVTKNamespace_New(const char *name)
   // first check to see if this namespace exists
   PyObject *self = vtkPythonUtil::FindNamespace(name);
   if (self)
-    {
+  {
     Py_INCREF(self);
-    }
+  }
   else
-    {
+  {
     // make sure python has readied the type object
     PyType_Ready(&PyVTKNamespace_Type);
     // call the allocator provided by python for this type
@@ -115,7 +114,7 @@ PyObject *PyVTKNamespace_New(const char *name)
     Py_DECREF(args);
     // remember the object for later reference
     vtkPythonUtil::AddNamespaceToMap(self);
-    }
+  }
   return self;
 }
 

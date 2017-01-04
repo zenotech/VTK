@@ -1,14 +1,32 @@
 if(VTK_RENDERING_BACKEND STREQUAL "OpenGL2")
   set(extra_opengl2_tests
     TestCompositePolyDataMapper2.cxx,NO_DATA
+    TestCompositePolyDataMapper2Picking.cxx,NO_DATA
     TestCompositePolyDataMapper2Scalars.cxx,NO_DATA
+    TestCompositePolyDataMapper2CellScalars.cxx,NO_DATA
+    TestCompositePolyDataMapper2MixedGeometryCellScalars.cxx,NO_DATA
+    TestCompositePolyDataMapper2MixedGeometryEdges.cxx,NO_DATA
     TestMultiBlockPartialArrayPointData.cxx
     TestMultiBlockPartialArrayFieldData.cxx
     # the following produce incorrect results in OpenGL
     TestTranslucentLUTAlphaBlending.cxx
     TestTranslucentLUTTextureAlphaBlending.cxx
     TestAreaSelections.cxx
+    TestValuePassFloatingPoint.cxx
+    TestToggleOSWithInteractor.cxx,NO_DATA
     )
+else()
+  set(extra_opengl2_tests
+    TestCompositePolyDataMapper2.cxx,NO_DATA,NO_VALID
+    TestCompositePolyDataMapper2Scalars.cxx,NO_DATA,NO_VALID
+    TestCompositePolyDataMapper2CellScalars.cxx,NO_DATA,NO_VALID
+    TestCompositePolyDataMapper2MixedGeometryCellScalars.cxx,NO_DATA,NO_VALID
+    TestCompositePolyDataMapper2MixedGeometryEdges.cxx,NO_DATA,NO_VALID
+    )
+endif()
+
+if (VTK_USE_OFFSCREEN)
+  list(APPEND extra_opengl2_tests TestOffscreenIsOffscreen.cxx,NO_DATA,NO_VALID)
 endif()
 
 vtk_add_test_cxx(${vtk-module}CxxTests tests
@@ -37,12 +55,15 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestEdgeFlags.cxx
   TestFollowerPicking.cxx
   TestGlyph3DMapper.cxx
+  TestGlyph3DMapper2.cxx,NO_VALID,NO_RT,NO_DATA
   TestGlyph3DMapperArrow.cxx
   TestGlyph3DMapperMasking.cxx
   TestGlyph3DMapperOrientationArray.cxx
   TestGlyph3DMapperPicking.cxx
   TestGradientBackground.cxx
+  TestHiddenLineRemovalPass.cxx
   TestHomogeneousTransformOfActor.cxx
+  TestImageAndAnnotations.cxx,NO_DATA
   TestInteractorStyleImageProperty.cxx,NO_VALID
   TestInteractorTimers.cxx,NO_VALID
   TestLabeledContourMapper.cxx
@@ -55,6 +76,7 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestOrderedTriangulator.cxx
   TestOpacity.cxx
   TestOSConeCxx.cxx
+  TestPickTextActor.cxx,NO_VALID
   TestPointSelection.cxx,NO_VALID
   TestPolygonSelection.cxx
   TestResetCameraVerticalAspectRatio.cxx
@@ -74,6 +96,7 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestTStripsNormalsColorsTCoords.cxx
   TestTStripsNormalsTCoords.cxx
   TestTStripsTCoords.cxx
+  TestWindowToImageFilter.cxx
   otherLookupTable.cxx,NO_VALID
   otherLookupTableWithEnabling.cxx,NO_VALID
   RenderNonFinite.cxx

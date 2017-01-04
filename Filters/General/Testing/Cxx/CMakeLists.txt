@@ -21,15 +21,19 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestContourTriangulatorCutter.cxx
   TestContourTriangulator.cxx
   TestContourTriangulatorMarching.cxx
+  TestCountFaces.cxx,NO_VALID
+  TestCountVertices.cxx,NO_VALID
   TestDeformPointSet.cxx
   TestDensifyPolyData.cxx
   TestDistancePolyDataFilter.cxx
   TestGraphWeightEuclideanDistanceFilter.cxx,NO_VALID
   TestImageDataToPointSet.cxx,NO_VALID
+  TestIntersectionPolyDataFilter3.cxx
   TestIntersectionPolyDataFilter2.cxx,NO_VALID
   TestIntersectionPolyDataFilter.cxx
   TestRectilinearGridToPointSet.cxx,NO_VALID
   TestReflectionFilter.cxx,NO_VALID
+  TestSplitByCellScalarFilter.cxx,NO_VALID
   TestTableSplitColumnComponents.cxx,NO_VALID
   TestTransformFilter.cxx,NO_VALID
   TestTransformPolyDataFilter.cxx,NO_VALID
@@ -51,3 +55,10 @@ set(all_tests
 
 vtk_test_cxx_executable(${vtk-module}CxxTests all_tests
   RENDERING_FACTORY)
+
+# On some machines this test takes some extra time
+if(NOT VTK_TEST_TIMEOUT_TestYoungsMaterialInterface)
+  set(VTK_TEST_TIMEOUT_TestYoungsMaterialInterface 300)
+endif()
+set_tests_properties(${vtk-module}Cxx-TestYoungsMaterialInterface
+  PROPERTIES TIMEOUT ${VTK_TEST_TIMEOUT_TestYoungsMaterialInterface})

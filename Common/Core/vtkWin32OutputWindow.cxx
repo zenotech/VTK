@@ -17,12 +17,6 @@
 #include "vtkObjectFactory.h"
 #include "vtkWindows.h"
 
-#pragma warning(push)
-#pragma warning(disable:4091)
-#include "DbgHelp.h"
-#pragma warning(pop)
-#pragma comment(lib, "Dbghelp.lib")
-
 vtkStandardNewMacro(vtkWin32OutputWindow);
 
 HWND vtkWin32OutputWindowOutputWindow = 0;
@@ -33,15 +27,15 @@ LRESULT APIENTRY vtkWin32OutputWindowWndProc(HWND hWnd, UINT message,
                                              LPARAM lParam)
 {
   switch (message)
-    {
+  {
     case WM_SIZE:
-      {
+    {
       int w = LOWORD(lParam);  // width of client area
       int h = HIWORD(lParam); // height of client area
 
       MoveWindow(vtkWin32OutputWindowOutputWindow,
                  0, 0, w, h, true);
-      }
+    }
       break;
     case WM_DESTROY:
       vtkWin32OutputWindowOutputWindow = NULL;
@@ -49,7 +43,7 @@ LRESULT APIENTRY vtkWin32OutputWindowWndProc(HWND hWnd, UINT message,
       break;
     case WM_CREATE:
       break;
-    }
+  }
   return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
@@ -60,13 +54,13 @@ vtkWin32OutputWindow::vtkWin32OutputWindow()
   //
   if(getenv("DART_TEST_FROM_DART") ||
     getenv("DASHBOARD_TEST_FROM_CTEST"))
-    {
+  {
     this->SendToStdErr = true;
-    }
+  }
   else
-    {
+  {
     this->SendToStdErr = false;
-    }
+  }
 }
 
 //----------------------------------------------------------------------------
@@ -80,39 +74,39 @@ vtkWin32OutputWindow::~vtkWin32OutputWindow()
 void vtkWin32OutputWindow::DisplayText(const char* someText)
 {
   if(!someText)
-    {
+  {
     return;
-    }
+  }
   if(this->PromptUser)
-    {
+  {
     this->PromptText(someText);
     return;
-    }
+  }
 
   // Create a buffer big enough to hold the entire text
   char* buffer = new char[strlen(someText)+1];
   // Start at the beginning
   const char* NewLinePos = someText;
   while(NewLinePos)
-    {
+  {
     int len = 0;
     // Find the next new line in text
     NewLinePos = strchr(someText, '\n');
     // if no new line is found then just add the text
     if(NewLinePos == 0)
-      {
+    {
       vtkWin32OutputWindow::AddText(someText);
       OutputDebugString(someText);
 
       if (this->SendToStdErr)
-        {
+      {
         cerr << someText;
-        }
       }
+    }
     // if a new line is found copy it to the buffer
     // and add the buffer with a control new line
     else
-      {
+    {
       len = NewLinePos - someText;
       strncpy(buffer, someText, len);
       buffer[len] = 0;
@@ -123,12 +117,12 @@ void vtkWin32OutputWindow::DisplayText(const char* someText)
       OutputDebugString("\r\n");
 
       if (this->SendToStdErr)
-        {
+      {
         cerr << buffer;
         cerr << "\r\n";
-        }
       }
     }
+  }
   delete [] buffer;
 }
 
@@ -138,9 +132,9 @@ void vtkWin32OutputWindow::DisplayText(const char* someText)
 void vtkWin32OutputWindow::AddText(const char* someText)
 {
   if(!Initialize()  || (strlen(someText) == 0))
-    {
+  {
     return;
-    }
+  }
 
 #ifdef UNICODE
   // move to the end of the text area
@@ -170,9 +164,9 @@ int vtkWin32OutputWindow::Initialize()
 {
   // check to see if it is already initialized
   if(vtkWin32OutputWindowOutputWindow)
-    {
+  {
     return 1;
-    }
+  }
 
   // Initialize the output window
 
@@ -205,7 +199,7 @@ int vtkWin32OutputWindow::Initialize()
     // on 64-bit builds
     wndClass.cbWndExtra = sizeof(vtkLONG);
     RegisterClass(&wndClass);
-    }
+  }
 
   // create parent container window
 #ifdef _WIN32_WCE
@@ -314,16 +308,16 @@ void vtkWin32OutputWindow::PromptText(const char* someText)
   mbstowcs(wmsg, vtkmsg, 32000);
   if (MessageBox(NULL, wmsg, L"Error",
                  MB_ICONERROR | MB_OKCANCEL) == IDCANCEL)
-    {
+  {
     vtkObject::GlobalWarningDisplayOff();
-    }
+  }
   delete [] wmsg;
 #else
   if (MessageBox(NULL, vtkmsg, "Error",
                  MB_ICONERROR | MB_OKCANCEL) == IDCANCEL)
-    {
+  {
     vtkObject::GlobalWarningDisplayOff();
-    }
+  }
 #endif
   delete [] vtkmsg;
 }
@@ -334,46 +328,14 @@ void vtkWin32OutputWindow::PrintSelf(ostream& os, vtkIndent indent)
   this->Superclass::PrintSelf(os,indent);
 
   if (vtkWin32OutputWindowOutputWindow)
-    {
+  {
     os << indent << "OutputWindow: "
        << vtkWin32OutputWindowOutputWindow << "\n";
-    }
+  }
   else
-    {
+  {
     os << indent << "OutputWindow: (null)\n";
-    }
+  }
 
   os << indent << "SendToStdErr: " << this->SendToStdErr << "\n";
-}
-
-// super useful function to have sometimes
-void vtkWin32OutputWindow::PrintStack( void )
-{
-  unsigned int   i;
-  void         * stack[ 100 ];
-  unsigned short frames;
-  SYMBOL_INFO  * symbol;
-  HANDLE         process;
-
-  DWORD  dwDisplacement;
-  IMAGEHLP_LINE64 line;
-
-  process = GetCurrentProcess();
-  SymSetOptions(SYMOPT_LOAD_LINES);
-  SymInitialize( process, NULL, TRUE );
-  frames               = CaptureStackBackTrace( 0, 30, stack, NULL );
-  symbol               = ( SYMBOL_INFO * )calloc( sizeof( SYMBOL_INFO ) + 256 * sizeof( char ), 1 );
-  symbol->MaxNameLen   = 255;
-  symbol->SizeOfStruct = sizeof( SYMBOL_INFO );
-
-  for( i = 0; i < frames; i++ )
-    {
-    SymFromAddr( process, ( DWORD64 )( stack[ i ] ), 0, symbol );
-    SymGetLineFromAddr64(process, (DWORD64)stack[i], &dwDisplacement, &line);
-
-    printf( "%i: %s at line %d\n",
-      frames - i - 1, symbol->Name, line.LineNumber );
-    }
-
-  free( symbol );
 }

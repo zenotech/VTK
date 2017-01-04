@@ -18,8 +18,8 @@
   from vtkParse.y with the "yacc" compiler-compiler.
 */
 
-#ifndef VTK_PARSE_H
-#define VTK_PARSE_H
+#ifndef vtkParse_h
+#define vtkParse_h
 
 #include "vtkParseType.h"
 #include "vtkParseData.h"
@@ -48,11 +48,6 @@ void vtkParse_IncludeDirectory(const char *dirname);
  * Return the full path to a header file.
  */
 const char *vtkParse_FindIncludeFile(const char *filename);
-
-/**
- * Ignore BTX/ETX markers
- */
-void vtkParse_SetIgnoreBTX(int option);
 
 /**
  * Set the command name, for error reporting and diagnostics.

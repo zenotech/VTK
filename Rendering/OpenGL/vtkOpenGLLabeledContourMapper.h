@@ -12,13 +12,15 @@
      PURPOSE.  See the above copyright notice for more information.
 
 =========================================================================*/
-// .NAME vtkOpenGLLabeledContourMapper
-// .SECTION Description
-// vtkOpenGLLabeledContourMapper is an override for vtkLabeledContourMapper
-// that implements stenciling using the OpenGL API.
+/**
+ * @class   vtkOpenGLLabeledContourMapper
+ *
+ * vtkOpenGLLabeledContourMapper is an override for vtkLabeledContourMapper
+ * that implements stenciling using the OpenGL API.
+*/
 
-#ifndef vtkOpenGLLabelContourMapper_h
-#define vtkOpenGLLabelContourMapper_h
+#ifndef vtkOpenGLLabeledContourMapper_h
+#define vtkOpenGLLabeledContourMapper_h
 
 #include "vtkRenderingOpenGLModule.h" // For export macro
 #include "vtkLabeledContourMapper.h"
@@ -38,8 +40,8 @@ protected:
   bool RemoveStencil();
 
 private:
-  vtkOpenGLLabeledContourMapper(const vtkOpenGLLabeledContourMapper&);  // Not implemented.
-  void operator=(const vtkOpenGLLabeledContourMapper&);  // Not implemented.
+  vtkOpenGLLabeledContourMapper(const vtkOpenGLLabeledContourMapper&) VTK_DELETE_FUNCTION;
+  void operator=(const vtkOpenGLLabeledContourMapper&) VTK_DELETE_FUNCTION;
 };
 
 #endif

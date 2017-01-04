@@ -15,6 +15,7 @@ set(Module_SRCS
   vtkLeaderActor2D.cxx
   vtkLegendBoxActor.cxx
   vtkLegendScaleActor.cxx
+  vtkParallelCoordinatesActor.cxx
   vtkPieChartActor.cxx
   vtkPolarAxesActor.cxx
   vtkProp3DAxisFollower.cxx
@@ -29,8 +30,10 @@ set(${vtk-module}_HDRS
 
 set_source_files_properties(
   vtkScalarBarActorInternal.h
-  HEADER_FILE_ONLY
-  WRAP_EXCLUDE
+  PROPERTIES
+    HEADER_FILE_ONLY 1
+    WRAP_EXCLUDE 1
+    WRAP_EXCLUDE_PYTHON 1
   )
 
 vtk_module_library(vtkRenderingAnnotation ${Module_SRCS})

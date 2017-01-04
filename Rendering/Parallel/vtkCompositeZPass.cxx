@@ -18,7 +18,6 @@
 #include <cassert>
 #include "vtkRenderState.h"
 #include "vtkOpenGLRenderer.h"
-#include "vtkFrameBufferObject.h"
 #include "vtkTextureObject.h"
 #include "vtkOpenGLRenderWindow.h"
 
@@ -26,6 +25,7 @@
 // only for vtkCompositeZPass developers.
 //#define VTK_COMPOSITE_ZPASS_DEBUG
 
+#include "vtkFrameBufferObjectBase.h"
 #include "vtkPNGWriter.h"
 #include "vtkImageImport.h"
 #include "vtkImageShiftScale.h"
@@ -53,6 +53,7 @@
 # include "vtkCompositeZPassFS.h"
 # include "vtk_glew.h"
 #else
+# include "vtkFrameBufferObject.h"
 # include "vtkgl.h"
 # include "vtkShaderProgram2.h"
 # include "vtkShader2.h"
@@ -80,26 +81,26 @@ vtkCompositeZPass::vtkCompositeZPass()
 vtkCompositeZPass::~vtkCompositeZPass()
 {
   if(this->Controller!=0)
-    {
+  {
       this->Controller->Delete();
-    }
+  }
   if(this->PBO!=0)
-    {
+  {
     vtkErrorMacro(<<"PixelBufferObject should have been deleted in ReleaseGraphicsResources().");
-    }
+  }
    if(this->ZTexture!=0)
-    {
+   {
     vtkErrorMacro(<<"ZTexture should have been deleted in ReleaseGraphicsResources().");
-    }
+   }
    if(this->Program!=0)
-     {
+   {
 #ifdef VTK_OPENGL2
      delete this->Program;
 #else
      this->Program->Delete();
 #endif
      this->Program = 0;
-     }
+   }
    delete[] this->RawZBuffer;
 }
 
@@ -110,13 +111,13 @@ void vtkCompositeZPass::PrintSelf(ostream& os, vtkIndent indent)
 
   os << indent << "Controller:";
   if(this->Controller!=0)
-    {
+  {
     this->Controller->PrintSelf(os,indent);
-    }
+  }
   else
-    {
+  {
     os << "(none)" <<endl;
-    }
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -140,17 +141,17 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
   assert("pre: s_exists" && s!=0);
 
   if(this->Controller==0)
-    {
+  {
     vtkErrorMacro(<<" no controller.");
     return;
-    }
+  }
 
   int numProcs=this->Controller->GetNumberOfProcesses();
 
   if(numProcs==1)
-    {
+  {
     return; // nothing to do.
-    }
+  }
 
   int me=this->Controller->GetLocalProcessId();
 
@@ -166,31 +167,31 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
   bool supported=vtkFrameBufferObject::IsSupported(context);
 
   if(!supported)
-    {
+  {
     vtkErrorMacro("FBOs are not supported by the context. Cannot perform z-compositing.");
     return;
-    }
+  }
   if(supported)
-    {
+  {
     supported=vtkTextureObject::IsSupported(context);
     if(!supported)
-      {
+    {
       vtkErrorMacro("Texture Objects are not supported by the context. Cannot perform z-compositing.");
       return;
-      }
     }
+  }
 
   if(supported)
-    {
+  {
     supported=
       vtkShaderProgram2::IsSupported(static_cast<vtkOpenGLRenderWindow *>(
                                        context));
     if(!supported)
-      {
+    {
       vtkErrorMacro("GLSL is not supported by the context. Cannot perform z-compositing.");
       return;
-      }
     }
+  }
 #endif
 
 #ifdef VTK_COMPOSITE_ZPASS_DEBUG
@@ -200,18 +201,18 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
   int w=0;
   int h=0;
 
-  vtkFrameBufferObject *fbo=s->GetFrameBuffer();
+  vtkFrameBufferObjectBase *fbo = s->GetFrameBuffer();
   if(fbo==0)
-    {
+  {
     r->GetTiledSize(&w,&h);
-    }
+  }
   else
-    {
+  {
     int size[2];
     fbo->GetLastSize(size);
     w=size[0];
     h=size[1];
-    }
+  }
 
   unsigned int numTups = static_cast<unsigned int>(w*h);
 
@@ -227,25 +228,25 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
 
 
   if(this->RawZBufferSize<static_cast<size_t>(w*h))
-    {
+  {
     delete[] this->RawZBuffer;
-    }
+  }
   if(this->RawZBuffer==0)
-    {
+  {
     this->RawZBufferSize=static_cast<size_t>(w*h);
     this->RawZBuffer=new float[this->RawZBufferSize];
-    }
+  }
 
   if(this->PBO==0)
-    {
+  {
     this->PBO=vtkPixelBufferObject::New();
     this->PBO->SetContext(context);
-    }
+  }
   if(this->ZTexture==0)
-    {
+  {
     this->ZTexture=vtkTextureObject::New();
     this->ZTexture->SetContext(context);
-    }
+  }
 
   // TO: texture object
   // PBO: pixel buffer object
@@ -264,7 +265,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
 
 
   if(me==0)
-    {
+  {
     // root
     // 1. for each satellite
     // 1.a   receive zbuffer
@@ -362,7 +363,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
 
     int proc=1;
     while(proc<numProcs)
-      {
+    {
       // receive the zbuffer from satellite process.
       this->Controller->Receive(this->RawZBuffer,
                                 static_cast<vtkIdType>(this->RawZBufferSize),
@@ -449,9 +450,9 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
                                   this->PBO);
 
       if(this->Program==0)
-        {
+      {
         this->CreateProgram(context);
-        }
+      }
 
 #ifdef VTK_COMPOSITE_ZPASS_DEBUG
       cout << "sourceId=" << sourceId << endl;
@@ -482,9 +483,9 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
       vtkgl::ActiveTexture(vtkgl::TEXTURE0+static_cast<GLenum>(sourceId));
       this->Program->Use();
       if(!this->Program->IsValid())
-        {
+      {
         vtkErrorMacro("prog not valid in current OpenGL state");
-        }
+      }
 #endif
 
 #ifdef VTK_COMPOSITE_ZPASS_DEBUG
@@ -557,7 +558,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
 #endif
 
       ++proc;
-      }
+    }
 
     // Send the final z-buffer from the framebuffer to a PBO
     // TODO
@@ -619,15 +620,15 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
     // Send the c-array to all satellites
     proc=1;
     while(proc<numProcs)
-      {
+    {
       this->Controller->Send(this->RawZBuffer,
                              static_cast<vtkIdType>(this->RawZBufferSize),proc,
                              VTK_COMPOSITE_Z_PASS_MESSAGE_SCATTER);
       ++proc;
-      }
     }
+  }
   else
-    {
+  {
     // satellite
     // 1. send z-buffer
     // 2. receive final z-buffer and copy it
@@ -753,16 +754,15 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
                                 this->PBO);
 
     // TO to FB: apply TO on quad with special zcomposite fragment shader.
-    glPushAttrib(GL_DEPTH_BUFFER_BIT|GL_COLOR_BUFFER_BIT);
     glColorMask(GL_FALSE,GL_FALSE,GL_FALSE,GL_FALSE);
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
     glDepthFunc(GL_ALWAYS);
 
     if(this->Program==0)
-      {
+    {
       this->CreateProgram(context);
-      }
+    }
 
 #ifdef VTK_OPENGL2
     context->GetShaderCache()->ReadyShaderProgram(this->Program->Program);
@@ -774,6 +774,7 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
                                       this->Program->VAO);
     this->ZTexture->Deactivate();
 #else
+    glPushAttrib(GL_DEPTH_BUFFER_BIT|GL_COLOR_BUFFER_BIT);
     vtkTextureUnitManager *tu=context->GetTextureUnitManager();
     int sourceId=tu->Allocate();
 
@@ -789,10 +790,10 @@ void vtkCompositeZPass::Render(const vtkRenderState *s)
 
     tu->Free(sourceId);
     vtkgl::ActiveTexture(vtkgl::TEXTURE0);
-#endif
     glPopAttrib();
+#endif
 
-    }
+  }
 #ifdef VTK_COMPOSITE_ZPASS_DEBUG
   delete state;
   timer->Delete();
@@ -812,9 +813,9 @@ void vtkCompositeZPass::CreateProgram(vtkOpenGLRenderWindow *context)
                                            vtkCompositeZPassFS,
                                            "");
   if (!this->Program->Program)
-    {
+  {
     vtkErrorMacro("Shader program failed to build.");
-    }
+  }
 #else
   this->Program=vtkShaderProgram2::New();
   this->Program->SetContext(context);
@@ -828,9 +829,9 @@ void vtkCompositeZPass::CreateProgram(vtkOpenGLRenderWindow *context)
   shader->SetSourceCode(vtkCompositeZPassShader_fs);
   this->Program->Build();
   if(this->Program->GetLastBuildStatus()!=VTK_SHADER_PROGRAM2_LINK_SUCCEEDED)
-    {
+  {
     vtkErrorMacro("prog build failed");
-    }
+  }
 #endif
 
   assert("post: Program_exists" && this->Program!=0);
@@ -848,21 +849,21 @@ void vtkCompositeZPass::ReleaseGraphicsResources(vtkWindow *w)
   (void)w;
 
   if(this->PBO!=0)
-    {
+  {
     this->PBO->Delete();
     this->PBO=0;
-    }
+  }
   if(this->ZTexture!=0)
-    {
+  {
     this->ZTexture->Delete();
     this->ZTexture=0;
-    }
+  }
   if(this->Program!=0)
-    {
+  {
 #ifdef VTK_OPENGL2
     this->Program->ReleaseGraphicsResources(w);
 #else
     this->Program->ReleaseGraphicsResources();
 #endif
-    }
+  }
 }

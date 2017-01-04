@@ -5,11 +5,19 @@ set(Module_SRCS
   vtkOpenGLProjectedTetrahedraMapper.cxx
   vtkOpenGLRayCastImageDisplayHelper.cxx
   vtkSmartVolumeMapper.cxx
+  vtkVolumeTexture.cxx
   )
 
 set_source_files_properties(
   vtkVolumeShader
   WRAP_EXCLUDE
+  )
+
+set_source_files_properties(
+  vtkVolumeTexture
+  PROPERTIES
+    WRAP_EXCLUDE 1
+    WRAP_EXCLUDE_PYTHON 1
   )
 
 set(shader_files
@@ -35,7 +43,11 @@ foreach(file ${shader_files})
       vtkRenderingVolumeOpenGL2Module.h
     )
   list(APPEND Module_SRCS ${res})
-  set_source_files_properties(${file_we} WRAP_EXCLUDE)
+  set_source_files_properties(${file_we}
+    PROPERTIES
+      WRAP_EXCLUDE 1
+      WRAP_EXCLUDE_PYTHON 1
+    )
 endforeach()
 
 # Now for the object factory.
@@ -52,7 +64,12 @@ vtk_object_factory_configure("${vtk_module_overrides}")
 
 list(APPEND Module_SRCS
   ${CMAKE_CURRENT_BINARY_DIR}/${vtk-module}ObjectFactory.cxx)
-set_source_files_properties(${vtk-module}ObjectFactory.cxx WRAP_EXCLUDE)
+set_source_files_properties(
+  ${vtk-module}ObjectFactory.cxx
+  PROPERTIES
+    WRAP_EXCLUDE 1
+    WRAP_EXCLUDE_PYTHON 1
+  )
 
 vtk_module_library(vtkRenderingVolumeOpenGL2 ${Module_SRCS})
 include(vtkOpenGL)

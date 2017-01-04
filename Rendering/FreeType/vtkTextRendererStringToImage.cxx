@@ -27,9 +27,9 @@ class vtkTextRendererStringToImage::Internals
 {
 public:
   Internals()
-    {
+  {
     this->TextRenderer = vtkTextRenderer::GetInstance();
-    }
+  }
   vtkTextRenderer *TextRenderer;
 };
 
@@ -54,16 +54,16 @@ vtkVector2i vtkTextRendererStringToImage::GetBounds(
 {
   int tmp[4] = { 0, 0, 0, 0 };
   vtkVector2i recti(tmp);
-  if (!property)
-    {
+  if (!property || string.empty())
+  {
     return recti;
-    }
+  }
 
   this->Implementation->TextRenderer->GetBoundingBox(property, string, tmp,
                                                      dpi);
 
-  recti.Set(tmp[1] - tmp[0],
-            tmp[3] - tmp[2]);
+  recti.Set(tmp[1] - tmp[0] + 1,
+            tmp[3] - tmp[2] + 1);
 
   return recti;
 }
@@ -76,15 +76,15 @@ vtkVector2i vtkTextRendererStringToImage::GetBounds(vtkTextProperty *property,
   vtkVector2i recti(0, 0);
   int tmp[4];
   if (!property || string.empty())
-    {
+  {
     return recti;
-    }
+  }
 
   this->Implementation->TextRenderer->GetBoundingBox(property, string, tmp,
                                                      dpi);
 
-  recti.Set(tmp[1] - tmp[0],
-            tmp[3] - tmp[2]);
+  recti.Set(tmp[1] - tmp[0] + 1,
+            tmp[3] - tmp[2] + 1);
 
   return recti;
 }

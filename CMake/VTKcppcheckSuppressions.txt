@@ -1,0 +1,145 @@
+//=========================================================================
+//
+//  Program:   Visualization Toolkit
+//
+//  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+//  All rights reserved.
+//  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
+//
+//     This software is distributed WITHOUT ANY WARRANTY; without even
+//     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+//     PURPOSE.  See the above copyright notice for more information.
+//
+//=========================================================================
+
+// This file contains enough suppressions to result in no cppcheck warnings,
+// at least on Mac OS X with cppcheck 1.76.1.
+
+// To run:
+// cd /path/to/VTK/
+// cppcheck --platform=unix64 --enable=style -q --suppressions-list=CMake/VTKcppcheckSuppressions.txt --template='{id},{file}:{line},{severity},{message}' -j8 .
+
+// Suppress everything from ThirdParty.
+*:ThirdParty/*
+
+// Similarly, these aren't really part of VTK proper.
+*:Utilities/KWSys/*
+*:Utilities/MetaIO/*
+*:Utilities/DICOMParser/*
+
+// Can't fix in portable way for all VTK-supported platforms.
+duplicateExpression:IO/PostgreSQL/vtkPostgreSQLQuery.cxx
+unpreciseMathCall
+
+// Using reallocf() would be a good solution, but it's not available on all platforms.
+memleakOnRealloc
+
+// VTK assumes IEEE 754 floats, so this warning isn't useful.
+memsetClassFloat
+
+// There are just too many of these to manage, so suppress many/all.  Can look again one day.
+// 2364 warnings
+variableScope
+// 1109 warnings
+uninitMemberVar
+// 231 warnings
+cstyleCast
+// 182 warnings
+noExplicitConstructor
+// 169 warnings
+invalidscanf
+// 137 warnings
+unreadVariable
+// 34 warnings
+noCopyConstructor
+// 20 warnings
+useInitializationList
+// 18 warnings
+redundantAssignment:Filters/General/vtkBoxClipDataSet.cxx
+redundantAssignment:*/Testing/*
+
+// Gives too many false positives.
+assertWithSideEffect
+argumentSize
+
+// False positives.
+AssignmentAddressToInteger:Common/Math/vtkPolynomialSolversUnivariate.cxx
+CastIntegerToAddressAtReturn:Geovis/Core/vtkGeoTreeNode.h
+copyCtorPointerCopying:IO/NetCDF/vtkSLACReader.cxx
+duplicateExpression:Common/Math/Testing/Cxx/TestPolynomialSolversUnivariate.cxx
+duplicateExpression:Rendering/Annotation/vtkScalarBarActor.cxx
+memleak:Common/Core/Testing/Cxx/TestGarbageCollector.cxx
+memleak:Examples/Infovis/Cxx/MultiView.cxx
+memleak:IO/Image/vtkJPEGReader.cxx
+memleak:Imaging/Hybrid/vtkSurfaceReconstructionFilter.cxx
+multiCondition:Filters/Matlab/vtkMatlabMexAdapter.cxx
+nullPointer:Interaction/Style/vtkInteractorStyleJoystickActor.cxx
+nullPointer:Interaction/Style/vtkInteractorStyleTrackballActor.cxx
+operatorEqVarError:Filters/General/vtkHyperStreamline.cxx
+redundantAssignInSwitch:Wrapping/Tools/vtkWrapPythonOverload.c
+redundantAssignment:Filters/General/vtkInterpolatingSubdivisionFilter.cxx
+redundantAssignment:Wrapping/Tcl/vtkTclUtil.cxx
+redundantAssignment:Wrapping/Tools/vtkParsePreprocess.c
+stlIfStrFind:Infovis/Core/vtkPipelineGraphSource.cxx
+stlIfStrFind:Rendering/OpenGL2/vtkOpenGLRenderer.cxx
+unassignedVariable:Common/Transforms/vtkHomogeneousTransform.cxx
+unassignedVariable:Filters/Core/vtkFlyingEdges3D.cxx
+unassignedVariable:Rendering/Core/vtkCamera.cxx
+unsafeClassCanLeak:Filters/General/vtkDensifyPolyData.cxx
+unsafeClassCanLeak:GUISupport/Qt/QVTKInteractorInternal.h
+unsafeClassCanLeak:Interaction/Widgets/vtkBiDimensionalRepresentation.h
+uselessAssignmentArg:Common/DataModel/vtkReebGraph.cxx
+uselessAssignmentPtrArg:IO/Parallel/vtkPImageWriter.cxx
+uselessAssignmentPtrArg:Wrapping/Tools/vtkParse.tab.c
+
+// Not worth fixing, but not actually false positives.
+knownConditionTrueFalse:GUISupport/Qt/QVTKWidget.cxx
+knownConditionTrueFalse:Rendering/OpenGL/vtkXGPUInfoList.cxx
+passedByValue:Filters/General/vtkYoungsMaterialInterface.cxx
+
+// There are a fair number of these, but they are probably worth working through.
+// 217 warnings
+postfixOperator:Common/*
+postfixOperator:Examples/HyperTree/Cxx/*
+postfixOperator:Filters/*
+postfixOperator:IO/*
+postfixOperator:Parallel/Core/*
+postfixOperator:Rendering/*
+postfixOperator:Utilities/*
+// 30 warnings
+duplInheritedMember:Charts/Core/vtkChartMatrix.h
+duplInheritedMember:Charts/Core/vtkPlot3D.h
+duplInheritedMember:Common/DataModel/vtkGenericCellTessellator.h
+duplInheritedMember:Common/DataModel/vtkPlanes.h
+duplInheritedMember:Common/ExecutionModel/vtkStreamingDemandDrivenPipeline.h
+duplInheritedMember:Filters/FlowPaths/vtkAbstractInterpolatedVelocityField.h
+duplInheritedMember:Filters/Sources/vtkOutlineSource.h
+duplInheritedMember:IO/EnSight/vtkGenericEnSightReader.h
+duplInheritedMember:IO/Geometry/vtkMoleculeReaderBase.h
+duplInheritedMember:IO/SQL/vtkTableToDatabaseWriter.h
+duplInheritedMember:Imaging/Core/vtkImageReslice.h
+duplInheritedMember:Interaction/Widgets/vtkBiDimensionalRepresentation.h
+duplInheritedMember:Rendering/Core/vtkColorTransferFunction.h
+duplInheritedMember:Rendering/OpenGL/vtkStandardPolyDataPainter.h
+duplInheritedMember:Rendering/OpenGL/vtkXRenderWindowInteractor.h
+duplInheritedMember:Rendering/OpenGL2/vtkImageProcessingPass.h
+duplInheritedMember:Views/Infovis/vtkRenderView.h
+duplInheritedMember:Views/Infovis/vtkRenderedRepresentation.h
+// 16 warnings
+invalidPointerCast:Rendering/GL2PSOpenGL2/vtkOpenGLGL2PSHelperImpl.cxx
+invalidPointerCast:Rendering/OSPRay/vtkOSPRayPolyDataMapperNode.cxx
+invalidPointerCast:Rendering/OpenGL2/vtkOpenGLSphereMapper.cxx
+invalidPointerCast:Rendering/OpenGL2/vtkOpenGLStickMapper.cxx
+invalidPointerCast:Rendering/OpenGL2/vtkOpenGLVertexBufferObject.cxx
+invalidPointerCast:Rendering/ParallelLIC/vtkParallelTimer.cxx
+// 6 warnings
+noConstructor:Common/Core/Testing/Cxx/TestCxxFeatures.cxx
+noConstructor:Common/Core/Testing/Cxx/TestDataArrayIterators.cxx
+noConstructor:Common/Core/vtkTypeList.txx
+noConstructor:Filters/ParallelDIY2/vtkPResampleWithDataSet.cxx
+noConstructor:Rendering/Core/Testing/Cxx/TestInteractorTimers.cxx
+
+// To investigate further...
+memleak:Wrapping/Tools/vtkParsePreprocess.c
+nullPointerRedundantCheck:IO/Exodus/vtkExodusIIReaderParser.cxx
+redundantAssignment:IO/Image/vtkJPEGReader.cxx

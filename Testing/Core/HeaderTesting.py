@@ -190,6 +190,37 @@ class TestVTKFiles:
             self.Error("Does not include parent")
         pass
 
+    def CheckGuard(self):
+        guardre = r"^#ifndef\s+([^ ]*)_h$"
+        guardsetre = r"^#define\s+([^ ]*)_h$"
+        guardrex = re.compile(guardre)
+        guardsetrex = re.compile(guardsetre)
+
+        guard = None
+        guard_set = None
+        expect_trigger = False
+        for line in self.FileLines:
+            line = line.strip()
+            if expect_trigger:
+                gs = guardsetrex.match(line)
+                if gs:
+                    guard_set = gs.group(1)
+                break
+            g = guardrex.match(line)
+            if g:
+                guard = g.group(1)
+                expect_trigger = True
+
+        if not guard or not guard_set:
+            self.Print("File: %s is missing a header guard." % self.FileName)
+            self.Error("Missing header guard")
+        elif not guard == guard_set:
+            self.Print("File: %s is not guarded properly." % self.FileName)
+            self.Error("Guard does is not set properly")
+        elif not ('%s.h' % guard) == os.path.basename(self.FileName):
+            self.Print("File: %s has a guard (%s) which does not match its filename." % (self.FileName, guard))
+            self.Error("Guard does not match the filename")
+
     def CheckParent(self):
         classre = "^class(\s+[^\s]*_EXPORT)?\s+(vtk[A-Z0-9_][^ :\n]*)\s*:\s*public\s+(vtk[^ \n\{]*)"
         cname = ""
@@ -205,7 +236,8 @@ class TestVTKFiles:
                 rm = regx.match(lastline + line)
             if rm:
                 export = rm.group(1)
-                export = export.strip()
+                if export:
+                    export = export.strip()
                 cname = rm.group(2)
                 pname = rm.group(3)
                 classlines.append(" %4d: %s" % (cc, line))
@@ -240,8 +272,8 @@ class TestVTKFiles:
         count = 0
         lines = []
         oldlines = []
-        typere = "^\s*vtk(Abstract)?Type(Revision)*Macro\s*\(\s*(vtk[^ ,]+)\s*,\s*(vtk[^ \)]+)\s*\)\s*"
-        typesplitre = "^\s*vtk(Abstract)?Type(Revision)*Macro\s*\("
+        typere = "^\s*vtk(Abstract|Base)?Type(Revision)*Macro\s*\(\s*(vtk[^ ,]+)\s*,\s*(vtk[^ \)]+)\s*\)\s*"
+        typesplitre = "^\s*vtk(Abstract|Base)?Type(Revision)*Macro\s*\("
 
         regx = re.compile(typere)
         regxs = re.compile(typesplitre)
@@ -300,8 +332,8 @@ class TestVTKFiles:
         count = 0
         lines = []
         oldlines = []
-        copyoperator = "^\s*%s\s*\(\s*const\s*%s\s*&\s*\)\s*;\s*\/\/\s*Not\s*[iI]mplemented(\.)*" % ( self.ClassName, self.ClassName)
-        asgnoperator = "^\s*void\s*operator\s*=\s*\(\s*const\s*%s\s*&\s*\)\s*;\s*\/\/\s*Not\s*[iI]mplemented(\.)*" % self.ClassName
+        copyoperator = "^\s*%s\s*\(\s*const\s*%s\s*&\s*\) VTK_DELETE_FUNCTION;" % ( self.ClassName, self.ClassName)
+        asgnoperator = "^\s*void\s*operator\s*=\s*\(\s*const\s*%s\s*&\s*\) VTK_DELETE_FUNCTION;" % self.ClassName
         #self.Print( copyoperator
         regx1 = re.compile(copyoperator)
         regx2 = re.compile(asgnoperator)
@@ -331,7 +363,7 @@ class TestVTKFiles:
         if foundcopy < 1:
             self.Print( "File: %s does not define copy constructor" %
                         self.FileName )
-            self.Print( "Should be:\n%s(const %s&); // Not implemented" %
+            self.Print( "Should be:\n%s(const %s&) VTK_DELETE_FUNCTION;" %
                         (self.ClassName, self.ClassName) )
             self.Error("No private copy constructor")
         if foundcopy > 1:
@@ -341,7 +373,7 @@ class TestVTKFiles:
         if foundasgn < 1:
             self.Print( "File: %s does not define assignment operator" %
                         self.FileName )
-            self.Print( "Should be:\nvoid operator=(const %s&); // Not implemented"
+            self.Print( "Should be:\nvoid operator=(const %s&) VTK_DELETE_FUNCTION;"
                         % self.ClassName )
             self.Error("No private assignment operator")
         if foundcopy > 1:
@@ -459,6 +491,7 @@ for a in os.listdir(dirname):
         continue
     elif stat.S_ISREG(mode) and test.TestFile(pathname):
         ## Do all the tests
+        test.CheckGuard()
         test.CheckParent()
         test.CheckIncludes()
         test.CheckTypeMacro()

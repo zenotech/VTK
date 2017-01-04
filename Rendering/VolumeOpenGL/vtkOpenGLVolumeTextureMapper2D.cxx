@@ -14,6 +14,8 @@
 =========================================================================*/
 #include "vtkOpenGLVolumeTextureMapper2D.h"
 
+#if !defined(VTK_LEGACY_REMOVE)
+
 #include "vtkMatrix4x4.h"
 #include "vtkObjectFactory.h"
 #include "vtkTimerLog.h"
@@ -26,6 +28,7 @@ vtkStandardNewMacro(vtkOpenGLVolumeTextureMapper2D);
 
 vtkOpenGLVolumeTextureMapper2D::vtkOpenGLVolumeTextureMapper2D()
 {
+  VTK_LEGACY_BODY(vtkOpenGLVolumeTextureMapper2D::vtkOpenGLVolumeTextureMapper2D,"VTK 7.0");
 }
 
 vtkOpenGLVolumeTextureMapper2D::~vtkOpenGLVolumeTextureMapper2D()
@@ -58,17 +61,17 @@ void vtkOpenGLVolumeTextureMapper2D::Render(vtkRenderer *ren, vtkVolume *vol)
   // use the OpenGL clip planes
   numClipPlanes = this->GetNumberOfClippingPlanes();
   if (numClipPlanes > 6)
-    {
+  {
     vtkErrorMacro(<< "OpenGL has a limit of 6 clipping planes");
     numClipPlanes = 6;
-    }
+  }
 
   for (i = 0; i < numClipPlanes; i++)
-    {
+  {
     glEnable(static_cast<GLenum>(GL_CLIP_PLANE0+i));
     this->GetClippingPlaneInDataCoords(matrix, i, planeEquation);
     glClipPlane(static_cast<GLenum>(GL_CLIP_PLANE0+i), planeEquation);
-    }
+  }
 
   // Make sure that culling is turned off
   glDisable( GL_CULL_FACE );
@@ -107,9 +110,9 @@ void vtkOpenGLVolumeTextureMapper2D::Render(vtkRenderer *ren, vtkVolume *vol)
   glEnable( GL_LIGHTING );
 
   for (i = 0; i < numClipPlanes; i++)
-    {
+  {
     glDisable(static_cast<GLenum>(GL_CLIP_PLANE0+i));
-    }
+  }
 
   this->Timer->StopTimer();
 
@@ -118,9 +121,9 @@ void vtkOpenGLVolumeTextureMapper2D::Render(vtkRenderer *ren, vtkVolume *vol)
   // If the timer is not accurate enough, set it to a small
   // time so that it is not zero
   if ( this->TimeToDraw == 0.0 )
-    {
+  {
     this->TimeToDraw = 0.0001;
-    }
+  }
 
   vtkOpenGLCheckErrorMacro("failed after Render");
 }
@@ -147,32 +150,32 @@ void vtkOpenGLVolumeTextureMapper2D::RenderQuads( int numQuads,
   int i, j;
 
   if ( reverseFlag )
-    {
+  {
     for ( i = 0; i < numQuads; i++ )
-      {
+    {
       tptr = t+2*4*(numQuads-i-1);
       vptr = v+3*4*(numQuads-i-1);
       for ( j = 0; j < 4; j++ )
-        {
+      {
         glTexCoord2fv( tptr );
         glVertex3fv(   vptr );
         tptr += 2;
         vptr += 3;
-        }
       }
     }
+  }
   else
-    {
+  {
     tptr = t;
     vptr = v;
     for ( i = 0; i < numQuads*4; i++ )
-      {
+    {
       glTexCoord2fv( tptr );
       glVertex3fv(   vptr );
       tptr += 2;
       vptr += 3;
-      }
     }
+  }
 
   glEnd();
 
@@ -184,3 +187,5 @@ void vtkOpenGLVolumeTextureMapper2D::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os,indent);
 }
+
+#endif // VTK_LEGACY_REMOVE

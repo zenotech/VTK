@@ -1,3 +1,5 @@
+//VTK::System::Dec
+
 /*=========================================================================
 
   Program:   Visualization Toolkit
@@ -13,10 +15,6 @@
 
 =========================================================================*/
 // Template for the polydata mappers fragment shader
-
-// The following line handle system declarations such a
-// default precisions, or defining precisions to null
-//VTK::System::Dec
 
 uniform int PrimitiveIDOffset;
 
@@ -50,17 +48,34 @@ uniform int PrimitiveIDOffset;
 // Apple Bug
 //VTK::PrimID::Dec
 
+// handle coincident offsets
+//VTK::Coincident::Dec
+
+// Value raster
+//VTK::ValuePass::Dec
+
 void main()
 {
+  // VC position of this fragment. This should not branch/return/discard.
+  //VTK::PositionVC::Impl
+
+  // Place any calls that require uniform flow (e.g. dFdx) here.
+  //VTK::UniformFlow::Impl
+
+  // Set gl_FragDepth here (gl_FragCoord.z by default)
+  //VTK::Depth::Impl
+
+  // Early depth peeling abort:
+  //VTK::DepthPeeling::PreColor
+
   // Apple Bug
   //VTK::PrimID::Impl
 
   //VTK::Clip::Impl
 
-  //VTK::Color::Impl
+  //VTK::ValuePass::Impl
 
-  // VC position of this fragment
-  //VTK::PositionVC::Impl
+  //VTK::Color::Impl
 
   // Generate the normal if we are not passed in one
   //VTK::Normal::Impl
@@ -78,4 +93,6 @@ void main()
 
   //VTK::Picking::Impl
 
+  // handle coincident offsets
+  //VTK::Coincident::Impl
 }

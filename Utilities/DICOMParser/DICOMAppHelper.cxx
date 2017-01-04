@@ -3,8 +3,6 @@
   Program:   DICOMParser
   Module:    DICOMAppHelper.cxx
   Language:  C++
-  Date:      $Date$
-  Version:   $Revision$
 
   Copyright (c) 2003 Matt Turek
   All rights reserved.
@@ -553,7 +551,7 @@ void DICOMAppHelper::SliceLocationCallback(DICOMParser *parser,
     this->Implementation->SliceOrderingMap.insert(dicom_stl::pair<const dicom_stl::string,
       DICOMOrderingElements>(parser->GetFileName(), ord));
     }
-  else
+  else if (val)
     {
     // file found, add new values
     (*it).second.SliceLocation =
@@ -707,7 +705,7 @@ void DICOMAppHelper::TransferSyntaxCallback(DICOMParser *parser,
 {
 
 #ifdef DEBUG_DICOM_APP_HELPER
-#ifdef WIN32
+#ifdef _WIN32
   char platformByteOrder = 'L';
 #else
   char platformByteOrder = 'B';

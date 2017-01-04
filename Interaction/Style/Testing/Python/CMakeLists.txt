@@ -1,4 +1,4 @@
-if(NOT VTK_OPENGL_HAS_OSMESA)
+if(NOT VTK_OPENGL_HAS_OSMESA AND NOT VTK_USE_OFFSCREEN_EGL)
   vtk_add_test_python(
     TestFlyTo.py
     TestStyleRubberBandZoom.py
@@ -9,5 +9,6 @@ if(NOT VTK_OPENGL_HAS_OSMESA)
     TestStyleTerrain.py,NO_RT
     TestStyleTrackballActor.py,NO_RT
     TestStyleTrackballCamera.py,NO_RT
+    TestStyleUser.py
     )
 endif()

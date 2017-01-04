@@ -37,11 +37,11 @@ public:
   void PrintSelf(ostream& os, vtkIndent indent);
 
   enum ObjectType
-    {
+  {
     ArrayBuffer,
     ElementArrayBuffer,
     TextureBuffer
-    };
+  };
 
   /** Get the type of the buffer object. */
   ObjectType GetType() const;
@@ -54,6 +54,9 @@ public:
 
   /** Determine if the buffer object is ready to be used. */
   bool IsReady() const { return this->Dirty == false; }
+
+  /** Generate the the opengl buffer for this Handle */
+  bool GenerateBuffer(ObjectType type);
 
   /**
    * Upload data to the buffer object. The BufferObject::type() must match
@@ -102,8 +105,8 @@ protected:
   bool UploadInternal(const void *buffer, size_t size, ObjectType objectType);
 
 private:
-  vtkOpenGLBufferObject(const vtkOpenGLBufferObject&); // Not implemented
-  void operator=(const vtkOpenGLBufferObject&); // Not implemented
+  vtkOpenGLBufferObject(const vtkOpenGLBufferObject&) VTK_DELETE_FUNCTION;
+  void operator=(const vtkOpenGLBufferObject&) VTK_DELETE_FUNCTION;
   struct Private;
   Private *Internal;
 };
@@ -114,10 +117,10 @@ inline bool vtkOpenGLBufferObject::Upload(
   vtkOpenGLBufferObject::ObjectType objectType)
 {
   if (array.empty())
-    {
+  {
     this->Error = "Refusing to upload empty array.";
     return false;
-    }
+  }
 
   return this->UploadInternal(&array[0],
             array.size() * sizeof(typename T::value_type),
@@ -130,10 +133,10 @@ inline bool vtkOpenGLBufferObject::Upload(
   vtkOpenGLBufferObject::ObjectType objectType)
 {
   if (!array)
-    {
+  {
     this->Error = "Refusing to upload empty array.";
     return false;
-    }
+  }
   return this->UploadInternal(array,
                               numElements * sizeof(T),
                               objectType);

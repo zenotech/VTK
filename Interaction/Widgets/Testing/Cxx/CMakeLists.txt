@@ -22,6 +22,7 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestDijkstraImageGeodesicPath.cxx
   TestDistanceWidget3D.cxx
   TestDistanceWidget.cxx
+  TestFinitePlaneWidget.cxx
   TestFixedSizeHandleRepresentation3D.cxx
   TestFocalPlaneContour.cxx
   TestHandleWidget2D.cxx
@@ -29,20 +30,25 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestImageActorContourWidget.cxx
   TestImageTracerWidget.cxx
   TestImplicitCylinderWidget.cxx
+  TestImplicitCylinderWidget2.cxx
   TestImplicitPlaneWidget2b.cxx
   TestImplicitPlaneWidget2.cxx
+  TestImplicitPlaneWidget3.cxx
   TestImplicitPlaneWidget2LockNormalToCamera.cxx
   TestImplicitPlaneWidget.cxx
   TestLogoWidgetAlphaBlending.cxx
   TestLogoWidget.cxx
   TestLogoWidgetDepthPeeling.cxx
+  TestMultipleViewports.cxx
   TestOrientationMarkerWidget.cxx
+  TestOrientationMarkerWidget2.cxx
   TestOrthoPlanes.cxx
   TestParallelopipedWidget.cxx
   TestPickingManagerSeedWidget.cxx
   TestPlaybackWidget.cxx
   TestPointHandleRepresentation3D.cxx
   TestProgrammaticPlacement.cxx
+  TestProgressBarWidget.cxx
   TestProp3DButtonRepresentation.cxx,NO_VALID
   TestRectilinearWipeWidget.cxx
   TestResliceCursorWidget2.cxx
@@ -55,6 +61,7 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestSliderWidget.cxx
   TestSplineWidget.cxx
   TestSphereWidgetZoomInOut.cxx
+  TestSphereWidget2CenterCursor.cxx
   TestTextWidget.cxx
   )
 vtk_add_test_cxx(${vtk-module}CxxTests no_valid_tests
@@ -109,9 +116,14 @@ endif()
 # These tests depend on volume rendering classes not build for OpenGL2
 if(VTK_RENDERING_BACKEND STREQUAL "OpenGL")
   vtk_add_test_cxx(${vtk-module}CxxTests tests
-    TestButtonWidget.cxx
     TestImageCroppingRegionsWidget.cxx
     )
+
+  if(NOT VTK_LEGACY_REMOVE)
+    vtk_add_test_cxx(${vtk-module}CxxTests tests
+      TestButtonWidget.cxx
+      )
+  endif()
 endif()
 
 set(all_tests

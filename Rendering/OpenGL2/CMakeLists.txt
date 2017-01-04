@@ -18,21 +18,30 @@ set(Module_SRCS
   vtkClearZPass.cxx
   vtkCompositePolyDataMapper2.cxx
   vtkDefaultPass.cxx
+  vtkDepthOfFieldPass.cxx
+  vtkDepthImageProcessingPass.cxx
   vtkDepthPeelingPass.cxx
-  vtkFrameBufferObject.cxx
+  vtkDualDepthPeelingPass.cxx
+  vtkEDLShading.cxx
   vtkGaussianBlurPass.cxx
-  vtkGenericCompositePolyDataMapper2.cxx
   vtkGenericOpenGLRenderWindow.cxx
+  vtkHiddenLineRemovalPass.cxx
   vtkImageProcessingPass.cxx
+  vtkLightingMapPass.cxx
   vtkLightsPass.cxx
   vtkOpaquePass.cxx
   vtkOpenGLActor.cxx
+  vtkOpenGLBillboardTextActor3D.cxx
   vtkOpenGLBufferObject.cxx
   vtkOpenGLCamera.cxx
+  vtkOpenGLFXAAFilter.cxx
+  vtkOpenGLFramebufferObject.cxx
+  vtkOpenGLGL2PSHelper.cxx
   vtkOpenGLGlyph3DHelper.cxx
   vtkOpenGLGlyph3DMapper.cxx
   vtkOpenGLHardwareSelector.cxx
   vtkOpenGLHelper.cxx
+  vtkOpenGLImageAlgorithmHelper.cxx
   vtkOpenGLImageMapper.cxx
   vtkOpenGLImageSliceMapper.cxx
   vtkOpenGLIndexBufferObject.cxx
@@ -42,18 +51,27 @@ set(Module_SRCS
   vtkOpenGLPolyDataMapper.cxx
   vtkOpenGLPolyDataMapper2D.cxx
   vtkOpenGLProperty.cxx
-  vtkOpenGLRenderWindow.cxx
+  vtkOpenGLRenderPass.cxx
+  vtkOpenGLRenderTimer.cxx
   vtkOpenGLRenderUtilities.cxx
+  vtkOpenGLRenderWindow.cxx
   vtkOpenGLRenderer.cxx
   vtkOpenGLShaderCache.cxx
+  vtkOpenGLSphereMapper.cxx
+  vtkOpenGLStickMapper.cxx
+  vtkOpenGLTextActor.cxx
+  vtkOpenGLTextActor3D.cxx
+  vtkOpenGLTextMapper.cxx
   vtkOpenGLTexture.cxx
   vtkOpenGLVertexArrayObject.cxx
   vtkOpenGLVertexBufferObject.cxx
   vtkOverlayPass.cxx
-  vtkRenderPass.cxx
+  vtkPixelBufferObject.cxx
+  vtkPointFillPass.cxx
   vtkRenderPassCollection.cxx
-  vtkRenderState.cxx
   vtkRenderStepsPass.cxx
+  vtkRenderbuffer.cxx
+  vtkSSAAPass.cxx
   vtkSequencePass.cxx
   vtkShader.cxx
   vtkShaderProgram.cxx
@@ -62,25 +80,16 @@ set(Module_SRCS
   vtkSobelGradientMagnitudePass.cxx
   vtkTextureObject.cxx
   vtkTextureUnitManager.cxx
+  vtkTransformFeedback.cxx
   vtkTranslucentPass.cxx
+  vtkValuePass.cxx
   vtkVolumetricPass.cxx
   )
 
 if (NOT DEFINED OPENGL_ES_VERSION)
   set(Module_SRCS ${Module_SRCS}
     vtkDataTransferHelper.cxx
-    vtkFrameBufferObject2.cxx
-    vtkPixelBufferObject.cxx
-    vtkRenderbuffer.cxx
     )
-else()
-  if (${OPENGL_ES_VERSION} MATCHES 3.0)
-    set(Module_SRCS ${Module_SRCS}
-      vtkFrameBufferObject2.cxx
-      vtkPixelBufferObject.cxx
-      vtkRenderbuffer.cxx
-      )
-  endif()
 endif()
 
 set(${vtk-module}_HDRS
@@ -92,45 +101,63 @@ set(${vtk-module}_HDRS
 
 set_source_files_properties(
   ${CMAKE_CURRENT_BINARY_DIR}/${vtk-module}ObjectFactory.cxx
-  vtkFrameBufferObject
+  vtkOpenGLFramebufferObject
   vtkOpenGLBufferObject
+  vtkOpenGLGL2PSHelper
   vtkOpenGLGlyph3DHelper
   vtkOpenGLGlyph3DMapper
   vtkOpenGLHelper
   vtkOpenGLIndexBufferObject
+  vtkOpenGLRenderTimer
   vtkOpenGLShaderCache
   vtkOpenGLVertexArrayObject
   vtkOpenGLVertexBufferObject
   vtkPixelBufferObject
-  vtkRenderState
   vtkRenderbuffer
   vtkTextureObject
   vtkTextureUnitManager
+  vtkTransformFeedback
   WRAP_EXCLUDE)
 
 set_source_files_properties(
+  ${CMAKE_CURRENT_BINARY_DIR}/${vtk-module}ObjectFactory.cxx
+  vtkOpenGLGL2PSHelper
+  vtkOpenGLGlyph3DHelper
+  vtkOpenGLHelper
+  vtkOpenGLRenderTimer
+  PROPERTIES WRAP_EXCLUDE_PYTHON 1)
+
+set_source_files_properties(
+  vtkOpenGLGL2PSHelper
   vtkOpenGLRenderWindow
-  vtkRenderPass
-  vtkRenderState
   ABSTRACT
   )
 
 set(shader_files
+  glsl/vtkDepthOfFieldPassFS.glsl
   glsl/vtkDepthPeelingPassFinalFS.glsl
   glsl/vtkDepthPeelingPassIntermediateFS.glsl
+  glsl/vtkEDLBilateralFilterFS.glsl
+  glsl/vtkEDLComposeFS.glsl
+  glsl/vtkEDLShadeFS.glsl
+  glsl/vtkFXAAFilterFS.glsl
   glsl/vtkGaussianBlurPassFS.glsl
   glsl/vtkGaussianBlurPassVS.glsl
-  glsl/vtkSobelGradientMagnitudePass1FS.glsl
-  glsl/vtkSobelGradientMagnitudePass2FS.glsl
-  glsl/vtkPointGaussianVS.glsl
-  glsl/vtkTextureObjectFS.glsl
-  glsl/vtkTextureObjectVS.glsl
   glsl/vtkGlyph3DVS.glsl
+  glsl/vtkPointGaussianVS.glsl
+  glsl/vtkPointFillPassFS.glsl
   glsl/vtkPolyData2DFS.glsl
   glsl/vtkPolyData2DVS.glsl
   glsl/vtkPolyDataFS.glsl
-  glsl/vtkPolyDataWideLineGS.glsl
   glsl/vtkPolyDataVS.glsl
+  glsl/vtkPolyDataWideLineGS.glsl
+  glsl/vtkSSAAPassFS.glsl
+  glsl/vtkSobelGradientMagnitudePass1FS.glsl
+  glsl/vtkSobelGradientMagnitudePass2FS.glsl
+  glsl/vtkSphereMapperVS.glsl
+  glsl/vtkStickMapperVS.glsl
+  glsl/vtkTextureObjectFS.glsl
+  glsl/vtkTextureObjectVS.glsl
   )
 unset(shader_h_files)
 foreach(file ${shader_files})
@@ -147,7 +174,11 @@ foreach(file ${shader_files})
       --build-header VTKRENDERINGOPENGL2_EXPORT vtkRenderingOpenGL2Module.h
     )
   list(APPEND Module_SRCS ${res})
-  set_source_files_properties(${file_we} WRAP_EXCLUDE)
+  set_source_files_properties(${file_we}
+    PROPERTIES
+      WRAP_EXCLUDE 1
+      WRAP_EXCLUDE_PYTHON 1
+    )
 endforeach()
 
 if(VTK_USE_X)
@@ -156,24 +187,12 @@ if(VTK_USE_X)
     message(FATAL_ERROR "X11_Xt_LIB could not be found. Required for VTK X lib.")
   endif()
   include_directories(${X11_INCLUDE_DIR} ${X11_Xt_INCLUDE_PATH})
-  # Add some custom overrides
-  list(APPEND vtk_module_overrides "vtkAbstractInteractionDevice")
-  set(vtk_module_vtkAbstractInteractionDevice_override "vtkXInteractionDevice")
-  list(APPEND vtk_module_overrides "vtkAbstractRenderDevice")
-  set(vtk_module_vtkAbstractRenderDevice_override "vtkXOpenGLRenderDevice")
-  list(APPEND Module_SRCS
-    vtkXInteractionDevice.cxx
-    vtkXOpenGLRenderDevice.cxx
-    )
-  set_source_files_properties(
-    vtkXInteractionDevice
-    vtkXOpenGLRenderDevice
-    WRAP_EXCLUDE)
 endif()
 
 # setup factory overrides
 set(opengl_overrides
   Actor
+  BillboardTextActor3D
   Camera
   LabeledContourMapper
   HardwareSelector
@@ -186,6 +205,9 @@ set(opengl_overrides
   PolyDataMapper2D
   Property
   Renderer
+  TextActor
+  TextActor3D
+  TextMapper
   Texture
   )
 
@@ -218,6 +240,13 @@ elseif(VTK_USE_OSMESA)
   list(APPEND vtk_module_overrides "vtkRenderWindow")
   set(vtk_module_vtkRenderWindow_override "vtkOSOpenGLRenderWindow")
   list(APPEND Module_SRCS vtkOSOpenGLRenderWindow.cxx)
+elseif(VTK_USE_OFFSCREEN_EGL)
+  list(APPEND vtk_module_overrides "vtkRenderWindow")
+  set(vtk_module_vtkRenderWindow_override "vtkEGLRenderWindow")
+  list(APPEND Module_SRCS vtkEGLRenderWindow.cxx)
+  set_source_files_properties(
+    vtkEGLRenderWindow.cxx
+    PROPERTIES COMPILE_DEFINITIONS "VTK_EGL_DEVICE_INDEX=${VTK_EGL_DEVICE_INDEX};VTK_USE_OFFSCREEN_EGL")
 elseif(WIN32)
   # Add some custom overrides
   list(APPEND vtk_module_overrides "vtkRenderWindowInteractor")
@@ -249,7 +278,12 @@ elseif(VTK_USE_COCOA)
                                 vtkCocoaGLView.mm
                                 PROPERTIES COMPILE_FLAGS "${VTK_REQUIRED_OBJCXX_FLAGS}")
   endif()
-  set_source_files_properties(vtkCocoaGLView WRAP_EXCLUDE)
+  set_source_files_properties(
+    vtkCocoaGLView
+    PROPERTIES
+      WRAP_EXCLUDE 1
+      WRAP_EXCLUDE_PYTHON 1
+    )
 elseif(ANDROID)
   # Add some custom overrides
   list(APPEND vtk_module_overrides "vtkRenderWindowInteractor")
@@ -261,8 +295,7 @@ elseif(ANDROID)
     vtkEGLRenderWindow.cxx
     )
   include_directories(
-    "${ANDROID_NDK}/platforms/android-${ANDROID_NATIVE_API_LEVEL}/arch-${ANDROID_ARCH_NAME}/usr/include"
-    "${ANDROID_NDK}/sources/android/native_app_glue"
+    "${CMAKE_ANDROID_NDK}/sources/android/native_app_glue"
     )
 elseif(APPLE_IOS)
   # Add some custom overrides
@@ -312,7 +345,9 @@ endif()
 
 if(ANDROID)
   target_link_libraries(${vtk-module}
-    LINK_PUBLIC ${OPENGL_egl_LIBRARY})
+    LINK_PUBLIC ${OPENGL_egl_LIBRARY}
+    LINK_PRIVATE android
+    )
 endif()
 
 if (APPLE_IOS)

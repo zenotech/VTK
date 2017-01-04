@@ -38,9 +38,9 @@ vtkGenericOpenGLRenderWindow::~vtkGenericOpenGLRenderWindow()
   vtkCollectionSimpleIterator rit;
   this->Renderers->InitTraversal(rit);
   while ( (ren = this->Renderers->GetNextRenderer(rit)) )
-    {
+  {
     ren->SetRenderWindow(NULL);
-    }
+  }
 }
 
 void vtkGenericOpenGLRenderWindow::PrintSelf(ostream& os, vtkIndent indent)
@@ -83,15 +83,7 @@ void vtkGenericOpenGLRenderWindow::Finalize()
   // tell each of the renderers that this render window/graphics context
   // is being removed (the RendererCollection is removed by vtkRenderWindow's
   // destructor)
-  vtkRenderer* ren;
-  this->Renderers->InitTraversal();
-  for ( ren = vtkOpenGLRenderer::SafeDownCast(this->Renderers->GetNextItemAsObject());
-    ren != NULL;
-    ren = vtkOpenGLRenderer::SafeDownCast(this->Renderers->GetNextItemAsObject())  )
-    {
-    ren->SetRenderWindow(NULL);
-    ren->SetRenderWindow(this);
-    }
+  this->ReleaseGraphicsResources(this);
 }
 
 void vtkGenericOpenGLRenderWindow::Frame()
@@ -227,4 +219,15 @@ void vtkGenericOpenGLRenderWindow::SetSupportsOpenGL(int newValue)
 void vtkGenericOpenGLRenderWindow::SetIsCurrent(bool newValue)
 {
   this->CurrentStatus = newValue;
+}
+
+void vtkGenericOpenGLRenderWindow::Render()
+{
+  // Query current GL state and store them
+  this->SaveGLState();
+
+  this->Superclass::Render();
+
+  // Restore state to previous known value
+  this->RestoreGLState();
 }

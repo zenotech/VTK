@@ -63,51 +63,51 @@ int main( int argc, char *argv[] )
   double R = 0.0;
 
   for (int i = 1; i < argc; i++)
-    {
+  {
     // Refinement depth
     if (strcmp (argv[i], "-depth") == 0)
-      {
+    {
       if (i+1 < argc) {depth = atoi (argv[i+1]); SHIFT_NARGS(2);}
       else usage();
-      }
+    }
     // Branch factor
     else if (strcmp (argv[i], "-factor") == 0)
-      {
+    {
       if (i+1 < argc) {factor = atoi (argv[i+1]); SHIFT_NARGS(2);}
       else usage();
-      }
+    }
     // Dimensions
     else if (strcmp (argv[i], "-nx") == 0)
-      {
+    {
       if (i+1 < argc) {nx = atoi (argv[i+1]); SHIFT_NARGS(2);}
       else usage();
-      }
+    }
     else if (strcmp (argv[i], "-ny") == 0)
-      {
+    {
       if (i+1 < argc) {ny = atoi (argv[i+1]); SHIFT_NARGS(2);}
       else usage();
-      }
+    }
     else if (strcmp (argv[i], "-nz") == 0)
-      {
+    {
       if (i+1 < argc) {nz = atoi (argv[i+1]); SHIFT_NARGS(2);}
       else usage();
-      }
+    }
     else if (strcmp (argv[i], "-write") == 0)
-      {
+    {
       if (i+1 < argc) {datafile = argv[i+1]; SHIFT_NARGS(2);}
       else usage();
-      }
-    else if (strcmp (argv[i], "-shrink") == 0)
-      {
-      shrink = true; SHIFT_ARGS();
-      }
-    else usage();
     }
+    else if (strcmp (argv[i], "-shrink") == 0)
+    {
+      shrink = true; SHIFT_ARGS();
+    }
+    else usage();
+  }
 
   // If no radius is defined, then take the number of grid points along X axis
   if (R == 0.0) R = nx;
   Cell::setR(R);
-   
+
   Node * n1 = new Node (0.0,           0.0,           0.0);
   Node * n2 = new Node ((double) nx+1, 0.0,           0.0);
   Node * n3 = new Node ((double) nx+1, 0.0,           (double) nz+1);
@@ -131,22 +131,22 @@ int main( int argc, char *argv[] )
   // Reduce cells des mailles
   vtkShrinkFilter * shrinkFilter = vtkShrinkFilter::New();
   if (shrink)
-    {
+  {
     shrinkFilter->SetShrinkFactor (0.9);
     shrinkFilter->SetInputData (ds);
     shrinkFilter->Update();
     ds = shrinkFilter->GetOutput();
-    }
+  }
 
   // Write out dataset
   if (datafile != "")
-    {
+  {
     vtkUnstructuredGridWriter * writer = vtkUnstructuredGridWriter::New();
     writer->SetInputData(ds);
     writer->SetFileName (datafile.c_str());
     writer->Write();
     writer->Delete();
-    }
+  }
 
   // Geometry filter
   vtkDataSetSurfaceFilter * dataSetSurfaceFilter = vtkDataSetSurfaceFilter::New();
@@ -156,11 +156,9 @@ int main( int argc, char *argv[] )
   vtkPolyDataMapper * polyDataMapper1 = vtkPolyDataMapper::New();
   polyDataMapper1->SetInputConnection(dataSetSurfaceFilter->GetOutputPort());
   polyDataMapper1->SetResolveCoincidentTopologyToPolygonOffset();
-  polyDataMapper1->SetResolveCoincidentTopologyPolygonOffsetParameters( 0, 1 );
   vtkPolyDataMapper * polyDataMapper2 = vtkPolyDataMapper::New();
   polyDataMapper2->SetInputConnection(dataSetSurfaceFilter->GetOutputPort());
   polyDataMapper2->SetResolveCoincidentTopologyToPolygonOffset();
-  polyDataMapper2->SetResolveCoincidentTopologyPolygonOffsetParameters( 1, 1 );
 
   // Actors
   vtkActor *actor1 = vtkActor::New();
@@ -189,7 +187,7 @@ int main( int argc, char *argv[] )
   // Render
   //renWindow->Render();
   //interacteur->Start();
-   
+
   // Clean up
   delete mesh;
   delete n1;

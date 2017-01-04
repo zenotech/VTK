@@ -67,9 +67,9 @@ int TestHyperTreeGridBinaryEllipseMaterial( int argc, char* argv[] )
   contour->SetNumberOfContours( nContours );
   double isovalue = -90.;
   for ( int i = 0; i < nContours; ++ i, isovalue += 16. )
-    {
+  {
     contour->SetValue( i, isovalue );
-    }
+  }
   contour->SetInputArrayToProcess( 0, 0, 0,
                                    vtkDataObject::FIELD_ASSOCIATION_POINTS,
                                    "Quadric" );
@@ -80,7 +80,6 @@ int TestHyperTreeGridBinaryEllipseMaterial( int argc, char* argv[] )
 
   // Mappers
   vtkMapper::SetResolveCoincidentTopologyToPolygonOffset();
-  vtkMapper::SetResolveCoincidentTopologyPolygonOffsetParameters( 1, 1 );
   vtkNew<vtkPolyDataMapper> mapper1;
   mapper1->SetInputConnection( geometry->GetOutputPort() );
   mapper1->UseLookupTableScalarRangeOn();
@@ -156,9 +155,9 @@ int TestHyperTreeGridBinaryEllipseMaterial( int argc, char* argv[] )
 
   int retVal = vtkRegressionTestImage( renWin.GetPointer() );
   if ( retVal == vtkRegressionTester::DO_INTERACTOR )
-    {
+  {
     iren->Start();
-    }
+  }
 
   return !retVal;
 }

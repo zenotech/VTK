@@ -18,7 +18,9 @@
 
 #include "vtkCommonCoreModule.h" // For export macro
 
-#ifndef __WRAP__
+#include <algorithm> //for std::sort()
+
+#ifndef __VTK_WRAP__
 namespace vtk
 {
 namespace detail
@@ -40,9 +42,9 @@ void ExecuteFunctor(void *functor, vtkIdType from, vtkIdType grain,
 {
   vtkIdType to = from + grain;
   if (to > last)
-    {
+  {
     to = last;
-    }
+  }
 
   FunctorInternal &fi = *reinterpret_cast<FunctorInternal*>(functor);
   fi.Execute(from, to);
@@ -54,25 +56,43 @@ static void vtkSMPTools_Impl_For(vtkIdType first, vtkIdType last,
 {
   vtkIdType n = last - first;
   if (n <= 0)
-    {
+  {
     return;
-    }
+  }
 
   if (grain >= n)
-    {
+  {
     fi.Execute(first, last);
-    }
+  }
   else
-    {
+  {
     vtkSMPTools_Impl_For_OpenMP(first, last, grain,
                                 ExecuteFunctor<FunctorInternal>, &fi);
-    }
+  }
 }
 
+//--------------------------------------------------------------------------------
+template<typename RandomAccessIterator>
+static void vtkSMPTools_Impl_Sort(RandomAccessIterator begin,
+                                  RandomAccessIterator end)
+{
+  std::sort(begin, end);
 }
+
+//--------------------------------------------------------------------------------
+template<typename RandomAccessIterator, typename Compare>
+static void vtkSMPTools_Impl_Sort(RandomAccessIterator begin,
+                                  RandomAccessIterator end,
+                                  Compare comp)
+{
+  std::sort(begin, end, comp);
 }
-}
-#endif // __WRAP__
+
+}//namespace smp
+}//namespace detail
+}//namespace vtk
+
+#endif // __VTK_WRAP__
 
 #endif
 // VTK-HeaderTest-Exclude: vtkSMPToolsInternal.h

@@ -1,3 +1,5 @@
+//VTK::System::Dec
+
 /*=========================================================================
 
   Program:   Visualization Toolkit
@@ -13,10 +15,6 @@
 
 =========================================================================*/
 
-// The following line handle system declarations such a
-// default precisions, or defining precisions to null
-//VTK::System::Dec
-
 uniform int PrimitiveIDOffset;
 
 // Texture coordinates
@@ -27,6 +25,9 @@ uniform int PrimitiveIDOffset;
 
 // Depth Peeling
 //VTK::DepthPeeling::Dec
+
+// picking support
+//VTK::Picking::Dec
 
 // the output of this shader
 //VTK::Output::Dec
@@ -41,5 +42,12 @@ void main()
 
   //VTK::Color::Impl
   //VTK::TCoord::Impl
+
   //VTK::DepthPeeling::Impl
+  //VTK::Picking::Impl
+
+  if (gl_FragData[0].a <= 0.0)
+    {
+    discard;
+    }
 }

@@ -12,6 +12,8 @@ foreach(p
     CMP0022 # CMake 2.8.12
     CMP0025 # CMake 3.0
     CMP0053 # CMake 3.1
+    CMP0054 # CMake 3.1
+    CMP0063 # CMake 3.3
     )
   if(POLICY ${p})
     cmake_policy(SET ${p} NEW)
@@ -25,7 +27,23 @@ if(NOT DEFINED CMAKE_MACOSX_RPATH)
   set(CMAKE_MACOSX_RPATH 0)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Android" AND CMAKE_VERSION VERSION_LESS 3.7)
+  message(FATAL_ERROR "CMake 3.7 or above is required to build for Android")
+endif()
+
 project(VTK)
+
+if (NOT CMAKE_VERSION VERSION_LESS "3.1")
+  option(VTK_USE_CXX11_FEATURES "Build VTK using C++11 features (if available)"
+         OFF)
+else()
+  set(VTK_USE_CXX11_FEATURES OFF)
+endif()
+if (VTK_USE_CXX11_FEATURES)
+  set(CMAKE_CXX_STANDARD 11)
+  set(CMAKE_CXX_STANDARD_REQUIRED True)
+  set(CMAKE_CXX_EXTENSIONS False)
+endif()
 
 # Objective-C++ compile flags.
 # CMake has no equivalent of CMAKE_CXX_FLAGS for Objective-C++ (bug #4756)
@@ -102,6 +120,17 @@ set(VTK_VERSION
 # Do we want examples built?
 OPTION(BUILD_EXAMPLES "Build VTK examples." OFF)
 
+#-----------------------------------------------------------------------------
+if(NOT EXISTS "${VTK_SOURCE_DIR}/.ExternalData/README.rst")
+  # This file is always present in version-controlled source trees
+  # so we must have been extracted from a source tarball with no
+  # data objects needed for testing.  Turn off tests by default
+  # since enabling them requires network access or manual data
+  # store configuration.
+  option(BUILD_TESTING "Build the testing tree." OFF)
+endif()
+include(CTest)
+
 option(VTK_IOS_BUILD "Build vtk.framework for iOS" OFF)
 if (VTK_IOS_BUILD)
   include(vtkiOS)
@@ -121,48 +150,16 @@ if (ANDROID OR APPLE_IOS)
        CACHE STRING "Result from TRY_RUN" FORCE)
   SET( CMAKE_REQUIRE_LARGE_FILE_SUPPORT__TRYRUN_OUTPUT ""
        CACHE STRING "Output from TRY_RUN" FORCE)
-  SET( VTK_TYPE_CHAR_IS_SIGNED 1
-     CACHE STRING "Result from TRY_RUN" FORCE)
-  SET( VTK_ANSI_STREAM_EOF_RESULT 0
-     CACHE STRING "Result from TRY_RUN" FORCE)
-  SET( KWSYS_CHAR_IS_SIGNED 1
-     CACHE STRING "Result from TRY_RUN" FORCE)
   SET( KWSYS_LFS_WORKS 2
      CACHE STRING "Result from TRY_RUN" FORCE)
   SET( KWSYS_LFS_WORKS__TRYRUN_OUTPUT ""
      CACHE STRING "Output from TRY_RUN" FORCE)
 
-  option(BUILD_SHARED_LIBS "should be off for embedded" OFF)
-  set(VTK_RENDERING_BACKEND OpenGL2)
-  set(Module_vtkRenderingCore ON)
-  option(VTK_Group_Rendering "off for embedded" OFF)
-  option(VTK_Group_StandAlone "off for embedded" OFF)
-  option(VTK_Group_Imaging "off for embedded" OFF)
-  option(VTK_Group_MPI "off for embedded" OFF)
-  option(VTK_Group_Views "off for embedded" OFF)
-  option(VTK_Group_Qt "off for embedded" OFF)
-  option(VTK_Group_Tk "off for embedded" OFF)
-  option(VTK_Group_Web "off for embedded" OFF)
-
-  # need int version for CPP
-  if (${OPENGL_ES_VERSION} MATCHES 2.0)
-    set(OPENGL_ES_VERSION_INT 20)
-  endif()
-  if (${OPENGL_ES_VERSION} MATCHES 3.0)
-    set(OPENGL_ES_VERSION_INT 30)
-  endif()
-
   if (APPLE_IOS)
     unset(OPENGL_INCLUDE_DIR CACHE)
-    if (${OPENGL_ES_VERSION} MATCHES 2.0)
-      find_path(OPENGL_INCLUDE_DIR ES2/gl.h
-                ${CMAKE_OSX_SYSROOT}/System/Library/Frameworks/OpenGLES.framework/Headers
-                ${_OPENGL_INCLUDE_DIR})
-    elseif (${OPENGL_ES_VERSION} MATCHES 3.0)
-      find_path(OPENGL_INCLUDE_DIR ES3/gl.h
-                ${CMAKE_OSX_SYSROOT}/System/Library/Frameworks/OpenGLES.framework/Headers
-                ${_OPENGL_INCLUDE_DIR})
-    endif()
+    find_path(OPENGL_INCLUDE_DIR ES3/gl.h
+              ${CMAKE_OSX_SYSROOT}/System/Library/Frameworks/OpenGLES.framework/Headers
+              ${_OPENGL_INCLUDE_DIR})
     find_library(OPENGL_gl_LIBRARY
        NAMES OpenGLES
        PATHS
@@ -174,36 +171,9 @@ if (ANDROID OR APPLE_IOS)
     unset(OPENGL_gl_LIBRARY CACHE)
     unset(OPENGL_egl_LIBRARY CACHE)
 
-    if (${OPENGL_ES_VERSION} MATCHES 2.0)
-      find_path(OPENGL_INCLUDE_DIR GLES2/gl2.h
-         ${ANDROID_NDK}/platforms/android-${ANDROID_NATIVE_API_LEVEL}/arch-${ANDROID_ARCH_NAME}/usr/include
-         ${_OPENGL_INCLUDE_PATH}
-         NO_DEFAULT_PATH
-         )
-      find_library(OPENGL_gl_LIBRARY
-         NAMES GLESv2
-         PATHS
-           ${ANDROID_NDK}/platforms/android-${ANDROID_NATIVE_API_LEVEL}/arch-${ANDROID_ARCH_NAME}/usr/lib
-           ${_OPENGL_LIB_PATH}
-         )
-    elseif (${OPENGL_ES_VERSION} MATCHES 3.0)
-      find_path(OPENGL_INCLUDE_DIR GLES3/gl3.h
-         ${ANDROID_NDK}/platforms/android-${ANDROID_NATIVE_API_LEVEL}/arch-${ANDROID_ARCH_NAME}/usr/include
-         ${_OPENGL_INCLUDE_PATH}
-         )
-      find_library(OPENGL_gl_LIBRARY
-         NAMES GLESv3
-         PATHS
-           ${ANDROID_NDK}/platforms/android-${ANDROID_NATIVE_API_LEVEL}/arch-${ANDROID_ARCH_NAME}/usr/lib
-           ${_OPENGL_LIB_PATH}
-         )
-    endif()
-    find_library(OPENGL_egl_LIBRARY
-       NAMES EGL
-       PATHS
-         ${ANDROID_NDK}/platforms/android-${ANDROID_NATIVE_API_LEVEL}/arch-${ANDROID_ARCH_NAME}/usr/lib
-         ${_OPENGL_LIB_PATH}
-       )
+    find_path(OPENGL_INCLUDE_DIR GLES3/gl3.h)
+    find_library(OPENGL_gl_LIBRARY NAMES GLESv3)
+    find_library(OPENGL_egl_LIBRARY NAMES EGL)
   endif()
 else()
   # Choose static or shared libraries.
@@ -211,7 +181,7 @@ else()
 endif()
 
 # default to not using the system GLEW as ours has fixes in it right now
-set(VTK_USE_SYSTEM_GLEW OFF CACHE BOOL "do not use a system glew" FORCE)
+set(VTK_USE_SYSTEM_GLEW OFF CACHE BOOL "do not use a system glew")
 
 set(VTK_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 
@@ -288,17 +258,6 @@ include(vtkCompilerExtras)
 include(vtkBuildPath)
 
 #-----------------------------------------------------------------------------
-if(NOT EXISTS "${VTK_SOURCE_DIR}/.ExternalData/README.rst")
-  # This file is always present in version-controlled source trees
-  # so we must have been extracted from a source tarball with no
-  # data objects needed for testing.  Turn off tests by default
-  # since enabling them requires network access or manual data
-  # store configuration.
-  option(BUILD_TESTING "Build the testing tree." OFF)
-endif()
-include(CTest)
-
-#-----------------------------------------------------------------------------
 if(APPLE)
   mark_as_advanced(
     CMAKE_OSX_ARCHITECTURES
@@ -306,10 +265,46 @@ if(APPLE)
     CMAKE_OSX_SYSROOT
     )
 
-  if (CMAKE_OSX_DEPLOYMENT_TARGET AND CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS 10.6)
+  if (CMAKE_OSX_DEPLOYMENT_TARGET AND
+      CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS 10.6)
     message(FATAL_ERROR "Minimun OS X deployment target is 10.6, please update CMAKE_OSX_DEPLOYMENT_TARGET.")
   endif ()
 endif()
+
+#-----------------------------------------------------------------------------
+# Minimum compiler version check: GCC >= 4.2
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND
+    CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.2)
+  message(FATAL_ERROR "GCC 4.2 or later is required.")
+endif ()
+
+#-----------------------------------------------------------------------------
+# Minimum compiler version check: LLVM Clang >= 3.0
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND
+    CMAKE_CXX_COMPILER_VERSION VERSION_LESS 3.0)
+  message(FATAL_ERROR "LLVM Clang 3.0 or later is required.")
+endif ()
+
+#-----------------------------------------------------------------------------
+# Minimum compiler version check: Apple Clang >= 3.0 (Xcode 4.2)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" AND
+    CMAKE_CXX_COMPILER_VERSION VERSION_LESS 3.0)
+  message(FATAL_ERROR "Apple Clang 3.0 or later is required.")
+endif ()
+
+#-----------------------------------------------------------------------------
+# Minimum compiler version check: Microsoft C/C++ >= 15.0 (aka VS 2008 aka VS 9.0)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" AND
+    CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15.0)
+  message(FATAL_ERROR "Microsoft Visual Studio 2008 or later is required.")
+endif ()
+
+#-----------------------------------------------------------------------------
+# Minimum compiler version check: Intel C++ (ICC) >= 10.0
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Intel" AND
+    CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10.0)
+  message(FATAL_ERROR "Intel C++ (ICC) 10.0 or later is required.")
+endif ()
 
 #-----------------------------------------------------------------------------
 # Does VTK require support for 64 bit file systems
@@ -409,34 +404,13 @@ set(VTK_MAX_THREADS "64" CACHE STRING
   "Max number of threads vktMultiThreader will allocate.")
 mark_as_advanced(VTK_MAX_THREADS)
 
-include(TestForANSIStreamHeaders)
-include(TestForSTDNamespace)
-include(TestForANSIForScope)
 include(CheckTypeSize)
-
-# Simulate old CMakeBackwardCompatibilityCXX test.
-include(TestForSSTREAM)
-
-# Tests for various integer, bool and float types
-include(vtkTestTypes)
 
 # Socket tests etc.
 #INCLUDE(Parallel/VTKParallelCMakeTests.cmake)
 
-# Check for full template specialization support by compiler.
-include(vtkTestFullSpecialization)
-
-# Check for explicit template instantiation support by compiler.
-include(vtkTestExplicitInstantiation)
-
 # Test for atomics and other compiler intrinsics
 include(vtkTestBuiltins)
-
-#-----------------------------------------------------------------------------
-
-# Check the severity of EOF bugs in the streams library.
-# this must be after the test for the long types
-INCLUDE(vtkTestStreamsLibrary)
 
 #-----------------------------------------------------------------------------
 # Dispatch the build into the proper subdirectories.
@@ -456,9 +430,6 @@ set(VTK_PYTHON_VERSION 2 CACHE STRING
 
 # Add the option for build the Python wrapping to VTK.
 option(VTK_WRAP_JAVA "Should VTK Java wrapping be built?" OFF)
-
-# FIXME: This variable should not be necessary once we are done
-set(VTK_IGNORE_BTX ON CACHE INTERNAL "VTK modular always ignores BTX")
 
 # Force reset of hints file location in cache if it was moved
 if(VTK_WRAP_HINTS)

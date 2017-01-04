@@ -310,6 +310,13 @@ class VTKArray(numpy.ndarray):
                                  (self.__class__.__name__, name))
         return getattr(o, name)
 
+    def __array_wrap__(self, out_arr, context=None):
+        if out_arr.shape == ():
+            # Convert to scalar value
+            return out_arr[()]
+        else:
+            return numpy.ndarray.__array_wrap__(self, out_arr, context)
+
 class VTKNoneArrayMetaClass(type):
     def __new__(mcs, name, parent, attr):
         """Simplify the implementation of the numeric/logical sequence API."""
@@ -379,6 +386,10 @@ class VTKNoneArray(object):
     def _op(self, other, op):
         """Used to implement numpy-style numerical operations such as __add__,
         __mul__, etc."""
+        return NoneArray
+
+    def astype(self, dtype):
+        """Implements numpy array's astype method."""
         return NoneArray
 
 NoneArray = VTKNoneArray()
@@ -570,6 +581,18 @@ class VTKCompositeDataArray(object):
 
     def __str__(self):
         return self.Arrays.__str__()
+
+    def astype(self, dtype):
+        """Implements numpy array's as array method."""
+        res = []
+        if self is not NoneArray:
+            for a in self.Arrays:
+                if a is NoneArray:
+                    res.append(NoneArray)
+                else:
+                    res.append(a.astype(dtype))
+        return VTKCompositeDataArray(res, dataset = self.DataSet)
+
 
 class DataSetAttributes(VTKObjectWrapper):
     """This is a python friendly wrapper of vtkDataSetAttributes. It
@@ -977,9 +1000,12 @@ class PointSet(DataSet):
     def SetPoints(self, pts):
         """Given a VTKArray instance, sets the points of the dataset."""
         from vtk.vtkCommonCore import vtkPoints
-        pts = numpyTovtkDataArray(pts)
-        p = vtkPoints()
-        p.SetData(pts)
+        if isinstance(pts, vtkPoints):
+            p = pts
+        else:
+            pts = numpyTovtkDataArray(pts)
+            p = vtkPoints()
+            p.SetData(pts)
         self.VTKObject.SetPoints(p)
 
     Points = property(GetPoints, SetPoints, None, "This property returns the point coordinates of dataset.")

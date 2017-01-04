@@ -74,13 +74,11 @@ int TestQuadRotationalExtrusion( int argc, char * argv [] )
   // Create mapper for surface representation
   vtkNew<vtkPolyDataMapper> cylMapper;
   cylMapper->SetInputConnection( normals->GetOutputPort() );
-  cylMapper->SetResolveCoincidentTopologyPolygonOffsetParameters( 0, 1 );
   cylMapper->SetResolveCoincidentTopologyToPolygonOffset();
 
   // Create mapper for wireframe representation
   vtkNew<vtkPolyDataMapper> cylMapperW;
   cylMapperW->SetInputData( cyl );
-  cylMapperW->SetResolveCoincidentTopologyPolygonOffsetParameters( 1, 1 );
   cylMapperW->SetResolveCoincidentTopologyToPolygonOffset();
 
   // Create actor for surface representation
@@ -129,9 +127,9 @@ int TestQuadRotationalExtrusion( int argc, char * argv [] )
 
   int retVal = vtkRegressionTestImage( renWin.GetPointer() );
   if ( retVal == vtkRegressionTester::DO_INTERACTOR)
-    {
+  {
     iren->Start();
-    }
+  }
 
   return !retVal;
 }

@@ -1,5 +1,4 @@
 set(Module_SRCS
-  vtkImageStencilIterator.cxx
   vtkExtractVOI.cxx
   vtkImageAppendComponents.cxx
   vtkImageBlend.cxx
@@ -20,11 +19,14 @@ set(Module_SRCS
   vtkImageMirrorPad.cxx
   vtkImagePadFilter.cxx
   vtkImagePermute.cxx
+  vtkImagePointDataIterator.cxx
+  vtkImagePointIterator.cxx
   vtkImageResample.cxx
   vtkImageReslice.cxx
   vtkImageResliceToColors.cxx
   vtkImageShiftScale.cxx
   vtkImageShrink3D.cxx
+  vtkImageStencilIterator.cxx
   vtkImageThreshold.cxx
   vtkImageTranslateExtent.cxx
   vtkImageWrapPad.cxx
@@ -54,9 +56,17 @@ SET_SOURCE_FILES_PROPERTIES(
 )
 
 SET_SOURCE_FILES_PROPERTIES(
+  vtkImagePointIterator
+  vtkImagePointDataIterator
+  WRAP_EXCLUDE
+)
+
+SET_SOURCE_FILES_PROPERTIES(
   vtkImageStencilIterator
   vtkImageBSplineInternals
-  WRAP_EXCLUDE
+  PROPERTIES
+    WRAP_EXCLUDE 1
+    WRAP_EXCLUDE_PYTHON 1
 )
 
 vtk_module_library(vtkImagingCore ${Module_SRCS})

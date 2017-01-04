@@ -35,6 +35,7 @@ set(Module_SRCS
   vtkGLSLShaderDeviceAdapter2.cxx
   vtkGaussianBlurPass.cxx
   vtkGenericOpenGLRenderWindow.cxx
+  vtkHiddenLineRemovalPass.cxx
   vtkHardwareSelectionPolyDataPainter.cxx # Needed by vtkPainterPolyDataMapper
   vtkImageProcessingPass.cxx
   vtkLightingHelper.cxx
@@ -77,9 +78,8 @@ set(Module_SRCS
   vtkPolyDataPainter.cxx
   vtkPolygonsPainter.cxx
   vtkPrimitivePainter.cxx
-  vtkRenderPass.cxx
   vtkRenderPassCollection.cxx
-  vtkRenderState.cxx
+  vtkRenderStepsPass.cxx
   vtkRenderbuffer.cxx
   vtkRepresentationPainter.cxx
   vtkScalarsToColorsPainter.cxx
@@ -138,8 +138,6 @@ set(${vtk-module}_HDRS
 set_source_files_properties(
   vtkImageProcessingPass
   vtkOpenGLRenderWindow
-  vtkRenderPass
-  vtkRenderState
   vtkPainter
   vtkPolyDataPainter
   vtkPrimitivePainter
@@ -148,7 +146,6 @@ set_source_files_properties(
 
 set_source_files_properties(
   vtkLightingHelper
-  vtkRenderState
   vtkOpenGLState
   vtkOpenGLGL2PSHelper
   vtkShader2
@@ -158,6 +155,15 @@ set_source_files_properties(
   vtkgl
   vtkRenderingOpenGLObjectFactory
   WRAP_EXCLUDE
+  )
+
+set_source_files_properties(
+  vtkgl
+  vtkLightingHelper
+  vtkOpenGLState
+  vtkOpenGLGL2PSHelper
+  vtkRenderingOpenGLObjectFactory
+  PROPERTIES WRAP_EXCLUDE_PYTHON 1
   )
 
 include(vtkOpenGL)
@@ -272,7 +278,11 @@ foreach(file ${shader_files})
     ARGS ${res} ${src} ${file_we} --build-header VTKRENDERINGOPENGL_EXPORT vtkRenderingOpenGLModule.h
     )
   list(APPEND Module_SRCS ${res})
-  set_source_files_properties(${file_we} WRAP_EXCLUDE)
+  set_source_files_properties(${file_we}
+    PROPERTIES
+      WRAP_EXCLUDE 1
+      WRAP_EXCLUDE_PYTHON 1
+    )
 endforeach()
 
 set(opengl_overrides
@@ -354,7 +364,12 @@ elseif(VTK_USE_COCOA)
                                 vtkCocoaGLView.mm
                                 PROPERTIES COMPILE_FLAGS "${VTK_REQUIRED_OBJCXX_FLAGS}")
   endif()
-  set_source_files_properties(vtkCocoaGLView WRAP_EXCLUDE)
+  set_source_files_properties(
+    vtkCocoaGLView
+    PROPERTIES
+      WRAP_EXCLUDE 1
+      WRAP_EXCLUDE_PYTHON 1
+    )
 endif()
 
 # Now to see about the GPU info list.

@@ -17,6 +17,8 @@ set(Module_SRCS
   vtkClipVolume.cxx
   vtkCoincidentPoints.cxx
   vtkContourTriangulator.cxx
+  vtkCountFaces.cxx
+  vtkCountVertices.cxx
   vtkCursor2D.cxx
   vtkCursor3D.cxx
   vtkCurvatures.cxx
@@ -28,6 +30,8 @@ set(Module_SRCS
   vtkDicer.cxx
   vtkDiscreteMarchingCubes.cxx
   vtkEdgePoints.cxx
+  vtkExtractSelectedFrustum.cxx
+  vtkExtractSelectionBase.cxx
   vtkGradientFilter.cxx
   vtkGraphLayoutFilter.cxx
   vtkGraphToPoints.cxx
@@ -41,11 +45,13 @@ set(Module_SRCS
   vtkLinkEdgels.cxx
   vtkMergeCells.cxx
   vtkMultiBlockDataGroupFilter.cxx
+  vtkMultiBlockFromTimeSeriesFilter.cxx
   vtkMultiBlockMergeFilter.cxx
   vtkMultiThreshold.cxx
   vtkOBBDicer.cxx
   vtkOBBTree.cxx
   vtkPassThrough.cxx
+  vtkPointConnectivityFilter.cxx
   vtkPolyDataStreamer.cxx
   vtkPolyDataToReebGraphFilter.cxx
   vtkProbePolyhedron.cxx
@@ -59,12 +65,15 @@ set(Module_SRCS
   vtkRecursiveDividingCubes.cxx
   vtkReflectionFilter.cxx
   vtkRotationFilter.cxx
+  vtkSampleImplicitFunctionFilter.cxx
   vtkShrinkFilter.cxx
   vtkShrinkPolyData.cxx
   vtkSpatialRepresentationFilter.cxx
   vtkSplineFilter.cxx
+  vtkSplitByCellScalarFilter.cxx
   vtkSplitField.cxx
   vtkStructuredGridClip.cxx
+  vtkSubdivisionFilter.cxx
   vtkSubPixelPositionEdgels.cxx
   vtkTableBasedClipDataSet.cxx
   vtkTableToPolyData.cxx
@@ -113,6 +122,7 @@ set_source_files_properties(
   vtkDicer
   vtkGraphWeightFilter
   vtkInterpolatingSubdivisionFilter
+  vtkSubdivisionFilter
   ABSTRACT
   )
 

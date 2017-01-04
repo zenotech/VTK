@@ -36,8 +36,8 @@
 
 */
 
-#ifndef VTK_PARSE_HIERARCHY_H
-#define VTK_PARSE_HIERARCHY_H
+#ifndef vtkParseHierarchy_h
+#define vtkParseHierarchy_h
 
 /* Need the ValueInfo struct for typedefs */
 #include "vtkParseData.h"
@@ -69,6 +69,7 @@ typedef struct _HierarchyEntry
  */
 typedef struct _HierarchyInfo
 {
+  int             MaxNumberOfEntries;
   int             NumberOfEntries;
   HierarchyEntry *Entries;
   StringCache    *Strings;
@@ -79,9 +80,15 @@ extern "C" {
 #endif
 
 /**
- * Read a hierarchy file into a HeirarchyInfo struct, or return NULL
- */
+* Read a hierarchy file into a HeirarchyInfo struct, or return NULL
+* XXX DEPRECATED; use vtkParseHierarchy_ReadFiles
+*/
 HierarchyInfo *vtkParseHierarchy_ReadFile(const char *filename);
+
+/**
+ * Read hierarchy files into a HierarchyInfo struct, or return NULL
+ */
+HierarchyInfo *vtkParseHierarchy_ReadFiles(int n, char **filenames);
 
 /**
  * Free a HierarchyInfo struct
@@ -98,7 +105,7 @@ HierarchyEntry *vtkParseHierarchy_FindEntry(
  * Get properties for the class.  Returns NULL if the property
  * is not set, and returns either an empty string or a value string
  * if the property is set. The properties supported are as follows:
- * "WRAP_EXCLUDE", "WRAP_SPECIAL", and "ABSTRACT"
+ * "WRAP_EXCLUDE" and "ABSTRACT"
  */
 const char *vtkParseHierarchy_GetProperty(
   const HierarchyEntry *entry, const char *property);

@@ -21,7 +21,12 @@
 #include <vtkGPUVolumeRayCastMapper.h>
 
 // Forward declarations
+class vtkGenericOpenGLResourceFreeCallback;
+class vtkImplicitFunction;
+class vtkOpenGLCamera;
+class vtkShaderProgram;
 class vtkTextureObject;
+class vtkVolumeTexture;
 
 //----------------------------------------------------------------------------
 class VTKRENDERINGVOLUMEOPENGL2_EXPORT vtkOpenGLGPUVolumeRayCastMapper :
@@ -30,17 +35,27 @@ class VTKRENDERINGVOLUMEOPENGL2_EXPORT vtkOpenGLGPUVolumeRayCastMapper :
 public:
   static vtkOpenGLGPUVolumeRayCastMapper* New();
 
+  enum Passes
+  {
+    RenderPass,
+    DepthPass = 1
+  };
+
   vtkTypeMacro(vtkOpenGLGPUVolumeRayCastMapper, vtkGPUVolumeRayCastMapper);
   void PrintSelf( ostream& os, vtkIndent indent );
 
   // Description:
   // Low level API to enable access to depth texture in
-  // RenderToTexture mode.
+  // RenderToTexture mode. It will return either NULL if
+  // RenderToImage was never turned on or texture captured
+  // the last time RenderToImage was on.
   vtkTextureObject* GetDepthTexture();
 
   // Description:
   // Low level API to enable access to color texture in
-  // RenderToTexture mode.
+  // RenderToTexture mode. It will return either NULL if
+  // RenderToImage was never turned on or texture captured
+  // the last time RenderToImage was on.
   vtkTextureObject* GetColorTexture();
 
   // Description:
@@ -53,6 +68,31 @@ public:
   // RenderToImage mode.
   void GetColorImage(vtkImageData* im);
 
+  // Description:
+  // Mapper can have multiple passes and internally it will set
+  // the state. The state can not be set externally explicitly
+  // but can be set indirectly depending on the options set by
+  // the user.
+  vtkGetMacro(CurrentPass, int);
+
+  //@{
+  /**
+   * Sets a user defined function to generate the ray jittering noise.
+   * vtkPerlinNoise is used by default with a texture size equivlent to
+   * the window size. These settings will have no effect when UseJittering
+   * is Off.
+   */
+  void SetNoiseGenerator(vtkImplicitFunction* generator);
+  vtkSetVector2Macro(NoiseTextureSize, int);
+  //@}
+
+  /**
+   * Set a fixed number of partitions in which to split the volume
+   * during rendring. This will force by-block rendering without
+   * trying to compute an optimum number of partitions.
+   */
+  void SetPartitions(unsigned short x, unsigned short y, unsigned short z);
+
 protected:
   vtkOpenGLGPUVolumeRayCastMapper();
   ~vtkOpenGLGPUVolumeRayCastMapper();
@@ -61,6 +101,13 @@ protected:
   // Delete OpenGL objects.
   // \post done: this->OpenGLObjectsCreated==0
   virtual void ReleaseGraphicsResources(vtkWindow *window);
+  vtkGenericOpenGLResourceFreeCallback *ResourceCallback;
+
+  // Description:
+  // Build vertex and fragment shader for the volume rendering
+  void BuildDepthPassShader(vtkRenderer* ren, vtkVolume* vol,
+                            int noOfComponents,
+                            int independentComponents);
 
   // Description:
   // Build vertex and fragment shader for the volume rendering
@@ -73,7 +120,7 @@ protected:
                          double vtkNotUsed(datasetBounds)[6],
                          double vtkNotUsed(scalarRange)[2],
                          int vtkNotUsed(noOfComponents),
-                         unsigned int vtkNotUsed(numberOfLevels)) {}
+                         unsigned int vtkNotUsed(numberOfLevels)) {};
 
   // \pre input is up-to-date
   virtual void RenderBlock(vtkRenderer *vtkNotUsed(ren),
@@ -86,6 +133,15 @@ protected:
   // Description:
   // Rendering volume on GPU
   void GPURender(vtkRenderer *ren, vtkVolume *vol);
+
+  // Description:
+  // Method that performs the actual rendering given a volume and a shader
+  void DoGPURender(vtkRenderer* ren,
+                   vtkVolume* vol,
+                   vtkOpenGLCamera* cam,
+                   vtkShaderProgram* shaderProgram,
+                   int noOfComponents,
+                   int independentComponents);
 
   // Description:
   // Update the reduction factor of the render viewport (this->ReductionFactor)
@@ -101,27 +157,35 @@ protected:
   // Description:
   // Empty implementation.
   void GetReductionRatio(double* ratio)
-    {
+  {
     ratio[0] = ratio[1] = ratio[2] = 1.0;
-    }
+  }
+
 
   // Description:
   // Empty implementation.
   virtual int IsRenderSupported(vtkRenderWindow *vtkNotUsed(window),
                                 vtkVolumeProperty *vtkNotUsed(property))
-    {
+  {
     return 1;
-    }
+  }
 
   double ReductionFactor;
+  int    CurrentPass;
 
 private:
   class vtkInternal;
   vtkInternal* Impl;
 
+  friend class vtkVolumeTexture;
+  vtkVolumeTexture* VolumeTexture;
+
+  vtkImplicitFunction* NoiseGenerator;
+  int NoiseTextureSize[2];
+
   vtkOpenGLGPUVolumeRayCastMapper(
-    const vtkOpenGLGPUVolumeRayCastMapper&); // Not implemented.
-  void operator=(const vtkOpenGLGPUVolumeRayCastMapper&); // Not implemented.
+    const vtkOpenGLGPUVolumeRayCastMapper&) VTK_DELETE_FUNCTION;
+  void operator=(const vtkOpenGLGPUVolumeRayCastMapper&) VTK_DELETE_FUNCTION;
 };
 
 #endif // vtkOpenGLGPUVolumeRayCastMapper_h

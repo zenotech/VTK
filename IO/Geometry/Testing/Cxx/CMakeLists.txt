@@ -15,6 +15,11 @@ ExternalData_Expand_Arguments(VTKData _
   "DATA{${VTK_TEST_INPUT_DIR}/OpenFOAM/cavity/constant/,REGEX:.*}"
   "DATA{${VTK_TEST_INPUT_DIR}/OpenFOAM/cavity/constant/polyMesh/,REGEX:.*}"
   "DATA{${VTK_TEST_INPUT_DIR}/OpenFOAM/cavity/system/,REGEX:.*}"
+  "DATA{${VTK_TEST_INPUT_DIR}/OpenFOAM/64BitFloats/,REGEX:.*}"
+  "DATA{${VTK_TEST_INPUT_DIR}/OpenFOAM/64BitFloats/0/,REGEX:.*}"
+  "DATA{${VTK_TEST_INPUT_DIR}/OpenFOAM/64BitFloats/constant/,REGEX:.*}"
+  "DATA{${VTK_TEST_INPUT_DIR}/OpenFOAM/64BitFloats/constant/polyMesh/,REGEX:.*}"
+  "DATA{${VTK_TEST_INPUT_DIR}/OpenFOAM/64BitFloats/system/,REGEX:.*}"
   )
 vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestDataObjectIO.cxx,NO_VALID
@@ -25,11 +30,36 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestOBJReaderRelative.cxx,NO_VALID
   TestOBJReaderNormalsTCoords.cxx,NO_VALID
   TestOpenFOAMReader.cxx
+  TestOpenFOAMReader64BitFloats.cxx
   TestProStarReader.cxx
   TestTecplotReader.cxx
   TestAMRReadWrite.cxx,NO_VALID
   TestSimplePointsReaderWriter.cxx,NO_VALID
+  TestHoudiniPolyDataWriter.cxx,NO_VALID
+  UnitTestSTLWriter.cxx,NO_VALID
   )
+
+vtk_add_test_cxx(${vtk-module}CxxTests tests
+  TestSTLReaderSinglePatch,TestSTLReader.cxx DATA{${VTK_TEST_INPUT_DIR}/42400-IDGH.stl}
+)
+
+vtk_add_test_cxx(${vtk-module}CxxTests tests
+  TestSTLReaderMultiplePatches,TestSTLReader.cxx DATA{${VTK_TEST_INPUT_DIR}/multiple_patches.stl}
+)
+
+vtk_add_test_cxx(${vtk-module}CxxTests tests
+  TestPTSReader,TestPTSReader.cxx DATA{${VTK_TEST_INPUT_DIR}/samplePTS.pts}
+)
+
+vtk_add_test_cxx(${vtk-module}CxxTests tests
+  TestAVSucdReaderContiguousASCII,TestAVSucdReader.cxx DATA{${VTK_TEST_INPUT_DIR}/cellsnd.ascii.inp}
+)
+vtk_add_test_cxx(${vtk-module}CxxTests tests
+  TestAVSucdReaderNonContiguousASCII,TestAVSucdReader.cxx DATA{${VTK_TEST_INPUT_DIR}/cellsnd.noncontiguous.ascii.inp}
+)
+vtk_add_test_cxx(${vtk-module}CxxTests tests
+  TestAVSucdReaderBinary,TestAVSucdReader.cxx DATA{${VTK_TEST_INPUT_DIR}/cellsnd.bin.inp}
+)
 
 set(_known_little_endian FALSE)
 if (DEFINED CMAKE_WORDS_BIGENDIAN)

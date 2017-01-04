@@ -63,15 +63,17 @@ vtkLight::vtkLight()
   this->LightType = VTK_LIGHT_TYPE_SCENE_LIGHT;
 
   this->TransformMatrix = NULL;
+
+  this->ShadowAttenuation = 1.0;
 }
 
 vtkLight::~vtkLight()
 {
   if(this->TransformMatrix != NULL)
-    {
+  {
       this->TransformMatrix->UnRegister(this);
       this->TransformMatrix = NULL;
-    }
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -81,7 +83,7 @@ vtkLight *vtkLight::ShallowClone()
 
   int i=0;
   while(i<3)
-    {
+  {
     result->FocalPoint[i]=this->FocalPoint[i];
     result->Position[i]=this->Position[i];
     result->AmbientColor[i]=this->AmbientColor[i];
@@ -92,7 +94,7 @@ vtkLight *vtkLight::ShallowClone()
       this->TransformedFocalPointReturn[i];
     result->TransformedPositionReturn[i]=this->TransformedPositionReturn[i];
     ++i;
-    }
+  }
 
   result->Intensity=this->Intensity;
   result->Switch=this->Switch;
@@ -103,9 +105,9 @@ vtkLight *vtkLight::ShallowClone()
 
   result->TransformMatrix=this->TransformMatrix;
   if(result->TransformMatrix!=0)
-    {
+  {
     result->TransformMatrix->Register(result);
-    }
+  }
   return result;
 }
 
@@ -149,7 +151,7 @@ int vtkLight::LightTypeIsSceneLight()
 void vtkLight::GetTransformedPosition(double a[3])
 {
   if(this->TransformMatrix)
-    {
+  {
     double f[4];
     f[0] = this->Position[0];
     f[1] = this->Position[1];
@@ -161,13 +163,13 @@ void vtkLight::GetTransformedPosition(double a[3])
     a[0] = f[0];
     a[1] = f[1];
     a[2] = f[2];
-    }
+  }
   else
-    {
+  {
     a[0] = this->Position[0];
     a[1] = this->Position[1];
     a[2] = this->Position[2];
-    }
+  }
 }
 
 void vtkLight::GetTransformedPosition(double &x, double &y, double &z)
@@ -189,7 +191,7 @@ double *vtkLight::GetTransformedPosition()
 void vtkLight::GetTransformedFocalPoint(double a[3])
 {
   if(this->TransformMatrix)
-    {
+  {
     double f[4];
     f[0] = this->FocalPoint[0];
     f[1] = this->FocalPoint[1];
@@ -201,13 +203,13 @@ void vtkLight::GetTransformedFocalPoint(double a[3])
     a[0] = f[0];
     a[1] = f[1];
     a[2] = f[2];
-    }
+  }
   else
-    {
+  {
     a[0] = this->FocalPoint[0];
     a[1] = this->FocalPoint[1];
     a[2] = this->FocalPoint[2];
-    }
+  }
 }
 
 void vtkLight::GetTransformedFocalPoint(double &x, double &y, double &z)
@@ -266,31 +268,32 @@ void vtkLight::PrintSelf(ostream& os, vtkIndent indent)
 
   os << indent << "LightType: ";
   if (this->LightType == VTK_LIGHT_TYPE_HEADLIGHT)
-    {
+  {
     os << "Headlight\n";
-    }
+  }
   else if (this->LightType == VTK_LIGHT_TYPE_CAMERA_LIGHT)
-    {
+  {
     os << "CameraLight\n";
-    }
+  }
   else if (this->LightType == VTK_LIGHT_TYPE_SCENE_LIGHT)
-    {
+  {
     os << "SceneLight\n";
-    }
+  }
   else
-    {
+  {
     os << "(unknown light type)\n";
-    }
+  }
 
   os << indent << "TransformMatrix: ";
   if(this->TransformMatrix != NULL)
-    {
+  {
     os << this->TransformMatrix << "\n";
-    }
+  }
   else
-    {
+  {
     os << "(none)\n";
-    }
+  }
+  os << indent << "ShadowAttenuation: " << this->ShadowAttenuation << "\n";
 }
 
 void vtkLight::WriteSelf(ostream& os)
@@ -313,6 +316,7 @@ void vtkLight::WriteSelf(ostream& os)
   os << this->ConeAngle << " ";
   os << this->AttenuationValues[0] << " " << this->AttenuationValues[1] << " "
      << this->AttenuationValues[2] << " ";
+  os << this->ShadowAttenuation << " ";
   // XXX - LightType, TransformMatrix ???
 }
 
@@ -330,6 +334,7 @@ void vtkLight::ReadSelf(istream& is)
   is >> this->ConeAngle;
   is >> this->AttenuationValues[0] >> this->AttenuationValues[1]
      >> this->AttenuationValues[2];
+  is >> this->ShadowAttenuation;
   // XXX - LightType, TransformMatrix ???
 }
 

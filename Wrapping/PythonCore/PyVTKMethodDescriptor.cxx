@@ -21,8 +21,7 @@
 // Silence warning like
 // "dereferencing type-punned pointer will break strict-aliasing rules"
 // it happens because this kind of expression: (long *)&ptr
-// pragma GCC diagnostic is available since gcc>=4.2
-#if defined(__GNUC__) && (__GNUC__>4) || (__GNUC__==4 && __GNUC_MINOR__>=2)
+#if defined(__GNUC__)
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
 
@@ -41,18 +40,18 @@ PyObject *PyVTKMethodDescriptor_New(PyTypeObject *pytype, PyMethodDef *meth)
     PyType_GenericAlloc(&PyVTKMethodDescriptor_Type, 0);
 
   if (descr)
-    {
+  {
     Py_XINCREF(pytype);
     PyDescr_TYPE(descr) = pytype;
     PyDescr_NAME(descr) = PyString_InternFromString(meth->ml_name);
     descr->d_method = meth;
 
     if (!PyDescr_NAME(descr))
-      {
+    {
       Py_DECREF(descr);
       descr = 0;
-      }
     }
+  }
 
   return (PyObject *)descr;
 }
@@ -98,10 +97,10 @@ static PyObject *PyVTKMethodDescriptor_Call(
     descr->d_method, (PyObject *)PyDescr_TYPE(descr));
 
   if (func)
-    {
+  {
     result = PyEval_CallObjectWithKeywords(func, args, kwds);
     Py_DECREF(func);
-    }
+  }
 
   return result;
 }
@@ -112,17 +111,17 @@ static PyObject *PyVTKMethodDescriptor_Get(
   PyMethodDescrObject *descr = (PyMethodDescrObject *)self;
 
   if (obj == NULL)
-    {
+  {
     // If no object to bind to, return the descriptor itself
     Py_INCREF(self);
     return self;
-    }
+  }
 
   if (PyObject_TypeCheck(obj, PyDescr_TYPE(descr)))
-    {
+  {
     // Bind the method to the object
     return PyCFunction_New(descr->d_method, obj);
-    }
+  }
 
 #ifdef VTK_PY3K
   PyErr_Format(
@@ -146,10 +145,10 @@ static PyObject *PyVTKMethodDescriptor_GetDoc(PyObject *ob, void *)
   PyMethodDescrObject *descr = (PyMethodDescrObject *)ob;
 
   if (descr->d_method->ml_doc == NULL)
-    {
+  {
     Py_INCREF(Py_None);
     return Py_None;
-    }
+  }
 
   return PyString_FromString(descr->d_method->ml_doc);
 }

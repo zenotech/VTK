@@ -1,4 +1,5 @@
 set(Module_SRCS
+  vtkAggregateDataSetFilter.cxx
   vtkAngularPeriodicFilter.cxx
   vtkCollectGraph.cxx
   vtkCollectPolyData.cxx
@@ -45,7 +46,9 @@ set_source_files_properties(
 set_source_files_properties(
   ${vtk-module}ObjectFactory.cxx
   vtkPOutlineFilterInternals.cxx
-  WRAP_EXCLUDE
+  PROPERTIES
+    WRAP_EXCLUDE 1
+    WRAP_EXCLUDE_PYTHON 1
   )
 
 vtk_module_library(vtkFiltersParallel ${Module_SRCS})

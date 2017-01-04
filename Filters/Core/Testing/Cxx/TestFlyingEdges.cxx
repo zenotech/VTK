@@ -48,6 +48,7 @@ int TestFlyingEdges(int argc, char *argv[])
 
   vtkNew<vtkPolyDataMapper> mapper;
   mapper->SetInputConnection(flyingEdges->GetOutputPort());
+  mapper->SetScalarRange(128,225);
   vtkNew<vtkActor> actor;
   actor->SetMapper(mapper.GetPointer());
   vtkNew<vtkRenderer> ren;
@@ -65,8 +66,8 @@ int TestFlyingEdges(int argc, char *argv[])
 
   int retVal = vtkRegressionTestImage(renWin.GetPointer());
   if (retVal == vtkRegressionTester::DO_INTERACTOR)
-    {
+  {
     iren->Start();
-    }
+  }
   return !retVal;
 }

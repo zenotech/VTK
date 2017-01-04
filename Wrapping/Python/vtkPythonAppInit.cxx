@@ -43,30 +43,30 @@
 class vtkMPICleanup {
 public:
   vtkMPICleanup()
-    {
+  {
       this->Controller = 0;
-    }
+  }
   void Initialize(int* argc, char ***argv)
-    {
+  {
       MPI_Init(argc, argv);
       this->Controller = vtkMPIController::New();
       this->Controller->Initialize(argc, argv, 1);
       vtkMultiProcessController::SetGlobalController(this->Controller);
-    }
+  }
   void Cleanup()
-    {
+  {
     if ( this->Controller )
-      {
+    {
       this->Controller->Finalize();
       this->Controller->Delete();
       this->Controller = NULL;
       vtkMultiProcessController::SetGlobalController(NULL);
-      }
     }
+  }
   ~vtkMPICleanup()
-    {
+  {
     this->Cleanup();
-    }
+  }
 
 private:
   vtkMPIController *Controller;
@@ -89,11 +89,13 @@ extern "C" {
 #endif
 }
 
-#if defined(VTK_PY3K) && defined(__APPLE__)
+#ifdef VTK_PY3K
+#if defined(__APPLE__) && PY_VERSION_HEX < 0x03050000
 extern "C" {
 extern wchar_t*
 _Py_DecodeUTF8_surrogateescape(const char *s, Py_ssize_t size);
 }
+#endif
 #endif
 
 static void vtkPythonAppInitEnableMSVCDebugHook();
@@ -126,30 +128,30 @@ int main(int argc, char **argv)
 
   int displayVersion = 0;
   if ( argc > 1 )
-    {
+  {
     int cc;
     for ( cc = 1; cc < argc; cc ++ )
-      {
+    {
       if ( strcmp(argv[cc], "-V") == 0 )
-        {
+      {
         displayVersion = 1;
-        }
+      }
       else
       if ( strcmp(argv[cc], "--enable-bt") == 0 )
-        {
+      {
         RemoveArgumentFromArgv(argc, argv, cc);
         vtksys::SystemInformation::SetStackTraceOnError(1);
-        }
       }
     }
+  }
   else
-    {
+  {
     displayVersion = 1;
-    }
+  }
   if ( displayVersion )
-    {
+  {
     cout << vtkVersion::GetVTKSourceVersion() << endl;
-    }
+  }
 
   // The following code will hack in the path for running VTK/Python
   // from the build tree. Do not try this at home. We are
@@ -161,17 +163,19 @@ int main(int argc, char **argv)
   std::string av0 = vtksys::SystemTools::CollapseFullPath(argv[0]);
 #ifdef VTK_PY3K
   wchar_t *argv0;
-#ifdef __APPLE__
+#if PY_VERSION_HEX >= 0x03050000
+  argv0 = Py_DecodeLocale(av0.c_str(), NULL);
+#elif defined(__APPLE__)
   argv0 = _Py_DecodeUTF8_surrogateescape(av0.data(), av0.length());
 #else
   argv0 = _Py_char2wchar(av0.c_str(), NULL);
 #endif
   if (argv0 == 0)
-    {
+  {
     fprintf(stderr, "Fatal vtkpython error: "
                     "unable to decode the program name\n");
     return 1;
-    }
+  }
 #else /* VTK < PY3K */
   static char argv0[VTK_PYTHON_MAXPATH];
   strcpy(argv0, av0.c_str());
@@ -201,12 +205,12 @@ int main(int argc, char **argv)
 #endif
   const char *exe_str = PyBytes_AsString(executable);
   if (exe_str)
-    {
+  {
     // Use the executable location to try to set sys.path to include
     // the VTK python modules.
     std::string self_dir = vtksys::SystemTools::GetFilenamePath(exe_str);
     vtkPythonAppInitPrependPath(self_dir.c_str());
-    }
+  }
 #ifdef VTK_PY3K
   Py_DECREF(executable);
 #endif
@@ -217,34 +221,36 @@ int main(int argc, char **argv)
   wchar_t **argvWide = new wchar_t *[argc];
   wchar_t **argvWide2 = new wchar_t *[argc];
   for (int i = 0; i < argc; i++)
-    {
-#ifdef __APPLE__
+  {
+#if PY_VERSION_HEX >= 0x03050000
+    argvWide[i] = Py_DecodeLocale(argv[i], NULL);
+#elif defined(__APPLE__)
     argvWide[i] = _Py_DecodeUTF8_surrogateescape(argv[i], strlen(argv[i]));
 #else
     argvWide[i] = _Py_char2wchar(argv[i], NULL);
 #endif
     argvWide2[i] = argvWide[i];
     if (argvWide[i] == 0)
-      {
+    {
       fprintf(stderr, "Fatal vtkpython error: "
                       "unable to decode the command line argument #%i\n",
                       i + 1);
       for (int k = 0; k < i; k++)
-        {
+      {
         PyMem_Free(argvWide2[i]);
-        }
+      }
       PyMem_Free(argv0);
       delete [] argvWide;
       delete [] argvWide2;
       return 1;
-      }
     }
+  }
   int res = Py_Main(argc, argvWide);
   PyMem_Free(argv0);
   for (int i = 0; i < argc; i++)
-    {
+  {
     PyMem_Free(argvWide2[i]);
-    }
+  }
   delete [] argvWide;
   delete [] argvWide2;
   return res;
@@ -266,9 +272,9 @@ void vtkPythonAppInitEnableMSVCDebugHook()
 {
   if(getenv("DART_TEST_FROM_DART") ||
     getenv("DASHBOARD_TEST_FROM_CTEST"))
-    {
+  {
     _CrtSetReportHook(vtkPythonAppInitDebugReport);
-    }
+  }
 }
 #else
 void vtkPythonAppInitEnableMSVCDebugHook()
@@ -283,12 +289,12 @@ static void vtkPythonAppInitPrependPythonPath(const char* dir)
   std::string out_dir = dir;
 #if defined(_WIN32) && !defined(__CYGWIN__)
   for(std::string::size_type i = 0; i < out_dir.length(); ++i)
-    {
+  {
     if(out_dir[i] == '/')
-      {
+    {
       out_dir[i] = '\\';
-      }
     }
+  }
 #endif
 
   // Append the path to the python sys.path object.
@@ -312,7 +318,7 @@ static void vtkPythonAppInitPrependPath(const char* self_dir)
 
   int found_vtk = 0;
   for (const char** build_dir = build_dirs; *build_dir && !found_vtk; ++build_dir)
-    {
+  {
     std::string package_dir = self_dir;
 #if defined(CMAKE_INTDIR)
     package_dir += "/..";
@@ -323,17 +329,17 @@ static void vtkPythonAppInitPrependPath(const char* self_dir)
     // We try to locate the directory containing vtk python module files.
     std::string vtk_module_dir = package_dir + "/vtk";
     if(vtksys::SystemTools::FileIsDirectory(vtk_module_dir.c_str()))
-      {
+    {
       // This executable is running from the build tree.  Prepend the
       // library directory and package directory to the search path.
       vtkPythonAppInitPrependPythonPath(package_dir.c_str());
       vtkPythonAppInitPrependPythonPath(VTK_PYTHON_LIBRARY_DIR);
       found_vtk = 1;
-      }
     }
+  }
 
   if (!found_vtk)
-    {
+  {
     // This executable is running from an install tree.  Check for
     // possible VTK python module locations.  See
     // http://python.org/doc/2.4.1/inst/alt-install-windows.html for
@@ -352,20 +358,20 @@ static void vtkPythonAppInitPrependPath(const char* self_dir)
     };
     std::string prefix = vtksys::SystemTools::GetFilenamePath(self_dir);
     for(const char** dir = inst_dirs; *dir; ++dir)
-      {
+    {
       std::string package_dir = prefix;
       package_dir += *dir;
       package_dir = vtksys::SystemTools::CollapseFullPath(package_dir.c_str());
       if(vtksys::SystemTools::FileIsDirectory(package_dir.c_str()))
-        {
+      {
         // We found the modules.  Add the location to sys.path, but
         // without the "/vtk" suffix.
         std::string path_dir =
           vtksys::SystemTools::GetFilenamePath(package_dir);
         vtkPythonAppInitPrependPythonPath(path_dir.c_str());
         break;
-        }
       }
+    }
 
     // This executable does not actually link to the python wrapper
     // libraries, though it probably should now that the stub-modules
@@ -386,13 +392,13 @@ static void vtkPythonAppInitPrependPath(const char* self_dir)
     static char system_path[(VTK_PYTHON_MAXPATH+1)*10] = "PATH=";
     strcat(system_path, self_dir);
     if(char* oldpath = getenv("PATH"))
-      {
+    {
       strcat(system_path, ";");
       strcat(system_path, oldpath);
-      }
+    }
     putenv(system_path);
 #endif
-    }
+  }
 
   // Try to put the VTK python module location in sys.path.
   const char* site_build_dirs[] = {
@@ -402,7 +408,7 @@ static void vtkPythonAppInitPrependPath(const char* self_dir)
 
   int found_site = 0;
   for (const char** site_build_dir = site_build_dirs; *site_build_dir && !found_site; ++site_build_dir)
-    {
+  {
     std::string package_dir = self_dir;
 #if defined(CMAKE_INTDIR)
     package_dir += "/..";
@@ -412,14 +418,14 @@ static void vtkPythonAppInitPrependPath(const char* self_dir)
 
     // We try to locate the directory containing vtk python module files.
     if(vtksys::SystemTools::FileIsDirectory(package_dir.c_str()))
-      {
+    {
       // This executable is running from the build tree.  Prepend the
       // library directory and package directory to the search path.
       vtkPythonAppInitPrependPythonPath(package_dir.c_str());
       vtkPythonAppInitPrependPythonPath(VTK_PYTHON_LIBRARY_DIR);
       found_site = 1;
-      }
     }
+  }
 }
 
 //----------------------------------------------------------------------------
@@ -427,9 +433,9 @@ static void RemoveArgumentFromArgv(int &argc, char **&argv, int at)
 {
   int ii=at+1;
   while (ii<argc)
-    {
+  {
     argv[ii-1]=argv[ii];
     ii+=1;
-    }
+  }
   argc-=1;
 }

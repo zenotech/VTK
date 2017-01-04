@@ -21,6 +21,7 @@
 #include "vtkRegressionTestImage.h"
 #include "vtkTestUtilities.h"
 #include "vtkTestErrorObserver.h"
+#include "vtkExecutive.h"
 #include "vtkGlyph3D.h"
 #include "vtkSmartPointer.h"
 #include "vtkDoubleArray.h"
@@ -58,20 +59,24 @@ static bool TestGlyph3D_WithBadArray()
   glyph3D->SetInputData(polydata);
   glyph3D->SetInputArrayToProcess(1,0,0,vtkDataObject::FIELD_ASSOCIATION_POINTS,"Normals");
   glyph3D->SetVectorModeToUseVector();
-  vtkSmartPointer<vtkTest::ErrorObserver> errorObserver =
+  vtkSmartPointer<vtkTest::ErrorObserver> errorObserver1 =
     vtkSmartPointer<vtkTest::ErrorObserver>::New();
-  glyph3D->AddObserver(vtkCommand::ErrorEvent,errorObserver);
+  vtkSmartPointer<vtkTest::ErrorObserver> errorObserver2 =
+    vtkSmartPointer<vtkTest::ErrorObserver>::New();
+  glyph3D->AddObserver(vtkCommand::ErrorEvent,errorObserver1);
+  glyph3D->GetExecutive()->AddObserver(vtkCommand::ErrorEvent,errorObserver2);
   glyph3D->Update();
-  bool res = errorObserver->GetError();
-  return res;
+  int status = errorObserver1->CheckErrorMessage("vtkDataArray Normals has more than 3 components");
+  status += errorObserver2->CheckErrorMessage("Algorithm vtkGlyph3D");
+  return true;
 }
 
 int TestGlyph3D(int argc, char* argv[])
 {
   if(!TestGlyph3D_WithBadArray())
-    {
+  {
     return EXIT_FAILURE;
-    }
+  }
 
   vtkSmartPointer<vtkDoubleArray> vectors =
     vtkSmartPointer<vtkDoubleArray>::New();
@@ -138,8 +143,8 @@ int TestGlyph3D(int argc, char* argv[])
 
   int retVal = vtkRegressionTestImage(renWin.GetPointer());
   if (retVal == vtkRegressionTester::DO_INTERACTOR)
-    {
+  {
     iren->Start();
-    }
+  }
   return !retVal;
 }

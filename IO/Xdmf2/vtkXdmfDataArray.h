@@ -3,8 +3,6 @@
 /*                   eXtensible Data Model and Format              */
 /*                                                                 */
 /*  Id : Id  */
-/*  Date : $Date$ */
-/*  Version : $Revision$ */
 /*                                                                 */
 /*  Author:                                                        */
 /*     Jerry A. Clarke                                             */
@@ -22,8 +20,8 @@
 /*     for more information.                                       */
 /*                                                                 */
 /*******************************************************************/
-#ifndef _vtkXdmfDataArray_h
-#define _vtkXdmfDataArray_h
+#ifndef vtkXdmfDataArray_h
+#define vtkXdmfDataArray_h
 
 #include "vtkIOXdmf2Module.h" // For export macro
 #include "vtkObject.h"
@@ -64,8 +62,8 @@ protected:
 private:
   vtkDataArray  *vtkArray;
   xdmf2::XdmfArray  *Array;
-  vtkXdmfDataArray(const vtkXdmfDataArray&); // Not implemented
-  void operator=(const vtkXdmfDataArray&); // Not implemented
+  vtkXdmfDataArray(const vtkXdmfDataArray&) VTK_DELETE_FUNCTION;
+  void operator=(const vtkXdmfDataArray&) VTK_DELETE_FUNCTION;
 };
 
-#endif /* _vtkXdmfDataArray_h */
+#endif /* vtkXdmfDataArray_h */

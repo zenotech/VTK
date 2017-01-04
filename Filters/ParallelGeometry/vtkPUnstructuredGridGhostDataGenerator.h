@@ -12,31 +12,37 @@
  PURPOSE.  See the above copyright notice for more information.
 
  =========================================================================*/
-// .NAME vtkPUnstructuredGridGhostDataGenerator -- Builds ghost zones for a
-//  distributed unstructured grid dataset.
-//
-// .SECTION Description
-//  This filter uses internally the vtkPUnstructuredGridConnectivity helper
-//  class to construct ghost zones for a distributed unstructured grid.
-//
-// .SECTION Caveats
-//  <ul>
-//    <li> The code currently assumes one grid per rank. </li>
-//    <li> GlobalID information must be provided as a PointData array
-//         with the name, "GlobalID" </li>
-//    <li> The grid must be globally conforming, i.e., no hanging nodes. </li>
-//    <li> Only topologically face-adjacent ghost cells are considered. </li>
-//    <li> PointData and CellData must match across partitions/processes. </li>
-//  </ul>
-//
-// .SECTION See Also
-//  vtkPUnstructuredGridConnectivity
+/**
+ * @class   vtkPUnstructuredGridGhostDataGenerator
+ *  distributed unstructured grid dataset.
+ *
+ *
+ *  This filter uses internally the vtkPUnstructuredGridConnectivity helper
+ *  class to construct ghost zones for a distributed unstructured grid.
+ * @deprecated Not maintained as of VTK 7.0 and will be removed eventually.
+ * Use vtkPUnstructuredGridGhostCellsGenerator instead.
+ *
+ * @warning
+ *  <ul>
+ *    <li> The code currently assumes one grid per rank. </li>
+ *    <li> GlobalID information must be provided as a PointData array
+ *         with the name, "GlobalID" </li>
+ *    <li> The grid must be globally conforming, i.e., no hanging nodes. </li>
+ *    <li> Only topologically face-adjacent ghost cells are considered. </li>
+ *    <li> PointData and CellData must match across partitions/processes. </li>
+ *  </ul>
+ *
+ * @sa
+ *  vtkPUnstructuredGridConnectivity vtkPUnstructuredGridGhostCellsGenerator
+*/
 
-#ifndef VTKPUNSTRUCTUREDGRIDGHOSTDATAGENERATOR_H_
-#define VTKPUNSTRUCTUREDGRIDGHOSTDATAGENERATOR_H_
+#ifndef vtkPUnstructuredGridGhostDataGenerator_h
+#define vtkPUnstructuredGridGhostDataGenerator_h
 
 #include "vtkFiltersParallelGeometryModule.h" // For export macro
 #include "vtkUnstructuredGridAlgorithm.h"
+
+#if !defined(VTK_LEGACY_REMOVE)
 
 // Forward Declarations
 class vtkIndent;
@@ -68,8 +74,9 @@ protected:
   vtkPUnstructuredGridConnectivity* GhostZoneBuilder;
   vtkMultiProcessController* Controller;
 private:
-  vtkPUnstructuredGridGhostDataGenerator(const vtkPUnstructuredGridGhostDataGenerator&); // Not implemented
-  void operator=(const vtkPUnstructuredGridGhostDataGenerator&); // Not implemented
+  vtkPUnstructuredGridGhostDataGenerator(const vtkPUnstructuredGridGhostDataGenerator&) VTK_DELETE_FUNCTION;
+  void operator=(const vtkPUnstructuredGridGhostDataGenerator&) VTK_DELETE_FUNCTION;
 };
 
-#endif /* VTKPUNSTRUCTUREDGRIDGHOSTDATAGENERATOR_H_ */
+#endif //VTK_LEGACY_REMOVE
+#endif /* vtkPUnstructuredGridGhostDataGenerator_h */

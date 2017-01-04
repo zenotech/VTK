@@ -28,7 +28,13 @@ endif()
 # in for the first CMake invocation for modules that depend on the backend
 # chosen.
 if(NOT DEFINED VTK_RENDERING_BACKEND)
-  set(VTK_RENDERING_BACKEND "OpenGL")
+  # has the application defined a desired default for the backend?
+  # if not, use VTKs default of OpenGL2
+  if(DEFINED VTK_RENDERING_BACKEND_DEFAULT)
+    set(VTK_RENDERING_BACKEND ${VTK_RENDERING_BACKEND_DEFAULT})
+  else()
+    set(VTK_RENDERING_BACKEND "OpenGL2")
+  endif()
   set(_backend_set_for_first_cmake TRUE)
 endif()
 
@@ -232,6 +238,8 @@ if(VTK_ENABLE_KITS)
     endforeach()
   endforeach()
 
+  list(REMOVE_DUPLICATES vtk_kits)
+
   # Put all kits in the list (if they are not dependencies of any module, they
   # will be dropped otherwise).
   list(APPEND vtk_modules_and_kits ${vtk_kits})
@@ -284,6 +292,19 @@ foreach(vtk-module ${VTK_MODULES_ALL})
       set_property(CACHE Module_${vtk-module} PROPERTY TYPE BOOL)
     endif()
   endif()
+endforeach()
+
+#hide options of modules that are part of a different backend
+# or are required by the backend
+foreach(backend ${VTK_BACKENDS})
+  foreach(module ${VTK_BACKEND_${backend}_MODULES})
+    if(NOT ${module}_IS_TEST)
+      if((NOT (${backend} STREQUAL "${VTK_RENDERING_BACKEND}")) OR
+        ${module}_IMPLEMENTATION_REQUIRED_BY_BACKEND)
+        set_property(CACHE Module_${module} PROPERTY TYPE INTERNAL)
+      endif()
+    endif()
+  endforeach()
 endforeach()
 
 if(NOT VTK_MODULES_ENABLED)
@@ -414,6 +435,9 @@ set(VTK_CONFIG_TARGETS_FILE "${VTK_BINARY_DIR}/VTKTargets.cmake")
 set(VTK_CONFIG_MODULE_API_FILE "${VTK_SOURCE_DIR}/CMake/vtkModuleAPI.cmake")
 # Target used to ensure VTKConfig is load just once
 set(VTK_COMMON_TARGET vtkCommonCore)
+# VTK_CONFIG_INSTALLED is used to toggle between build and install versions
+# inside VTKConfig.cmake.in
+set(VTK_CONFIG_INSTALLED FALSE)
 configure_file(CMake/VTKConfig.cmake.in VTKConfig.cmake @ONLY)
 
 # Generate VTKConfig.cmake for the install tree.
@@ -445,6 +469,7 @@ set(VTK_CONFIG_CMAKE_DIR "\${VTK_INSTALL_PREFIX}/${VTK_INSTALL_PACKAGE_DIR}")
 set(VTK_CONFIG_TARGETS_CONDITION "")
 set(VTK_CONFIG_TARGETS_FILE "\${VTK_INSTALL_PREFIX}/${VTK_INSTALL_PACKAGE_DIR}/VTKTargets.cmake")
 set(VTK_CONFIG_MODULE_API_FILE "\${VTK_INSTALL_PREFIX}/${VTK_INSTALL_PACKAGE_DIR}/vtkModuleAPI.cmake")
+set(VTK_CONFIG_INSTALLED TRUE)
 configure_file(CMake/VTKConfig.cmake.in CMakeFiles/VTKConfig.cmake @ONLY)
 
 include(CMakePackageConfigHelpers)
@@ -457,8 +482,8 @@ write_basic_package_version_file(
 if (NOT VTK_INSTALL_NO_DEVELOPMENT)
   install(FILES ${VTK_BINARY_DIR}/CMakeFiles/VTKConfig.cmake
                 ${VTK_BINARY_DIR}/VTKConfigVersion.cmake
-                CMake/exportheader.cmake.in
-                CMake/GenerateExportHeader.cmake
+                CMake/vtkexportheader.cmake.in
+                CMake/VTKGenerateExportHeader.cmake
                 CMake/pythonmodules.h.in
                 CMake/UseVTK.cmake
                 CMake/FindTCL.cmake

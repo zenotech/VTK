@@ -4,16 +4,11 @@ set(optional_test_depends)
 if(${Module_vtkRenderingMatplotlib})
   set(optional_test_depends "vtkRenderingMatplotlib")
 endif()
-
 vtk_module(vtkRenderingFreeType
   IMPLEMENTS
     vtkRenderingCore
   GROUPS
     Rendering
-  DEPENDS
-    vtkRenderingCore
-    vtkfreetype
-    vtkftgl
   TEST_DEPENDS
     ${optional_test_depends}
     vtkTestingRendering
@@ -22,4 +17,12 @@ vtk_module(vtkRenderingFreeType
     vtkRenderingContext${VTK_RENDERING_BACKEND}
   KIT
     vtkRendering
+  DEPENDS
+    vtkCommonCore
+    vtkCommonExecutionModel
+    vtkRenderingCore
+    vtkfreetype
+  PRIVATE_DEPENDS
+    vtkCommonDataModel
+    vtkFiltersGeneral
   )

@@ -13,14 +13,14 @@
 
 =========================================================================*/
 
-#ifndef vtkTclInclude_h
-#define vtkTclInclude_h
+#ifndef vtkTclUtil_h
+#define vtkTclUtil_h
 
 #include "vtkObject.h"
 #include "vtkCommand.h"
 #include "vtkTcl.h"
 
-#ifdef WIN32
+#ifdef _WIN32
 #define VTKTCL_EXPORT __declspec( dllexport )
 #else
 #define VTKTCL_EXPORT

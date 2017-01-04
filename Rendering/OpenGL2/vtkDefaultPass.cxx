@@ -61,17 +61,14 @@ void vtkDefaultPass::RenderOpaqueGeometry(const vtkRenderState *s)
 {
   assert("pre s_exits" && s!=0);
 
-  // initialize to false
-  this->SetLastRenderingUsedDepthPeeling(s->GetRenderer(), false);
-
   int c=s->GetPropArrayCount();
   int i=0;
   while(i<c)
-    {
+  {
     int rendered=s->GetPropArray()[i]->RenderOpaqueGeometry(s->GetRenderer());
     this->NumberOfRenderedProps+=rendered;
     ++i;
-    }
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -82,22 +79,19 @@ void vtkDefaultPass::RenderFilteredOpaqueGeometry(const vtkRenderState *s)
 {
   assert("pre: s_exists" && s!=0);
 
-  // initialize to false
-  this->SetLastRenderingUsedDepthPeeling(s->GetRenderer(), false);
-
   int c=s->GetPropArrayCount();
   int i=0;
   while(i<c)
-    {
+  {
     vtkProp *p=s->GetPropArray()[i];
     if(p->HasKeys(s->GetRequiredKeys()))
-      {
+    {
       int rendered=
         p->RenderFilteredOpaqueGeometry(s->GetRenderer(),s->GetRequiredKeys());
       this->NumberOfRenderedProps+=rendered;
-      }
-    ++i;
     }
+    ++i;
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -112,12 +106,12 @@ void vtkDefaultPass::RenderTranslucentPolygonalGeometry(
   int c=s->GetPropArrayCount();
   int i=0;
   while(i<c)
-    {
+  {
     vtkProp *p=s->GetPropArray()[i];
     int rendered=p->RenderTranslucentPolygonalGeometry(s->GetRenderer());
     this->NumberOfRenderedProps+=rendered;
     ++i;
-    }
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -132,15 +126,15 @@ void vtkDefaultPass::RenderFilteredTranslucentPolygonalGeometry(
   int c=s->GetPropArrayCount();
   int i=0;
   while(i<c)
-    {
+  {
     vtkProp *p=s->GetPropArray()[i];
     if(p->HasKeys(s->GetRequiredKeys()))
-      {
+    {
       int rendered=p->RenderFilteredTranslucentPolygonalGeometry(s->GetRenderer(),s->GetRequiredKeys());
       this->NumberOfRenderedProps+=rendered;
-      }
-    ++i;
     }
+    ++i;
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -154,12 +148,12 @@ void vtkDefaultPass::RenderVolumetricGeometry(const vtkRenderState *s)
   int c=s->GetPropArrayCount();
   int i=0;
   while(i<c)
-    {
+  {
     int rendered=
       s->GetPropArray()[i]->RenderVolumetricGeometry(s->GetRenderer());
     this->NumberOfRenderedProps+=rendered;
     ++i;
-    }
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -173,17 +167,17 @@ void vtkDefaultPass::RenderFilteredVolumetricGeometry(const vtkRenderState *s)
   int c=s->GetPropArrayCount();
   int i=0;
   while(i<c)
-    {
+  {
     vtkProp *p=s->GetPropArray()[i];
     if(p->HasKeys(s->GetRequiredKeys()))
-      {
+    {
       int rendered=
         p->RenderFilteredVolumetricGeometry(s->GetRenderer(),
                                             s->GetRequiredKeys());
       this->NumberOfRenderedProps+=rendered;
-      }
-    ++i;
     }
+    ++i;
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -197,11 +191,11 @@ void vtkDefaultPass::RenderOverlay(const vtkRenderState *s)
   int c=s->GetPropArrayCount();
   int i=0;
   while(i<c)
-    {
+  {
     int rendered=s->GetPropArray()[i]->RenderOverlay(s->GetRenderer());
     this->NumberOfRenderedProps+=rendered;
     ++i;
-    }
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -215,14 +209,14 @@ void vtkDefaultPass::RenderFilteredOverlay(const vtkRenderState *s)
   int c=s->GetPropArrayCount();
   int i=0;
   while(i<c)
-    {
+  {
     vtkProp *p=s->GetPropArray()[i];
     if(p->HasKeys(s->GetRequiredKeys()))
-      {
+    {
       int rendered=
         p->RenderFilteredOverlay(s->GetRenderer(),s->GetRequiredKeys());
       this->NumberOfRenderedProps+=rendered;
-      }
-    ++i;
     }
+    ++i;
+  }
 }

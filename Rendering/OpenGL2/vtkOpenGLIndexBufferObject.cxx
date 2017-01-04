@@ -14,13 +14,18 @@
 #include "vtkOpenGLIndexBufferObject.h"
 #include "vtkObjectFactory.h"
 
+#include "vtkArrayDispatch.h"
+#include "vtkAssume.h"
 #include "vtkCellArray.h"
+#include "vtkDataArrayAccessor.h"
 #include "vtkPoints.h"
 #include "vtkPolygon.h"
 #include "vtkProperty.h"
 #include "vtkUnsignedCharArray.h"
 
 #include "vtk_glew.h"
+
+#include <set>
 
 vtkStandardNewMacro(vtkOpenGLIndexBufferObject)
 
@@ -34,6 +39,100 @@ vtkOpenGLIndexBufferObject::~vtkOpenGLIndexBufferObject()
 {
 }
 
+namespace
+{
+// A worker functor. The calculation is implemented in the function template
+// for operator().
+struct AppendTrianglesWorker
+{
+  std::vector<unsigned int> *indexArray;
+  vtkCellArray *cells;
+  vtkIdType vOffset;
+
+  // AoS fast path
+  template <typename ValueType>
+  void operator()(vtkAOSDataArrayTemplate<ValueType> *src)
+  {
+    vtkIdType *idPtr = cells->GetPointer();
+    vtkIdType *idEnd = idPtr + cells->GetNumberOfConnectivityEntries();
+
+    ValueType *points = src->Begin();
+    while (idPtr < idEnd)
+    {
+      if (*idPtr >= 3)
+      {
+        vtkIdType id1 = *(idPtr+1);
+        ValueType* p1 = points + id1*3;
+        for (int i = 2; i < *idPtr; i++)
+        {
+          vtkIdType id2 = *(idPtr+i);
+          vtkIdType id3 = *(idPtr+i+1);
+          ValueType* p2 = points + id2*3;
+          ValueType* p3 = points + id3*3;
+          if ((p1[0] != p2[0] || p1[1] != p2[1] || p1[2] != p2[2]) &&
+            (p3[0] != p2[0] || p3[1] != p2[1] || p3[2] != p2[2]) &&
+            (p3[0] != p1[0] || p3[1] != p1[1] || p3[2] != p1[2]))
+          {
+            indexArray->push_back(static_cast<unsigned int>(id1+vOffset));
+            indexArray->push_back(static_cast<unsigned int>(id2+vOffset));
+            indexArray->push_back(static_cast<unsigned int>(id3+vOffset));
+          }
+        }
+      }
+    idPtr += (*idPtr + 1);
+    }
+  }
+
+  // Generic API, on VS13 Rel this is about 80% slower than
+  // the AOS template above.
+  template <typename PointArray>
+  void operator()(PointArray *points)
+  {
+    // This allows the compiler to optimize for the AOS array stride.
+    VTK_ASSUME(points->GetNumberOfComponents() == 3);
+
+    // These allow this single worker function to be used with both
+    // the vtkDataArray 'double' API and the more efficient
+    // vtkGenericDataArray APIs, depending on the template parameters:
+    vtkDataArrayAccessor<PointArray> pt(points);
+
+    vtkIdType *idPtr = cells->GetPointer();
+    vtkIdType *idEnd = idPtr + cells->GetNumberOfConnectivityEntries();
+
+    while (idPtr < idEnd)
+    {
+      if (*idPtr >= 3)
+      {
+        vtkIdType id1 = *(idPtr+1);
+        for (int i = 2; i < *idPtr; i++)
+        {
+          vtkIdType id2 = *(idPtr+i);
+          vtkIdType id3 = *(idPtr+i+1);
+          if (
+            (pt.Get(id1, 0) != pt.Get(id2, 0) ||
+              pt.Get(id1, 1) != pt.Get(id2, 1) ||
+              pt.Get(id1, 2) != pt.Get(id2, 2)) &&
+            (pt.Get(id1, 0) != pt.Get(id3, 0) ||
+              pt.Get(id1, 1) != pt.Get(id3, 1) ||
+              pt.Get(id1, 2) != pt.Get(id3, 2)) &&
+            (pt.Get(id3, 0) != pt.Get(id2, 0) ||
+              pt.Get(id3, 1) != pt.Get(id2, 1) ||
+              pt.Get(id3, 2) != pt.Get(id2, 2)))
+          {
+            indexArray->push_back(static_cast<unsigned int>(id1+vOffset));
+            indexArray->push_back(static_cast<unsigned int>(id2+vOffset));
+            indexArray->push_back(static_cast<unsigned int>(id3+vOffset));
+          }
+        }
+      }
+    idPtr += (*idPtr + 1);
+    }
+  }
+};
+
+} // end anon namespace
+
+
 // used to create an IBO for triangle primatives
 void vtkOpenGLIndexBufferObject::AppendTriangleIndexBuffer(
   std::vector<unsigned int> &indexArray,
@@ -41,118 +140,41 @@ void vtkOpenGLIndexBufferObject::AppendTriangleIndexBuffer(
   vtkPoints *points,
   vtkIdType vOffset)
 {
-  vtkIdType* indices(NULL);
-  vtkIdType npts(0);
-
   if (cells->GetNumberOfConnectivityEntries() >
       cells->GetNumberOfCells()*3)
-    {
+  {
     size_t targetSize = indexArray.size() +
       (cells->GetNumberOfConnectivityEntries() -
        cells->GetNumberOfCells()*3)*3;
     if (targetSize > indexArray.capacity())
-      {
+    {
       if (targetSize < indexArray.capacity()*1.5)
-        {
+      {
         targetSize = indexArray.capacity()*1.5;
-        }
+      }
       indexArray.reserve(targetSize);
-      }
     }
+  }
 
-  // the folowing are only used if we have to triangulate a polygon
-  // otherwise they just sit at NULL
-  vtkPolygon *polygon = NULL;
-  vtkIdList *tris = NULL;
-  vtkPoints *triPoints = NULL;
+  // Create our worker functor:
+  AppendTrianglesWorker worker;
+  worker.indexArray = &indexArray;
+  worker.cells = cells;
+  worker.vOffset = vOffset;
 
-  for (cells->InitTraversal(); cells->GetNextCell(npts, indices); )
+  // Define our dispatcher on float/double
+  typedef vtkArrayDispatch::DispatchByValueType
+    <
+      vtkArrayDispatch::Reals
+    > Dispatcher;
+
+  // Execute the dispatcher:
+  if (!Dispatcher::Execute(points->GetData(), worker))
     {
-    // ignore degenerate triangles
-    if (npts < 3)
-      {
-      continue;
-      }
-
-    // triangulate needed
-    if (npts > 3)
-      {
-      // special case for quads, penta, hex which are common
-      if (npts == 4)
-        {
-        indexArray.push_back(static_cast<unsigned int>(indices[0]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[1]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[2]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[0]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[2]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[3]+vOffset));
-        }
-      else if (npts == 5)
-        {
-        indexArray.push_back(static_cast<unsigned int>(indices[0]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[1]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[2]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[0]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[2]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[3]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[0]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[3]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[4]+vOffset));
-        }
-      else if (npts == 6)
-        {
-        indexArray.push_back(static_cast<unsigned int>(indices[0]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[1]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[2]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[0]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[2]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[3]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[0]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[3]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[5]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[3]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[4]+vOffset));
-        indexArray.push_back(static_cast<unsigned int>(indices[5]+vOffset));
-        }
-      else // 7 sided polygon or higher, do a full smart triangulation
-        {
-        if (!polygon)
-          {
-          polygon = vtkPolygon::New();
-          tris = vtkIdList::New();
-          triPoints = vtkPoints::New();
-          }
-
-        vtkIdType *triIndices = new vtkIdType[npts];
-        triPoints->SetNumberOfPoints(npts);
-        for (int i = 0; i < npts; ++i)
-          {
-          int idx = indices[i];
-          triPoints->SetPoint(i,points->GetPoint(idx));
-          triIndices[i] = i;
-          }
-        polygon->Initialize(npts, triIndices, triPoints);
-        polygon->Triangulate(tris);
-        for (int j = 0; j < tris->GetNumberOfIds(); ++j)
-          {
-          indexArray.push_back(static_cast<unsigned int>(
-            indices[tris->GetId(j)]+vOffset));
-          }
-        delete [] triIndices;
-        }
-      }
-    else
-      {
-      indexArray.push_back(static_cast<unsigned int>(*(indices++)+vOffset));
-      indexArray.push_back(static_cast<unsigned int>(*(indices++)+vOffset));
-      indexArray.push_back(static_cast<unsigned int>(*(indices++)+vOffset));
-      }
-    }
-  if (polygon)
-    {
-    polygon->Delete();
-    tris->Delete();
-    triPoints->Delete();
+    // If Execute() fails, it means the dispatch failed due to an
+    // unsupported array type this falls back to using the
+    // vtkDataArray double API:
+    worker(points->GetData());
     }
 }
 
@@ -162,9 +184,10 @@ size_t vtkOpenGLIndexBufferObject::CreateTriangleIndexBuffer(
   vtkPoints *points)
 {
   if (!cells->GetNumberOfCells())
-    {
+  {
+    this->IndexCount = 0;
     return 0;
-    }
+  }
   std::vector<unsigned int> indexArray;
   AppendTriangleIndexBuffer(indexArray, cells, points, 0);
   this->Upload(indexArray, vtkOpenGLIndexBufferObject::ElementArrayBuffer);
@@ -184,30 +207,31 @@ void vtkOpenGLIndexBufferObject::AppendPointIndexBuffer(
     cells->GetNumberOfConnectivityEntries() -
     cells->GetNumberOfCells();
   if (targetSize > indexArray.capacity())
-    {
+  {
     if (targetSize < indexArray.capacity()*1.5)
-      {
+    {
       targetSize = indexArray.capacity()*1.5;
-      }
-    indexArray.reserve(targetSize);
     }
+    indexArray.reserve(targetSize);
+  }
 
   for (cells->InitTraversal(); cells->GetNextCell(npts, indices); )
-    {
+  {
     for (int i = 0; i < npts; ++i)
-      {
+    {
       indexArray.push_back(static_cast<unsigned int>(*(indices++)+vOffset));
-      }
     }
+  }
 }
 
 // used to create an IBO for triangle primatives
 size_t vtkOpenGLIndexBufferObject::CreatePointIndexBuffer(vtkCellArray *cells)
 {
   if (!cells->GetNumberOfCells())
-    {
+  {
+    this->IndexCount = 0;
     return 0;
-    }
+  }
   std::vector<unsigned int> indexArray;
   AppendPointIndexBuffer(indexArray, cells, 0);
   this->Upload(indexArray, vtkOpenGLIndexBufferObject::ElementArrayBuffer);
@@ -231,23 +255,23 @@ void vtkOpenGLIndexBufferObject::AppendTriangleLineIndexBuffer(
     cells->GetNumberOfConnectivityEntries() -
     cells->GetNumberOfCells());
   if (targetSize > indexArray.capacity())
-    {
+  {
     if (targetSize < indexArray.capacity()*1.5)
-      {
+    {
       targetSize = indexArray.capacity()*1.5;
-      }
-    indexArray.reserve(targetSize);
     }
+    indexArray.reserve(targetSize);
+  }
 
   for (cells->InitTraversal(); cells->GetNextCell(npts, indices); )
-    {
+  {
     for (int i = 0; i < npts; ++i)
-      {
+    {
       indexArray.push_back(static_cast<unsigned int>(indices[i]+vOffset));
       indexArray.push_back(static_cast<unsigned int>(
         indices[i < npts-1 ? i+1 : 0] + vOffset));
-      }
     }
+  }
 }
 
 // used to create an IBO for primatives as lines.  This method treats each line segment
@@ -258,9 +282,10 @@ size_t vtkOpenGLIndexBufferObject::CreateTriangleLineIndexBuffer(
   vtkCellArray *cells)
 {
   if (!cells->GetNumberOfCells())
-    {
+  {
+    this->IndexCount = 0;
     return 0;
-    }
+  }
   std::vector<unsigned int> indexArray;
   AppendTriangleLineIndexBuffer(indexArray, cells, 0);
   this->Upload(indexArray, vtkOpenGLIndexBufferObject::ElementArrayBuffer);
@@ -282,27 +307,27 @@ void vtkOpenGLIndexBufferObject::AppendLineIndexBuffer(
   // possibly adjust size
   if (cells->GetNumberOfConnectivityEntries() >
       2*cells->GetNumberOfCells())
-    {
+  {
     size_t targetSize = indexArray.size() + 2*(
       cells->GetNumberOfConnectivityEntries()
       - 2*cells->GetNumberOfCells());
     if (targetSize > indexArray.capacity())
-      {
-      if (targetSize < indexArray.capacity()*1.5)
-        {
-        targetSize = indexArray.capacity()*1.5;
-        }
-      indexArray.reserve(targetSize);
-      }
-    }
-  for (cells->InitTraversal(); cells->GetNextCell(npts, indices); )
     {
-    for (int i = 0; i < npts-1; ++i)
+      if (targetSize < indexArray.capacity()*1.5)
       {
+        targetSize = indexArray.capacity()*1.5;
+      }
+      indexArray.reserve(targetSize);
+    }
+  }
+  for (cells->InitTraversal(); cells->GetNextCell(npts, indices); )
+  {
+    for (int i = 0; i < npts-1; ++i)
+    {
       indexArray.push_back(static_cast<unsigned int>(indices[i]+vOffset));
       indexArray.push_back(static_cast<unsigned int>(indices[i+1] + vOffset));
-      }
     }
+  }
 }
 
 // used to create an IBO for primatives as lines.  This method treats each
@@ -311,9 +336,10 @@ void vtkOpenGLIndexBufferObject::AppendLineIndexBuffer(
 size_t vtkOpenGLIndexBufferObject::CreateLineIndexBuffer(vtkCellArray *cells)
 {
   if (!cells->GetNumberOfCells())
-    {
+  {
+    this->IndexCount = 0;
     return 0;
-    }
+  }
   std::vector<unsigned int> indexArray;
   AppendLineIndexBuffer(indexArray, cells, 0);
   this->Upload(indexArray, vtkOpenGLIndexBufferObject::ElementArrayBuffer);
@@ -327,12 +353,24 @@ size_t vtkOpenGLIndexBufferObject::CreateStripIndexBuffer(
   bool wireframeTriStrips)
 {
   if (!cells->GetNumberOfCells())
-    {
+  {
+    this->IndexCount = 0;
     return 0;
-    }
+  }
+  std::vector<unsigned int> indexArray;
+  AppendStripIndexBuffer(indexArray, cells, 0, wireframeTriStrips);
+  this->Upload(indexArray, vtkOpenGLIndexBufferObject::ElementArrayBuffer);
+  this->IndexCount = indexArray.size();
+  return indexArray.size();
+}
+
+void vtkOpenGLIndexBufferObject::AppendStripIndexBuffer(
+  std::vector<unsigned int> &indexArray,
+  vtkCellArray *cells,
+  vtkIdType vOffset, bool wireframeTriStrips)
+{
   vtkIdType      *pts = 0;
   vtkIdType      npts = 0;
-  std::vector<unsigned int> indexArray;
 
   size_t triCount = cells->GetNumberOfConnectivityEntries()
     - 3*cells->GetNumberOfCells();
@@ -341,35 +379,32 @@ size_t vtkOpenGLIndexBufferObject::CreateStripIndexBuffer(
   indexArray.reserve(targetSize);
 
   if (wireframeTriStrips)
-    {
+  {
     for (cells->InitTraversal(); cells->GetNextCell(npts,pts); )
-      {
-      indexArray.push_back(static_cast<unsigned int>(pts[0]));
-      indexArray.push_back(static_cast<unsigned int>(pts[1]));
+    {
+      indexArray.push_back(static_cast<unsigned int>(pts[0]+vOffset));
+      indexArray.push_back(static_cast<unsigned int>(pts[1]+vOffset));
       for (int j = 0; j < npts-2; ++j)
-        {
-        indexArray.push_back(static_cast<unsigned int>(pts[j]));
-        indexArray.push_back(static_cast<unsigned int>(pts[j+2]));
-        indexArray.push_back(static_cast<unsigned int>(pts[j+1]));
-        indexArray.push_back(static_cast<unsigned int>(pts[j+2]));
-        }
+      {
+        indexArray.push_back(static_cast<unsigned int>(pts[j]+vOffset));
+        indexArray.push_back(static_cast<unsigned int>(pts[j+2]+vOffset));
+        indexArray.push_back(static_cast<unsigned int>(pts[j+1]+vOffset));
+        indexArray.push_back(static_cast<unsigned int>(pts[j+2]+vOffset));
       }
     }
+  }
   else
-    {
+  {
     for (cells->InitTraversal(); cells->GetNextCell(npts,pts); )
-      {
+    {
       for (int j = 0; j < npts-2; ++j)
-        {
-        indexArray.push_back(static_cast<unsigned int>(pts[j]));
-        indexArray.push_back(static_cast<unsigned int>(pts[j+1+j%2]));
-        indexArray.push_back(static_cast<unsigned int>(pts[j+1+(j+1)%2]));
-        }
+      {
+        indexArray.push_back(static_cast<unsigned int>(pts[j]+vOffset));
+        indexArray.push_back(static_cast<unsigned int>(pts[j+1+j%2]+vOffset));
+        indexArray.push_back(static_cast<unsigned int>(pts[j+1+(j+1)%2]+vOffset));
       }
     }
-  this->Upload(indexArray, vtkOpenGLIndexBufferObject::ElementArrayBuffer);
-  this->IndexCount = indexArray.size();
-  return indexArray.size();
+  }
 }
 
 // Create supporting arays that are needed when rendering cell data
@@ -383,7 +418,8 @@ size_t vtkOpenGLIndexBufferObject::CreateStripIndexBuffer(
 void vtkOpenGLIndexBufferObject::CreateCellSupportArrays(
   vtkCellArray *prims[4],
   std::vector<unsigned int> &cellCellMap,
-  int representation)
+  int representation,
+  vtkPoints *points)
 {
   // need an array to track what points to orig points
   size_t minSize = prims[0]->GetNumberOfCells() +
@@ -399,91 +435,146 @@ void vtkOpenGLIndexBufferObject::CreateCellSupportArrays(
 
   // points
   for (prims[0]->InitTraversal(); prims[0]->GetNextCell(npts, indices); )
-    {
+  {
     for (int i=0; i < npts; ++i)
-      {
+    {
       cellCellMap.push_back(vtkCellCount);
-      }
+    }
     vtkCellCount++;
-    } // for cell
+  } // for cell
 
   if (representation == VTK_POINTS)
-    {
+  {
     for (int j = 1; j < 4; j++)
-      {
-      for (prims[j]->InitTraversal(); prims[j]->GetNextCell(npts, indices); )
-        {
-        for (int i=0; i < npts; ++i)
-          {
-          cellCellMap.push_back(vtkCellCount);
-          }
-        vtkCellCount++;
-        } // for cell
-      }
-    }
-  else // lines or surfaces
     {
+      for (prims[j]->InitTraversal(); prims[j]->GetNextCell(npts, indices); )
+      {
+        for (int i=0; i < npts; ++i)
+        {
+          cellCellMap.push_back(vtkCellCount);
+        }
+        vtkCellCount++;
+      } // for cell
+    }
+  }
+  else // lines or surfaces
+  {
     // lines
     for (prims[1]->InitTraversal(); prims[1]->GetNextCell(npts, indices); )
-      {
+    {
       for (int i = 0; i < npts-1; ++i)
-        {
+      {
         cellCellMap.push_back(vtkCellCount);
-        }
+      }
       vtkCellCount++;
-      } // for cell
+    } // for cell
 
     if (representation == VTK_WIREFRAME)
-      {
+    {
       // polys
       for (prims[2]->InitTraversal(); prims[2]->GetNextCell(npts, indices); )
-        {
+      {
         for (int i = 0; i < npts; ++i)
-          {
+        {
           cellCellMap.push_back(vtkCellCount);
-          }
+        }
         vtkCellCount++;
-        } // for cell
+      } // for cell
 
       // strips
       for (prims[3]->InitTraversal(); prims[3]->GetNextCell(npts, indices); )
-        {
+      {
         cellCellMap.push_back(vtkCellCount);
         for (int i = 2; i < npts; ++i)
-          {
+        {
           cellCellMap.push_back(vtkCellCount);
           cellCellMap.push_back(vtkCellCount);
-          }
+        }
         vtkCellCount++;
-        } // for cell
-      }
+      } // for cell
+    }
     else
-      {
+    {
       // polys
       for (prims[2]->InitTraversal(); prims[2]->GetNextCell(npts, indices); )
-        {
+      {
         if (npts > 2)
+        {
+          for (int i = 2; i < npts; i++)
           {
-          for (int i = 2; i < npts; ++i)
+            double p1[3];
+            points->GetPoint(indices[0],p1);
+            double p2[3];
+            points->GetPoint(indices[i-1],p2);
+            double p3[3];
+            points->GetPoint(indices[i],p3);
+            if ((p1[0] != p2[0] || p1[1] != p2[1] || p1[2] != p2[2]) &&
+                (p3[0] != p2[0] || p3[1] != p2[1] || p3[2] != p2[2]) &&
+                (p3[0] != p1[0] || p3[1] != p1[1] || p3[2] != p1[2]))
             {
-            cellCellMap.push_back(vtkCellCount);
+              cellCellMap.push_back(vtkCellCount);
             }
           }
+        }
         vtkCellCount++;
-        } // for cell
+      } // for cell
 
       // strips
       for (prims[3]->InitTraversal(); prims[3]->GetNextCell(npts, indices); )
-        {
+      {
         for (int i = 2; i < npts; ++i)
-          {
+        {
           cellCellMap.push_back(vtkCellCount);
-          }
+        }
         vtkCellCount++;
-        } // for cell
+      } // for cell
+    }
+  }
+
+}
+
+// used to create an IBO for polys in wireframe with edge flags
+void vtkOpenGLIndexBufferObject::AppendEdgeFlagIndexBuffer(
+  std::vector<unsigned int> &indexArray,
+  vtkCellArray *cells,
+  vtkIdType vOffset,
+  vtkDataArray *ef)
+{
+  vtkIdType* pts(NULL);
+  vtkIdType npts(0);
+
+  unsigned char *ucef = NULL;
+  ucef = vtkArrayDownCast<vtkUnsignedCharArray>(ef)->GetPointer(0);
+
+  // possibly adjust size
+  if (cells->GetNumberOfConnectivityEntries() >
+      2*cells->GetNumberOfCells())
+  {
+    size_t targetSize = indexArray.size() + 2*(
+      cells->GetNumberOfConnectivityEntries()
+      - 2*cells->GetNumberOfCells());
+    if (targetSize > indexArray.capacity())
+    {
+      if (targetSize < indexArray.capacity()*1.5)
+      {
+        targetSize = indexArray.capacity()*1.5;
+      }
+      indexArray.reserve(targetSize);
+    }
+  }
+  for (cells->InitTraversal(); cells->GetNextCell(npts,pts); )
+  {
+    for (int j = 0; j < npts; ++j)
+    {
+      if (ucef[pts[j]] && npts > 1) // draw this edge and poly is not degenerate
+      {
+        // determine the ending vertex
+        vtkIdType nextVert = (j == npts-1) ? pts[0] : pts[j+1];
+        indexArray.push_back(static_cast<unsigned int>(pts[j]+vOffset));
+        indexArray.push_back(static_cast<unsigned int>(nextVert + vOffset));
       }
     }
-
+  }
 }
 
 // used to create an IBO for polys in wireframe with edge flags
@@ -492,28 +583,74 @@ size_t vtkOpenGLIndexBufferObject::CreateEdgeFlagIndexBuffer(
   vtkDataArray *ef)
 {
   if (!cells->GetNumberOfCells())
-    {
+  {
+    this->IndexCount = 0;
     return 0;
-    }
-  vtkIdType      *pts = 0;
-  vtkIdType      npts = 0;
+  }
   std::vector<unsigned int> indexArray;
-  unsigned char *ucef = NULL;
-  ucef = vtkUnsignedCharArray::SafeDownCast(ef)->GetPointer(0);
-  indexArray.reserve(cells->GetData()->GetSize()*2);
-  for (cells->InitTraversal(); cells->GetNextCell(npts,pts); )
+  AppendEdgeFlagIndexBuffer(indexArray, cells, 0, ef);
+  this->Upload(indexArray, vtkOpenGLIndexBufferObject::ElementArrayBuffer);
+  this->IndexCount = indexArray.size();
+  return indexArray.size();
+}
+
+// used to create an IBO for point primatives
+void vtkOpenGLIndexBufferObject::AppendVertexIndexBuffer(
+  std::vector<unsigned int> &indexArray,
+  vtkCellArray **cells,
+  vtkIdType vOffset)
+{
+  vtkIdType* indices(NULL);
+  vtkIdType npts(0);
+
+  // we use a set to make them unique
+  std::set<vtkIdType> vertsUsed;
+  for (int j = 0; j < 4; j++)
+  {
+    for (cells[j]->InitTraversal(); cells[j]->GetNextCell(npts, indices); )
     {
-    for (int j = 0; j < npts; ++j)
+      for (int i = 0; i < npts; ++i)
       {
-      if (ucef[pts[j]] && npts > 1) // draw this edge and poly is not degenerate
-        {
-        // determine the ending vertex
-        vtkIdType nextVert = (j == npts-1) ? pts[0] : pts[j+1];
-        indexArray.push_back(static_cast<unsigned int>(pts[j]));
-        indexArray.push_back(static_cast<unsigned int>(nextVert));
-        }
+        vertsUsed.insert(static_cast<unsigned int>(*(indices++)+vOffset));
       }
     }
+  }
+
+  // now put them into the vector
+  size_t targetSize = indexArray.size() +
+    vertsUsed.size();
+  if (targetSize > indexArray.capacity())
+  {
+    if (targetSize < indexArray.capacity()*1.5)
+    {
+      targetSize = indexArray.capacity()*1.5;
+    }
+    indexArray.reserve(targetSize);
+  }
+
+  for (std::set<vtkIdType>::const_iterator i = vertsUsed.begin(); i != vertsUsed.end(); i++)
+  {
+    indexArray.push_back(*i);
+  }
+
+}
+
+// used to create an IBO for triangle primatives
+size_t vtkOpenGLIndexBufferObject::CreateVertexIndexBuffer(vtkCellArray **cells)
+{
+  unsigned long totalCells = 0;
+  for (int i = 0; i < 4; i++)
+  {
+    totalCells += cells[i]->GetNumberOfCells();
+  }
+
+  if (!totalCells)
+  {
+    this->IndexCount = 0;
+    return 0;
+  }
+  std::vector<unsigned int> indexArray;
+  AppendVertexIndexBuffer(indexArray, cells, 0);
   this->Upload(indexArray, vtkOpenGLIndexBufferObject::ElementArrayBuffer);
   this->IndexCount = indexArray.size();
   return indexArray.size();

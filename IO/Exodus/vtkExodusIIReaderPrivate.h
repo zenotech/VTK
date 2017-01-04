@@ -411,6 +411,15 @@ public:
   virtual void SetParser( vtkExodusIIReaderParser* );
   vtkGetObjectMacro(Parser,vtkExodusIIReaderParser);
 
+  // BUG #15632: This method allows vtkPExodusIIReader to pass time information
+  // from one spatial file to another and avoiding have to read it for each of
+  // the files.
+  void SetTimesOverrides(const std::vector<double>& times)
+  {
+    this->Times = times;
+    this->SkipUpdateTimeInformation = true;
+  }
+
   // Because Parts, Materials, and assemblies are not stored as arrays,
   // but rather as maps to the element blocks they make up,
   // we cannot use the Get|SetObject__() methods directly.
@@ -565,13 +574,34 @@ protected:
     */
   int AssembleArraysOverTime(vtkMultiBlockDataSet* output);
 
-  /// Insert polyhedral cells (called from InsertBlockCells when a block is polyhedra)
+  /** Fetch the face-connectivity for one face of one polyhedron.
+    *
+    * The number of points (or zero) is returned and
+    * facePtIds holds a pointer to the connectivity upon exit.
+    * The pointer is owned by this object's PolyhedralFaceConnArrays
+    * member and must be freed by calling FreePolyhedronFaceConnectivity().
+    * However, you should only free the cache after processing all of
+    * the faces of interest (it is currently called once per polyhedral
+    * element block) so that the cost of generating the cache can be
+    * amortized across many calls.
+    *
+    * The point IDs returned in \a facePtIds do **not** include any mapping
+    * due to SqueezePoints (i.e., GetSqueezePointId is not called on
+    * each point). This is because multiple blocks may refer to the same
+    * face, but each block will have a different vtkPoints object.
+    */
+  vtkIdType GetPolyhedronFaceConnectivity(
+    vtkIdType fileLocalFaceId,
+    vtkIdType*& facePtIds);
+
+  /// Free any arrays held by PolyhedralFaceConnArrays (for polyhedral-face-connectivity lookup).
+  void FreePolyhedronFaceArrays();
+
+  /// Insert polyhedral cells (called from InsertBlockCells when a block is polyhedral).
   void InsertBlockPolyhedra(
     BlockInfoType* binfo,
     vtkIntArray* facesPerCell,
-    vtkIntArray* pointsPerFace,
-    vtkIntArray* exoCellConn,
-    vtkIntArray* exoFaceConn);
+    vtkIntArray* exoCellConn);
 
   /// Insert cells from a specified block into a mesh
   void InsertBlockCells(
@@ -764,7 +794,7 @@ protected:
 
   /// A list of time steps for which results variables are stored.
   std::vector<double> Times;
-
+  bool SkipUpdateTimeInformation;
 
   /** The time value. This is used internally when HasModeShapes is true and
     * ignored otherwise.
@@ -815,14 +845,24 @@ protected:
 
   vtkExodusIIReaderParser* Parser;
 
+  /** Face connectivity for polyhedra.
+    *
+    * This is a map from face block index to ragged connectivity arrays for
+    * each face in a block.
+    * We store the ragged arrays of face connectivity without squeeze-points
+    * applied since multiple blocks (with different squeeze-points) can refer
+    * to the same face.
+    */
+  std::map<int, std::vector< std::vector< vtkIdType > > > PolyhedralFaceConnArrays;
+
   vtkExodusIIReader::ObjectType FastPathObjectType;
   vtkIdType FastPathObjectId;
   char* FastPathIdType;
 
   vtkMutableDirectedGraph* SIL;
 private:
-  vtkExodusIIReaderPrivate( const vtkExodusIIReaderPrivate& ); // Not implemented.
-  void operator = ( const vtkExodusIIReaderPrivate& ); // Not implemented.
+  vtkExodusIIReaderPrivate( const vtkExodusIIReaderPrivate& ) VTK_DELETE_FUNCTION;
+  void operator = ( const vtkExodusIIReaderPrivate& ) VTK_DELETE_FUNCTION;
 };
 
 #endif // vtkExodusIIReaderPrivate_h

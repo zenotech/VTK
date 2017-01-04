@@ -147,19 +147,10 @@ int TestGaussianBlurPass(int argc, char* argv[])
   renderer->ResetCamera();
   renWin->Render();
 
-  if(peeling->GetLastRenderingUsedDepthPeeling())
-    {
-    cout<<"depth peeling was used"<<endl;
-    }
-  else
-    {
-    cout<<"depth peeling was not used (alpha blending instead)"<<endl;
-    }
-
   retVal = vtkRegressionTestImage( renWin );
   if ( retVal == vtkRegressionTester::DO_INTERACTOR)
-    {
+  {
     iren->Start();
-    }
+  }
   return !retVal;
 }

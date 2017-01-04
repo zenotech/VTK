@@ -19,7 +19,7 @@
 
 #include "vtkRenderState.h"
 #include "vtkRenderer.h"
-#include "vtkFrameBufferObject.h"
+#include "vtkOpenGLFramebufferObject.h"
 #include "vtkTextureObject.h"
 #include "vtkOpenGLRenderWindow.h"
 #include "vtkOpenGLShaderCache.h"
@@ -61,21 +61,21 @@ vtkSobelGradientMagnitudePass::vtkSobelGradientMagnitudePass()
 vtkSobelGradientMagnitudePass::~vtkSobelGradientMagnitudePass()
 {
   if(this->FrameBufferObject!=0)
-    {
+  {
     vtkErrorMacro(<<"FrameBufferObject should have been deleted in ReleaseGraphicsResources().");
-    }
+  }
    if(this->Pass1!=0)
-    {
+   {
     vtkErrorMacro(<<"Pass1 should have been deleted in ReleaseGraphicsResources().");
-    }
+   }
    if(this->Gx1!=0)
-    {
+   {
     vtkErrorMacro(<<"Gx1 should have been deleted in ReleaseGraphicsResources().");
-    }
+   }
    if(this->Gy1!=0)
-     {
+   {
      vtkErrorMacro(<<"Gx1 should have been deleted in ReleaseGraphicsResources().");
-     }
+   }
 }
 
 // ----------------------------------------------------------------------------
@@ -95,20 +95,20 @@ void vtkSobelGradientMagnitudePass::Render(const vtkRenderState *s)
   this->NumberOfRenderedProps=0;
 
   if(this->DelegatePass!=0)
-    {
+  {
     vtkRenderer *renderer = s->GetRenderer();
 
     vtkOpenGLRenderWindow *context
       = vtkOpenGLRenderWindow::SafeDownCast(renderer->GetRenderWindow());
 
     // Test for Hardware support. If not supported, just render the delegate.
-    bool fbo_support = vtkFrameBufferObject::IsSupported(context)!=0;
+    bool fbo_support = vtkOpenGLFramebufferObject::IsSupported(context)!=0;
     bool texture_support = vtkTextureObject::IsSupported(context)!=0;
 
     bool supported = fbo_support && texture_support;
 
     if (!supported)
-      {
+    {
       vtkErrorMacro(
         << "The required extensions are not supported."
         << " fbo_support=" << fbo_support
@@ -119,14 +119,9 @@ void vtkSobelGradientMagnitudePass::Render(const vtkRenderState *s)
         += this->DelegatePass->GetNumberOfRenderedProps();
 
       return;
-      }
+    }
 
     vtkOpenGLClearErrorMacro();
-
-#if GL_ES_VERSION_2_0 != 1
-    GLint savedDrawBuffer;
-    glGetIntegerv(GL_DRAW_BUFFER,&savedDrawBuffer);
-#endif
 
     // 1. Create a new render state with an FBO.
     int width=0;
@@ -142,17 +137,18 @@ void vtkSobelGradientMagnitudePass::Render(const vtkRenderState *s)
     int h=height+2*extraPixels;
 
     if(this->Pass1==0)
-      {
+    {
       this->Pass1=vtkTextureObject::New();
       this->Pass1->SetContext(context);
-      }
+    }
 
     if(this->FrameBufferObject==0)
-      {
-      this->FrameBufferObject=vtkFrameBufferObject::New();
+    {
+      this->FrameBufferObject=vtkOpenGLFramebufferObject::New();
       this->FrameBufferObject->SetContext(context);
-      }
+    }
 
+    this->FrameBufferObject->SaveCurrentBindingsAndBuffers();
     this->RenderDelegate(s,width,height,w,h,this->FrameBufferObject,
                          this->Pass1);
 
@@ -200,39 +196,40 @@ void vtkSobelGradientMagnitudePass::Render(const vtkRenderState *s)
     // 3. Same FBO, but two color attachments (new TOs gx1 and gy1).
 
     if(this->Gx1==0)
-      {
+    {
       this->Gx1=vtkTextureObject::New();
       this->Gx1->SetContext(this->FrameBufferObject->GetContext());
-      }
+    }
 
     if(this->Gx1->GetWidth()!=static_cast<unsigned int>(w) ||
        this->Gx1->GetHeight()!=static_cast<unsigned int>(h))
-      {
+    {
       this->Gx1->Create2D(w,h,4,VTK_UNSIGNED_CHAR,false);
-      }
+    }
 
     if(this->Gy1==0)
-      {
+    {
       this->Gy1=vtkTextureObject::New();
       this->Gy1->SetContext(this->FrameBufferObject->GetContext());
-      }
+    }
 
     if(this->Gy1->GetWidth()!=static_cast<unsigned int>(w) ||
        this->Gy1->GetHeight()!=static_cast<unsigned int>(h))
-      {
+    {
       this->Gy1->Create2D(w,h,4,VTK_UNSIGNED_CHAR,false);
-      }
+    }
 #ifdef VTK_SOBEL_PASS_DEBUG
     cout << "gx1 TOid=" << this->Gx1->GetHandle() <<endl;
     cout << "gy1 TOid=" << this->Gy1->GetHandle() <<endl;
 #endif
-    this->FrameBufferObject->SetNumberOfRenderTargets(2);
-    this->FrameBufferObject->SetColorBuffer(0,this->Gx1);
-    this->FrameBufferObject->SetColorBuffer(1,this->Gy1);
+    this->FrameBufferObject->AddColorAttachment(
+      this->FrameBufferObject->GetDrawMode(), 0,this->Gx1);
+    this->FrameBufferObject->AddColorAttachment(
+      this->FrameBufferObject->GetDrawMode(), 1,this->Gy1);
     unsigned int indices[2]={0,1};
-    this->FrameBufferObject->SetActiveBuffers(2,indices);
+    this->FrameBufferObject->ActivateDrawBuffers(indices,2);
 
-    this->FrameBufferObject->Start(w,h,false);
+    this->FrameBufferObject->Start(w, h);
 
 #ifdef VTK_SOBEL_PASS_DEBUG
     cout << "sobel finish2" << endl;
@@ -245,7 +242,7 @@ void vtkSobelGradientMagnitudePass::Render(const vtkRenderState *s)
 
     // has something changed that would require us to recreate the shaders?
     if (!this->Program1)
-      {
+    {
       this->Program1 = new vtkOpenGLHelper;
 
       // build the shader source code
@@ -262,17 +259,17 @@ void vtkSobelGradientMagnitudePass::Render(const vtkRenderState *s)
 
       // if the shader changed reinitialize the VAO
       if (newShader != this->Program1->Program)
-        {
+      {
         this->Program1->Program = newShader;
         this->Program1->VAO->ShaderProgramChanged(); // reset the VAO as the shader has changed
-        }
+      }
 
       this->Program1->ShaderSourceTime.Modified();
-      }
+    }
     else
-      {
+    {
       context->GetShaderCache()->ReadyShaderProgram(this->Program1->Program);
-      }
+    }
 
 #ifdef VTK_SOBEL_PASS_DEBUG
     cout << "sobel finish build 1" << endl;
@@ -280,16 +277,14 @@ void vtkSobelGradientMagnitudePass::Render(const vtkRenderState *s)
 #endif
 
     if(this->Program1->Program->GetCompiled() != true)
-      {
+    {
       vtkErrorMacro("Couldn't build the shader program. At this point , it can be an error in a shader or a driver bug.");
 
       // restore some state.
       this->FrameBufferObject->UnBind();
-#if GL_ES_VERSION_2_0 != 1
-      glDrawBuffer(savedDrawBuffer);
-#endif
+      this->FrameBufferObject->RestorePreviousBindingsAndBuffers();
       return;
-      }
+    }
 
     this->Pass1->Activate();
     int sourceId=this->Pass1->GetTextureUnit();
@@ -375,12 +370,11 @@ void vtkSobelGradientMagnitudePass::Render(const vtkRenderState *s)
     // 4. Render in original FB (from renderstate in arg)
 
     this->FrameBufferObject->UnBind();
-
-    glDrawBuffer(savedDrawBuffer);
+    this->FrameBufferObject->RestorePreviousBindingsAndBuffers();
 
     // has something changed that would require us to recreate the shaders?
     if (!this->Program2)
-      {
+    {
       this->Program2 = new vtkOpenGLHelper;
 
       // build the shader source code
@@ -397,17 +391,17 @@ void vtkSobelGradientMagnitudePass::Render(const vtkRenderState *s)
 
       // if the shader changed reinitialize the VAO
       if (newShader != this->Program2->Program)
-        {
+      {
         this->Program2->Program = newShader;
         this->Program2->VAO->ShaderProgramChanged(); // reset the VAO as the shader has changed
-        }
+      }
 
       this->Program2->ShaderSourceTime.Modified();
-      }
+    }
     else
-      {
+    {
       context->GetShaderCache()->ReadyShaderProgram(this->Program2->Program);
-      }
+    }
 
 #ifdef VTK_SOBEL_PASS_DEBUG
     cout << "sobel finish build 2" << endl;
@@ -415,13 +409,10 @@ void vtkSobelGradientMagnitudePass::Render(const vtkRenderState *s)
 #endif
 
     if(this->Program2->Program->GetCompiled() != true)
-      {
+    {
       vtkErrorMacro("Couldn't build the shader program. At this point , it can be an error in a shader or a driver bug.");
-#if GL_ES_VERSION_2_0 != 1
-      glDrawBuffer(savedDrawBuffer);
-#endif
       return;
-      }
+    }
 
 #ifdef VTK_SOBEL_PASS_DEBUG
     cout << "sobel finish build 2" << endl;
@@ -474,11 +465,11 @@ void vtkSobelGradientMagnitudePass::Render(const vtkRenderState *s)
     cout << "sobel finish4" << endl;
     glFinish();
 #endif
-    }
+  }
   else
-    {
+  {
     vtkWarningMacro(<<" no delegate.");
-    }
+  }
 
   vtkOpenGLCheckErrorMacro("failed after Render");
 }
@@ -495,39 +486,39 @@ void vtkSobelGradientMagnitudePass::ReleaseGraphicsResources(vtkWindow *w)
   this->Superclass::ReleaseGraphicsResources(w);
 
   if (this->Program1!=0)
-    {
+  {
     this->Program1->ReleaseGraphicsResources(w);
     delete this->Program1;
     this->Program1 = 0;
-    }
+  }
   if (this->Program2!=0)
-    {
+  {
     this->Program2->ReleaseGraphicsResources(w);
     delete this->Program2;
     this->Program2 = 0;
-    }
+  }
 
   if(this->FrameBufferObject!=0)
-    {
+  {
     this->FrameBufferObject->Delete();
     this->FrameBufferObject=0;
-    }
+  }
 
   if(this->Pass1!=0)
-    {
+  {
     this->Pass1->Delete();
     this->Pass1=0;
-    }
+  }
 
   if(this->Gx1!=0)
-    {
+  {
     this->Gx1->Delete();
     this->Gx1=0;
-    }
+  }
 
   if(this->Gy1!=0)
-    {
+  {
     this->Gy1->Delete();
     this->Gy1=0;
-    }
+  }
 }

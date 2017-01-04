@@ -13,9 +13,9 @@ vtk_add_test_python(
   PolyDataMapperAllWireframe.py
   ScalarBar.py
   TestCameraInterpolator.py
-  TestMapperLUT.py,NO_DATA,NO_VALID
+  TestMapperLUT.py,NO_VALID
   TestOnePoint.py
-  # TestParallelCoordinates.py) # disabled in TCL too
+  TestParallelCoordinates.py
   TestRotate.py
   TestTransformInterpolator.py
   TransformConcatenation.py
@@ -27,6 +27,7 @@ vtk_add_test_python(
   cowHair.py
   cowHair2.py
   pickCells.py
+  pickCompositeData.py,NO_RT
   propAssembly.py
   rendererSource.py
   rotations.py
@@ -67,4 +68,10 @@ vtk_add_test_python(
 
 vtk_add_test_python(
   TestOutOfRangeColorTransferFunction.py --useBelowRangeColor --useAboveRangeColor
+)
+
+# Tests that do not use a baseline image
+vtk_add_test_python(
+  NO_DATA NO_VALID NO_OUTPUT
+  pickCellPoints.py
 )

@@ -87,8 +87,18 @@ public:
   size_t CreateStripIndexBuffer(
     vtkCellArray *cells, bool wireframeTriStrips);
 
+  static void AppendStripIndexBuffer(
+    std::vector<unsigned int> &indexArray,
+    vtkCellArray *cells,
+    vtkIdType vertexOffset,  bool wireframeTriStrips);
+
   // Description:
   // special index buffer for polys wireframe with edge visibilityflags
+  static void AppendEdgeFlagIndexBuffer(
+    std::vector<unsigned int> &indexArray,
+    vtkCellArray *cells,
+    vtkIdType vertexOffset,  vtkDataArray *edgeflags);
+
   size_t CreateEdgeFlagIndexBuffer(
     vtkCellArray *cells, vtkDataArray *edgeflags);
 
@@ -103,15 +113,27 @@ public:
   static void CreateCellSupportArrays(
     vtkCellArray *[4],
     std::vector<unsigned int> &cellCellMap,
-    int representation);
+    int representation,
+    vtkPoints *points);
+
+  // Description:
+  // used to create an IBO for cell Vertices as points
+  size_t CreateVertexIndexBuffer(vtkCellArray **cells);
+
+  // Description:
+  // used to create an IBO for primatives as points
+  static void AppendVertexIndexBuffer(
+    std::vector<unsigned int> &indexArray,
+    vtkCellArray **cells,
+    vtkIdType vertexOffset);
 
 protected:
   vtkOpenGLIndexBufferObject();
   ~vtkOpenGLIndexBufferObject();
 
 private:
-  vtkOpenGLIndexBufferObject(const vtkOpenGLIndexBufferObject&); // Not implemented
-  void operator=(const vtkOpenGLIndexBufferObject&); // Not implemented
+  vtkOpenGLIndexBufferObject(const vtkOpenGLIndexBufferObject&) VTK_DELETE_FUNCTION;
+  void operator=(const vtkOpenGLIndexBufferObject&) VTK_DELETE_FUNCTION;
 };
 
 #endif

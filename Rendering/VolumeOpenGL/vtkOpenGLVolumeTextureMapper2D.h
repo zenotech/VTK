@@ -12,14 +12,17 @@
      PURPOSE.  See the above copyright notice for more information.
 
 =========================================================================*/
-// .NAME vtkOpenGLVolumeTextureMapper2D - Abstract class for a volume mapper
-
-// .SECTION Description
-// vtkOpenGLVolumeTextureMapper2D renders a volume using 2D texture mapping.
-
-
-// .SECTION see also
-// vtkVolumeMapper
+/**
+ * @class   vtkOpenGLVolumeTextureMapper2D
+ * @brief   Abstract class for a volume mapper
+ *
+ *
+ * vtkOpenGLVolumeTextureMapper2D renders a volume using 2D texture mapping.
+ *
+ * @sa
+ * vtkVolumeMapper
+ * @deprecated
+*/
 
 #ifndef vtkOpenGLVolumeTextureMapper2D_h
 #define vtkOpenGLVolumeTextureMapper2D_h
@@ -27,6 +30,7 @@
 #include "vtkRenderingVolumeOpenGLModule.h" // For export macro
 #include "vtkVolumeTextureMapper2D.h"
 
+#if !defined(VTK_LEGACY_REMOVE)
 class VTKRENDERINGVOLUMEOPENGL_EXPORT vtkOpenGLVolumeTextureMapper2D
   : public vtkVolumeTextureMapper2D
 {
@@ -36,26 +40,23 @@ public:
 
   static vtkOpenGLVolumeTextureMapper2D *New();
 
-//BTX
-
-  // Description:
-  // WARNING: INTERNAL METHOD - NOT INTENDED FOR GENERAL USE
-  // DO NOT USE THIS METHOD OUTSIDE OF THE RENDERING PROCESS
-  // Render the volume
+  /**
+   * WARNING: INTERNAL METHOD - NOT INTENDED FOR GENERAL USE
+   * DO NOT USE THIS METHOD OUTSIDE OF THE RENDERING PROCESS
+   * Render the volume
+   */
   virtual void Render(vtkRenderer *ren, vtkVolume *vol);
 
   void RenderQuads( int count, float *v, float *t,
                     unsigned char *texture, int size[2], int reverseFlag);
-
-//ETX
 
 protected:
   vtkOpenGLVolumeTextureMapper2D();
   ~vtkOpenGLVolumeTextureMapper2D();
 
 private:
-  vtkOpenGLVolumeTextureMapper2D(const vtkOpenGLVolumeTextureMapper2D&);  // Not implemented.
-  void operator=(const vtkOpenGLVolumeTextureMapper2D&);  // Not implemented.
+  vtkOpenGLVolumeTextureMapper2D(const vtkOpenGLVolumeTextureMapper2D&) VTK_DELETE_FUNCTION;
+  void operator=(const vtkOpenGLVolumeTextureMapper2D&) VTK_DELETE_FUNCTION;
 };
-
+#endif // VTK_LEGACY_REMOVE
 #endif

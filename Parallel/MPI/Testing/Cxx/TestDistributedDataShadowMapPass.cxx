@@ -32,6 +32,7 @@
 
 #include "vtkTestUtilities.h"
 #include "vtkRegressionTestImage.h"
+#include "vtkNew.h"
 
 #include "vtkRenderWindowInteractor.h"
 #include "vtkRenderWindow.h"
@@ -81,6 +82,8 @@
 #include "vtkTreeCompositer.h"
 #include "vtkOpenGLRenderWindow.h"
 
+#include "vtkTestErrorObserver.h"
+
 namespace
 {
 
@@ -98,10 +101,10 @@ public:
 
   void SetArgs(int anArgc,
                char *anArgv[])
-    {
+  {
       this->Argc=anArgc;
       this->Argv=anArgv;
-    }
+  }
 
 protected:
   MyProcess();
@@ -133,9 +136,9 @@ void MyProcess::Execute()
   vtkRenderWindowInteractor *iren=0;
 
   if(me==0)
-    {
+  {
     iren=vtkRenderWindowInteractor::New();
-    }
+  }
 
   vtkRenderWindow *renWin = prm->MakeRenderWindow();
   renWin->SetMultiSamples(0);
@@ -143,9 +146,9 @@ void MyProcess::Execute()
   renWin->SetAlphaBitPlanes(1);
 
   if(me==0)
-    {
+  {
     iren->SetRenderWindow(renWin);
-    }
+  }
 
   vtkRenderer *renderer = prm->MakeRenderer();
   renWin->AddRenderer(renderer);
@@ -177,21 +180,27 @@ void MyProcess::Execute()
   vtkCameraPass *opaqueCameraPass=vtkCameraPass::New();
   opaqueCameraPass->SetDelegatePass(opaqueSequence);
 
+  vtkNew<vtkTest::ErrorObserver> errorObserver2;
   vtkShadowMapBakerPass *shadowsBaker=vtkShadowMapBakerPass::New();
   shadowsBaker->SetOpaquePass(opaqueCameraPass);
   shadowsBaker->SetResolution(1024);
   // To cancel self-shadowing.
   shadowsBaker->SetPolygonOffsetFactor(3.1f);
   shadowsBaker->SetPolygonOffsetUnits(10.0f);
+  shadowsBaker->AddObserver(
+    vtkCommand::ErrorEvent, errorObserver2.GetPointer());
 
   vtkCompositeZPass *compositeZPass=vtkCompositeZPass::New();
   compositeZPass->SetController(this->Controller);
   shadowsBaker->SetCompositeZPass(compositeZPass);
   compositeZPass->Delete();
 
+  vtkNew<vtkTest::ErrorObserver> errorObserver3;
   vtkShadowMapPass *shadows=vtkShadowMapPass::New();
   shadows->SetShadowMapBakerPass(shadowsBaker);
   shadows->SetOpaquePass(opaqueSequence);
+  shadows->AddObserver(
+    vtkCommand::ErrorEvent, errorObserver2.GetPointer());
 
   vtkSequencePass *seq=vtkSequencePass::New();
   vtkRenderPassCollection *passes=vtkRenderPassCollection::New();
@@ -218,6 +227,8 @@ void MyProcess::Execute()
   rectangleSource->Delete();
   rectangleMapper->SetScalarVisibility(0);
 
+  vtkNew<vtkTest::ErrorObserver> errorObserver1;
+
   vtkActor *rectangleActor=vtkActor::New();
   vtkInformation *rectangleKeyProperties=vtkInformation::New();
   rectangleKeyProperties->Set(vtkShadowMapBakerPass::OCCLUDER(),0); // dummy val.
@@ -228,6 +239,8 @@ void MyProcess::Execute()
   rectangleMapper->Delete();
   rectangleActor->SetVisibility(1);
   rectangleActor->GetProperty()->SetColor(1.0,1.0,1.0);
+  rectangleActor->GetProperty()->AddObserver(
+    vtkCommand::ErrorEvent, errorObserver1.GetPointer());
 
   vtkCubeSource *boxSource=vtkCubeSource::New();
   boxSource->SetXLength(2.0);
@@ -256,6 +269,8 @@ void MyProcess::Execute()
   boxActor->SetVisibility(1);
   boxActor->SetPosition(-2.0,2.0,0.0);
   boxActor->GetProperty()->SetColor(1.0,0.0,0.0);
+  boxActor->GetProperty()->AddObserver(
+    vtkCommand::ErrorEvent, errorObserver1.GetPointer());
 
   vtkConeSource *coneSource=vtkConeSource::New();
   coneSource->SetResolution(24);
@@ -276,6 +291,8 @@ void MyProcess::Execute()
   coneActor->SetVisibility(1);
   coneActor->SetPosition(0.0,1.0,1.0);
   coneActor->GetProperty()->SetColor(0.0,0.0,1.0);
+  coneActor->GetProperty()->AddObserver(
+    vtkCommand::ErrorEvent, errorObserver1.GetPointer());
 //  coneActor->GetProperty()->SetLighting(false);
 
   vtkSphereSource *sphereSource=vtkSphereSource::New();
@@ -297,6 +314,8 @@ void MyProcess::Execute()
   sphereActor->SetVisibility(1);
   sphereActor->SetPosition(2.0,2.0,-1.0);
   sphereActor->GetProperty()->SetColor(1.0,1.0,0.0);
+  sphereActor->GetProperty()->AddObserver(
+    vtkCommand::ErrorEvent, errorObserver1.GetPointer());
 
   renderer->AddViewProp(rectangleActor);
   rectangleActor->Delete();
@@ -356,24 +375,24 @@ void MyProcess::Execute()
   const int MY_RETURN_VALUE_MESSAGE=0x518113;
 
   if(me>0)
-    {
+  {
     // satellite nodes
     prm->StartServices(); // start listening other processes (blocking call).
     // receive return value from root process.
     this->Controller->Receive(&retVal, 1, 0, MY_RETURN_VALUE_MESSAGE);
-    }
+  }
   else
-    {
+  {
     // root node
     renWin->Render();
     if(peeling->GetLastRenderingUsedDepthPeeling())
-      {
+    {
       cout<<"depth peeling was used"<<endl;
-      }
+    }
     else
-      {
+    {
       cout<<"depth peeling was not used (alpha blending instead)"<<endl;
-      }
+    }
     renderer->ResetCamera();
     vtkCamera *camera=renderer->GetActiveCamera();
     camera->Azimuth(40.0);
@@ -381,30 +400,30 @@ void MyProcess::Execute()
 
     if(compositeZPass->IsSupported(
              static_cast<vtkOpenGLRenderWindow *>(renWin)))
-      {
+    {
       retVal=vtkTesting::Test(this->Argc, this->Argv, renWin, 10);
-      }
+    }
     else
-      {
+    {
       retVal=vtkTesting::PASSED; // not supported.
-      }
+    }
 
     if(retVal==vtkRegressionTester::DO_INTERACTOR)
-      {
+    {
       renWin->Render();
       iren->Start();
-      }
+    }
     prm->StopServices(); // tells satellites to stop listening.
 
     // send the return value to the satellites
     int i=1;
     while(i<numProcs)
-      {
+    {
       this->Controller->Send(&retVal, 1, i, MY_RETURN_VALUE_MESSAGE);
       ++i;
-      }
-    iren->Delete();
     }
+    iren->Delete();
+  }
 
   renWin->Delete();
   opaqueCameraPass->Delete();
@@ -438,18 +457,18 @@ void AddLightActors(vtkRenderer *r)
   lights->InitTraversal();
   vtkLight *l=lights->GetNextItem();
   while(l!=0)
-    {
+  {
     double angle=l->GetConeAngle();
     if(l->LightTypeIsSceneLight() && l->GetPositional()
        && angle<180.0) // spotlight
-      {
+    {
       vtkLightActor *la=vtkLightActor::New();
       la->SetLight(l);
       r->AddViewProp(la);
       la->Delete();
-      }
-    l=lights->GetNextItem();
     }
+    l=lights->GetNextItem();
+  }
 }
 
 }
@@ -476,24 +495,24 @@ int TestDistributedDataShadowMapPass(int argc, char *argv[])
   int me = contr->GetLocalProcessId();
 
   if(numProcs!=2)
-    {
+  {
     if (me == 0)
-      {
+    {
       cout << "DistributedData test requires 2 processes" << endl;
-      }
+    }
     contr->Delete();
     return retVal;
-    }
+  }
 
   if (!contr->IsA("vtkMPIController"))
-    {
+  {
     if (me == 0)
-      {
+    {
       cout << "DistributedData test requires MPI" << endl;
-      }
+    }
     contr->Delete();
     return retVal;
-    }
+  }
 
   MyProcess *p=MyProcess::New();
   p->SetArgs(argc,argv);

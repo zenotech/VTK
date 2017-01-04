@@ -1,6 +1,7 @@
 set(Module_SRCS
   vtkImageDataLIC2D.cxx
   vtkLineIntegralConvolution2D.cxx
+  vtkPainterCommunicator.h
   vtkStructuredGridLIC2D.cxx
   vtkSurfaceLICComposite.cxx
   vtkSurfaceLICDefaultPainter.cxx
@@ -9,11 +10,12 @@ set(Module_SRCS
   )
 
 set_source_files_properties(
-  vtkLineIntegralConvolution2D.cxx
-  vtkPainterCommunicator.cxx
+  vtkPainterCommunicator.h
   vtkSurfaceLICComposite.cxx
   vtkTextureIO.cxx
-  WRAP_EXCLUDE
+  PROPERTIES
+    WRAP_EXCLUDE 1
+    WRAP_EXCLUDE_PYTHON 1
   )
 
 if (VTK_RENDERINGPARALLELLIC_SURFACELICPAINTER_TIMER)
@@ -55,7 +57,11 @@ foreach(file ${shader_files})
     --build-header VTKRENDERINGLIC_EXPORT vtkRenderingLICModule.h
     )
   list(APPEND Module_SRCS ${res})
-  set_source_files_properties(${file_we} WRAP_EXCLUDE)
+  set_source_files_properties(${file_we}
+    PROPERTIES
+      WRAP_EXCLUDE 1
+      WRAP_EXCLUDE_PYTHON 1
+    )
 endforeach()
 
 vtk_module_library(${vtk-module} ${Module_SRCS})

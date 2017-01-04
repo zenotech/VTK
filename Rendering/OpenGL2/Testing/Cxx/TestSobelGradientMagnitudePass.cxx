@@ -162,14 +162,6 @@ int TestSobelGradientMagnitudePass(int argc, char* argv[])
   renWin->SetSize(400,400);
 
   renWin->Render();
-  // if(peeling->GetLastRenderingUsedDepthPeeling())
-  //   {
-  //   cout<<"depth peeling was used"<<endl;
-  //   }
-  // else
-  //   {
-  //   cout<<"depth peeling was not used (alpha blending instead)"<<endl;
-  //   }
   vtkCamera *camera=renderer->GetActiveCamera();
   camera->Azimuth(-40.0);
   camera->Elevation(20.0);
@@ -177,9 +169,9 @@ int TestSobelGradientMagnitudePass(int argc, char* argv[])
 
   int retVal = vtkRegressionTestImage( renWin );
   if ( retVal == vtkRegressionTester::DO_INTERACTOR)
-    {
+  {
     iren->Start();
-    }
+  }
   iren->Delete();
 
   return !retVal;

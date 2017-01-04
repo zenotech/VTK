@@ -22,13 +22,16 @@
  * statement of authorship are reproduced on all copies.
  */
 
-// .NAME vtkOpenGLProjectedTetrahedraMapper - OpenGL implementation of PT
-//
-// .SECTION Bugs
-// This mapper relies highly on the implementation of the OpenGL pipeline.
-// A typical hardware driver has lots of options and some settings can
-// cause this mapper to produce artifacts.
-//
+/**
+ * @class   vtkOpenGLProjectedTetrahedraMapper
+ * @brief   OpenGL implementation of PT
+ *
+ * @bug
+ * This mapper relies highly on the implementation of the OpenGL pipeline.
+ * A typical hardware driver has lots of options and some settings can
+ * cause this mapper to produce artifacts.
+ *
+*/
 
 #ifndef vtkOpenGLProjectedTetrahedraMapper_h
 #define vtkOpenGLProjectedTetrahedraMapper_h
@@ -42,6 +45,7 @@ class vtkVisibilitySort;
 class vtkUnsignedCharArray;
 class vtkFloatArray;
 class vtkRenderWindow;
+class vtkOpenGLFramebufferObject;
 class vtkOpenGLRenderWindow;
 class vtkOpenGLVertexBufferObject;
 
@@ -58,16 +62,20 @@ public:
 
   virtual void Render(vtkRenderer *renderer, vtkVolume *volume);
 
-  // Description:
-  // Set/get whether to use floating-point rendering buffers rather
-  // than the default.
+  //@{
+  /**
+   * Set/get whether to use floating-point rendering buffers rather
+   * than the default.
+   */
   vtkSetMacro(UseFloatingPointFrameBuffer,bool);
   vtkGetMacro(UseFloatingPointFrameBuffer,bool);
   vtkBooleanMacro(UseFloatingPointFrameBuffer,bool);
+  //@}
 
-  // Description:
-  // Return true if the rendering context provides
-  // the nececessary functionality to use this class.
+  /**
+   * Return true if the rendering context provides
+   * the nececessary functionality to use this class.
+   */
   virtual bool IsSupported(vtkRenderWindow *context);
 
 protected:
@@ -77,7 +85,7 @@ protected:
   void Initialize(vtkRenderer *ren);
   bool Initialized;
   int  CurrentFBOWidth, CurrentFBOHeight;
-  bool AllocateFBOResources(vtkRenderer *ren);
+  bool AllocateFOResources(vtkRenderer *ren);
   bool CanDoFloatingPointFrameBuffer;
   bool FloatingPointFrameBufferResourcesAllocated;
   bool UseFloatingPointFrameBuffer;
@@ -102,10 +110,13 @@ protected:
 
   vtkVolumeProperty *LastProperty;
 
+  vtkOpenGLFramebufferObject *Framebuffer;
+
   float *SqrtTable;
   float SqrtTableBias;
 
-  virtual void ProjectTetrahedra(vtkRenderer *renderer, vtkVolume *volume);
+  virtual void ProjectTetrahedra(vtkRenderer *renderer, vtkVolume *volume,
+    vtkOpenGLRenderWindow* renWin);
 
   float GetCorrectedDepth(float x, float y, float z1, float z2,
                           const float inverse_projection_mat[16],
@@ -113,8 +124,8 @@ protected:
                           float linear_depth_correction);
 
 private:
-  vtkOpenGLProjectedTetrahedraMapper(const vtkOpenGLProjectedTetrahedraMapper &);  // Not Implemented.
-  void operator=(const vtkOpenGLProjectedTetrahedraMapper &);  // Not Implemented.
+  vtkOpenGLProjectedTetrahedraMapper(const vtkOpenGLProjectedTetrahedraMapper &) VTK_DELETE_FUNCTION;
+  void operator=(const vtkOpenGLProjectedTetrahedraMapper &) VTK_DELETE_FUNCTION;
 
   class vtkInternals;
   vtkInternals *Internals;

@@ -1,13 +1,20 @@
 vtk_module(vtkIOMINC
   GROUPS
     StandAlone
+  TEST_DEPENDS
+    vtkRendering${VTK_RENDERING_BACKEND}
   DEPENDS
-    vtkIOGeometry
+    vtkCommonCore
     vtkCommonExecutionModel
-    vtkRenderingCore
-    vtkFiltersHybrid
+    vtkIOCore
     vtkIOImage
   PRIVATE_DEPENDS
-    vtksys
+    vtkCommonDataModel
+    vtkCommonMath
+    vtkCommonMisc
+    vtkCommonTransforms
+    vtkFiltersHybrid
+    vtkRenderingCore
     vtknetcdf
+    vtksys
   )
