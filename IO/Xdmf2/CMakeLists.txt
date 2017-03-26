@@ -1,3 +1,4 @@
+include(vtkMPI)
 set(Module_SRCS
   vtkSILBuilder.cxx
   vtkXdmfDataArray.cxx
