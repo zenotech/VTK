@@ -1,3 +1,5 @@
+include(vtkMPI)
+
 vtk_module_third_party(xdmf2
   LIBRARIES vtkxdmf2
   INCLUDE_DIRS
