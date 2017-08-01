@@ -64,6 +64,7 @@ function(PYTHON_ADD_MODULE _NAME )
     set_property(GLOBAL  APPEND  PROPERTY  PY_MODULES_LIST ${_NAME})
     add_library(${_NAME} ${PY_MODULE_TYPE} ${ARGN})
     #    target_link_libraries(${_NAME} ${PYTHON_LIBRARIES})
+    target_include_directories(${_NAME} PUBLIC ${PYTHON_INCLUDE_DIRS})
 
     if(PYTHON_MODULE_${_NAME}_BUILD_SHARED)
       set_target_properties(${_NAME} PROPERTIES PREFIX "${PYTHON_MODULE_PREFIX}")
