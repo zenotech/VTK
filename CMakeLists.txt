@@ -471,6 +471,8 @@ find_file(VTK_WRAP_HINTS hints ${VTK_SOURCE_DIR}/Wrapping/Tools
   NO_CMAKE_FIND_ROOT_PATH)
 mark_as_advanced(VTK_WRAP_HINTS)
 
+find_package(HDF5 REQUIRED)
+
 if(BUILD_TESTING OR VTK_WRAP_PYTHON)
   # Need PYTHON_EXECUTABLE for HeaderTesting or python wrapping
   find_package(PythonInterp ${VTK_PYTHON_VERSION} QUIET)
