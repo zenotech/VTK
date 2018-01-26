@@ -614,7 +614,7 @@ void FindNeighbors(diy::mpi::communicator comm,
         vtkDataSet *ds = inputBlocks[b];
         if (ds)
         {
-          double *ibounds = ds->GetBounds();
+          const double *ibounds = ds->GetBounds();
           if ((intersects = vtkBoundingBox(sbounds).Intersects(ibounds)) == true)
           {
             break;
@@ -822,7 +822,7 @@ void PerformResampling(DiyBlock *block, const diy::Master::ProxyWithLink& cp,
     {
       prober->SetInputData(in);
       prober->Update();
-      block->OutputBlocks[i]->DeepCopy(prober->GetOutput());
+      block->OutputBlocks[i]->ShallowCopy(prober->GetOutput());
     }
   }
 
@@ -871,12 +871,12 @@ void PerformResampling(DiyBlock *block, const diy::Master::ProxyWithLink& cp,
       std::vector<vtkIdType> pointIds;
       vtkIdType blockBegin = 0;
       vtkIdType blockEnd = blockBegin;
-      while (blockEnd < totalPoints)
+      while (blockBegin < totalPoints)
       {
         int blockId = points[blockBegin].BlockId;
 
         pointIds.clear();
-        while (points[blockEnd].BlockId == blockId)
+        while (blockEnd < totalPoints && points[blockEnd].BlockId == blockId)
         {
           if (masks[blockEnd])
           {
@@ -1144,7 +1144,7 @@ int vtkPResampleWithDataSet::RequestData(vtkInformation *request,
   {
     block.PointsLookup = new RegularPartition;
   }
-  // We dont want ImageData points in the lookup structure
+  // We don't want ImageData points in the lookup structure
   {
     std::vector<vtkDataSet*> dsblocks = block.InputBlocks;
     for (size_t i = 0; i < dsblocks.size(); ++i)

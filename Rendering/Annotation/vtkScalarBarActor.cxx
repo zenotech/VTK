@@ -101,7 +101,7 @@ vtkScalarBarActor::vtkScalarBarActor()
   this->TitleTextProperty->ShallowCopy(this->LabelTextProperty);
 
   this->LabelFormat = new char[8];
-  sprintf(this->LabelFormat, "%s", "%-#6.3g");
+  snprintf(this->LabelFormat, 8, "%s", "%-#6.3g");
 
   this->TitleActor = vtkTextActor::New();
   this->TitleActor->GetPositionCoordinate()->
@@ -314,7 +314,7 @@ void vtkScalarBarActor::GetScalarBarRect(int rect[4], vtkViewport* viewport)
   rect[0] = vpPos[0];
   rect[1] = vpPos[1];
 
-  double *bounds = this->ScalarBar->GetBounds();
+  const double *bounds = this->ScalarBar->GetBounds();
   rect[0] += static_cast<int>(bounds[0] + 0.5);
   rect[1] += static_cast<int>(bounds[2] + 0.5);
   rect[2] = static_cast<int>(bounds[1] - bounds[0] + 0.5);

@@ -44,7 +44,6 @@ vtkEnSightReader::vtkEnSightReader()
   this->MeasuredFileName = NULL;
   this->MatchFileName = NULL;
 
-  this->ParticleCoordinatesByIndex = 0;
   this->IS = NULL;
 
   this->VariableMode = -1;
@@ -2123,8 +2122,8 @@ void vtkEnSightReader::ReplaceWildcards(char* filename, int num)
   else if (numWildcards == 1)
     strcpy(pattern, "%d");
   else
-    sprintf(pattern, "%%0%dd", numWildcards);
-  sprintf(numStr, pattern, num);
+    snprintf(pattern, sizeof(pattern), "%%0%dd", numWildcards);
+  snprintf(numStr, sizeof(numStr), pattern, num);
   numStrLen = static_cast<int>(strlen(numStr));
   len = static_cast<int>(strlen(filename));
   cnt = 0;
@@ -2275,7 +2274,6 @@ void vtkEnSightReader::PrintSelf(ostream& os, vtkIndent indent)
      (this->MeasuredFileName ? this->MeasuredFileName : "(none)") << endl;
   os << indent << "MatchFileName: " <<
      (this->MatchFileName ? this->MatchFileName : "(none)") << endl;
-  os << indent << "ParticleCoordinatesByIndex: " << this->ParticleCoordinatesByIndex << endl;
   os << indent << "UseTimeSets: " << this->UseTimeSets << endl;
   os << indent << "UseFileSets: " << this->UseFileSets << endl;
 }

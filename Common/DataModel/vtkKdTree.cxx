@@ -129,12 +129,12 @@ namespace
           if(this->NumPoints > this->NumDesiredPoints)
           {
             it=this->dist2ToIds.end();
-            it--;
+            --it;
             if((this->NumPoints-it->second.size()) > this->NumDesiredPoints)
             {
               this->NumPoints -= it->second.size();
               std::map<float, std::list<vtkIdType> >::iterator it2 = it;
-              it2--;
+              --it2;
               this->LargestDist2 = it2->first;
               this->dist2ToIds.erase(it);
             }
@@ -144,8 +144,9 @@ namespace
     void GetSortedIds(vtkIdList* ids)
     {
         ids->Reset();
-        vtkIdType numIds = (this->NumDesiredPoints < this->NumPoints)
-          ? this->NumDesiredPoints : this->NumPoints;
+        vtkIdType numIds = static_cast<vtkIdType>(
+          (this->NumDesiredPoints < this->NumPoints)
+            ? this->NumDesiredPoints : this->NumPoints);
         ids->SetNumberOfIds(numIds);
         vtkIdType counter = 0;
         std::map<float, std::list<vtkIdType> >::iterator it=this->dist2ToIds.begin();
@@ -156,9 +157,9 @@ namespace
           {
             ids->InsertId(counter, *lit);
             counter++;
-            lit++;
+            ++lit;
           }
-          it++;
+          ++it;
         }
     }
 
@@ -4282,7 +4283,8 @@ int vtkKdTree::ViewOrderRegionsInDirection(
     if (ids.size() < static_cast<unsigned int>(this->NumberOfRegions))
     {
       IdsOfInterest = vtkIntArray::New();
-      IdsOfInterest->SetNumberOfValues(ids.size());
+      IdsOfInterest->SetNumberOfValues(
+        static_cast<vtkIdType>(ids.size()));
 
       for (it = ids.begin(), i=0; it != ids.end(); ++it, ++i)
       {
@@ -4337,7 +4339,7 @@ int vtkKdTree::ViewOrderRegionsFromPosition(vtkIntArray *regionIds,
     if (ids.size() < static_cast<unsigned int>(this->NumberOfRegions))
     {
       IdsOfInterest = vtkIntArray::New();
-      IdsOfInterest->SetNumberOfValues(ids.size());
+      IdsOfInterest->SetNumberOfValues(static_cast<vtkIdType>(ids.size()));
 
       for (it = ids.begin(), i=0; it != ids.end(); ++it, ++i)
       {

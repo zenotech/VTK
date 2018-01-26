@@ -324,7 +324,7 @@ vtkMultiProcessController *vtkMultiProcessController::PartitionController(
       std::list<int>::iterator iter = partitionIds.begin();
       while ((iter != partitionIds.end()) && (allKeys[*iter] <= allKeys[j]))
       {
-        iter++;
+        ++iter;
       }
       partitionIds.insert(iter, j);
     }
@@ -333,7 +333,7 @@ vtkMultiProcessController *vtkMultiProcessController::PartitionController(
     group->Initialize(this);
     group->RemoveAllProcessIds();
     for (std::list<int>::iterator iter = partitionIds.begin();
-         iter != partitionIds.end(); iter++)
+         iter != partitionIds.end(); ++iter)
     {
       group->AddProcessId(*iter);
     }
@@ -474,7 +474,7 @@ void vtkMultiProcessController::TriggerRMI(int remoteProcessId,
 void vtkMultiProcessController::BroadcastTriggerRMIOnAllChildren(
     void *arg, int argLength, int rmiTag)
 {
-  // This is called by the root process, namely rank 0. The sattelite ranks
+  // This is called by the root process, namely rank 0. The satellite ranks
   // call BroadcastProcessRMIs().
 
   int triggerMessage[128];
@@ -747,7 +747,7 @@ void vtkMultiProcessController::ProcessRMI(int remoteProcessId,
   {
     vtkInternal::RMICallbackVector::iterator iterVec;
     for (iterVec = iter->second.begin();
-      iterVec != iter->second.end(); iterVec++)
+      iterVec != iter->second.end(); ++iterVec)
     {
       if (iterVec->Function)
       {
@@ -763,7 +763,7 @@ void vtkMultiProcessController::ProcessRMI(int remoteProcessId,
   }
 
   std::vector<vtkInternal::vtkRMICallback>::iterator citer;
-  for (citer = callbacks.begin(); citer != callbacks.end(); citer++)
+  for (citer = callbacks.begin(); citer != callbacks.end(); ++citer)
   {
     (*citer->Function)(citer->LocalArgument, arg, argLength, remoteProcessId);
   }

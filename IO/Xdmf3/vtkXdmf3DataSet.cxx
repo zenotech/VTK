@@ -410,8 +410,10 @@ bool vtkXdmf3DataSet::VTKToXdmfArray(
     case VTK_OPAQUE:
     case VTK_LONG_LONG:
     case VTK_UNSIGNED_LONG_LONG:
+#if !defined(VTK_LEGACY_REMOVE)
     case VTK___INT64:
     case VTK_UNSIGNED___INT64:
+#endif
     case VTK_VARIANT:
     case VTK_OBJECT:
     case VTK_UNICODE_STRING:
@@ -1177,11 +1179,10 @@ void vtkXdmf3DataSet::CopyShape(
   }
   dataSet->SetExtent(whole_extent);
 
-  vtkDataArray *vCoords = NULL;
   shared_ptr<XdmfArray> xCoords;
 
   xCoords = grid->getCoordinates(0);
-  vCoords = vtkXdmf3DataSet::XdmfToVTKArray
+  vtkDataArray *vCoords = vtkXdmf3DataSet::XdmfToVTKArray
     (xCoords.get(), xCoords->getName(), 1, keeper);
   dataSet->SetXCoordinates(vCoords);
   if (vCoords)
@@ -1218,13 +1219,12 @@ void vtkXdmf3DataSet::VTKToXdmf(
   bool hasTime, double time,
   const char* name)
 {
-  vtkDataArray *vCoords = NULL;
   shared_ptr<XdmfArray> xXCoords = XdmfArray::New();
   shared_ptr<XdmfArray> xYCoords = XdmfArray::New();
   shared_ptr<XdmfArray> xZCoords = XdmfArray::New();
 
   bool OK = true;
-  vCoords = dataSet->GetXCoordinates();
+  vtkDataArray *vCoords = dataSet->GetXCoordinates();
   OK &= vtkXdmf3DataSet::VTKToXdmfArray(vCoords, xZCoords.get());
   if (OK)
   {
@@ -1488,7 +1488,7 @@ void vtkXdmf3DataSet::CopyShape(
         if (unknownCell)
         {
           // encountered an unknown cell.
-          cerr << "Unkown cell type." << endl;
+          cerr << "Unknown cell type." << endl;
           vCells->Delete();
           delete [] cell_types;
           vtkXdmf3DataSet_ReleaseIfNeeded(xTopology.get(), freeMe);
@@ -1534,7 +1534,6 @@ void vtkXdmf3DataSet::CopyShape(
         //                          ...]
         cell_types[cc] = vtk_cell_typeI;
         *cells_ptr++ = numPointsPerCell + numFacesPerCell + 1;
-        sub++; // used to shrink the cells array at the end.
         *cells_ptr++ = numFacesPerCell;
         for(vtkIdType i = 0 ;
             i < static_cast<vtkIdType>(numPointsPerCell + numFacesPerCell); i++ )
@@ -1950,7 +1949,7 @@ void vtkXdmf3DataSet::VTKToXdmf(
 
 //==========================================================================
 //TODO: meld this with Grid XdmfToVTKAttributes
-//TODO: enable set atribute selections
+//TODO: enable set attribute selections
 void vtkXdmf3DataSet::XdmfToVTKAttributes(
 /*
   vtkXdmf3ArraySelection *fselection,

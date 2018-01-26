@@ -55,7 +55,7 @@ public:
     this->TextureObject->Deactivate();
   }
 
-  // Update opacity tranfer function texture.
+  // Update opacity transfer function texture.
   //--------------------------------------------------------------------------
   void Update(vtkPiecewiseFunction* scalarOpacity,
               int blendMode,
@@ -229,7 +229,7 @@ protected:
   }
 
   //--------------------------------------------------------------------------
-  ~vtkOpenGLVolumeOpacityTable()
+  ~vtkOpenGLVolumeOpacityTable() VTK_OVERRIDE
   {
       if (this->TextureObject)
       {

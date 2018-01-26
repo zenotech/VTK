@@ -83,7 +83,6 @@ vtkExodusIIWriter::vtkExodusIIWriter ()
   this->ModelMetadata = 0;
 
   this->NumberOfTimeSteps = 0;
-  this->TimeValues = 0;
   this->CurrentTimeIndex = 0;
   this->FileTimeOffset = 0;
 
@@ -100,6 +99,7 @@ vtkExodusIIWriter::vtkExodusIIWriter ()
   this->LocalNodeIdMap = 0;
   this->LocalElementIdMap = 0;
   this->TopologyChanged = false;
+  this->IgnoreMetaDataWarning = 0;
 }
 
 vtkExodusIIWriter::~vtkExodusIIWriter ()
@@ -109,10 +109,6 @@ vtkExodusIIWriter::~vtkExodusIIWriter ()
   delete [] this->FileName;
   delete [] this->BlockIdArrayName;
 
-  if (this->TimeValues)
-  {
-    this->TimeValues->Delete ();
-  }
 
   delete [] this->BlockElementVariableTruthTable;
 
@@ -138,6 +134,7 @@ void vtkExodusIIWriter::PrintSelf (ostream& os, vtkIndent indent)
   {
     this->ModelMetadata->PrintSelf (os, indent.GetNextIndent ());
   }
+  os << indent << "IgnoreMetaDataWarning " << this->IgnoreMetaDataWarning << endl;
 }
 
 //----------------------------------------------------------------------------
@@ -190,27 +187,15 @@ int vtkExodusIIWriter::RequestUpdateExtent (
   vtkInformationVector** inputVector,
   vtkInformationVector* vtkNotUsed(outputVector))
 {
-  // get the requested update extent
-  if(!this->TimeValues)
+  vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
+  if ( this->WriteAllTimeSteps &&
+       inInfo->Has(vtkStreamingDemandDrivenPipeline::TIME_STEPS()) )
   {
-    this->TimeValues = vtkDoubleArray::New();
-    vtkInformation *info = inputVector[0]->GetInformationObject(0);
-    double *data = info->Get(vtkStreamingDemandDrivenPipeline::TIME_STEPS());
-    int len = info->Length(vtkStreamingDemandDrivenPipeline::TIME_STEPS());
-    this->TimeValues->SetNumberOfValues (len);
-    for (int i = 0; i < len; i ++)
-    {
-      this->TimeValues->SetValue (i, data[i]);
-    }
-  }
-  if (this->WriteAllTimeSteps)
-  {
-    if(this->TimeValues->GetPointer(0))
-    {
-      double timeReq= this->TimeValues->GetValue(this->CurrentTimeIndex);
-      inputVector[0]->GetInformationObject(0)->Set
+    double* timeSteps =
+      inInfo->Get(vtkStreamingDemandDrivenPipeline::TIME_STEPS() );
+    double timeReq= timeSteps[this->CurrentTimeIndex];
+    inputVector[0]->GetInformationObject(0)->Set
       ( vtkStreamingDemandDrivenPipeline::UPDATE_TIME_STEP(),  timeReq);
-    }
   }
   return 1;
 }
@@ -558,7 +543,7 @@ int vtkExodusIIWriter::FlattenHierarchy (vtkDataObject* input, const char *name,
     this->NewFlattenedInput.push_back (output);
     if (!name)
     {
-      // Setting an arbitary name for datasets that have not been assigned one.
+      // Setting an arbitrary name for datasets that have not been assigned one.
       name = "block";
     }
     this->NewFlattenedNames.push_back (name);
@@ -580,7 +565,7 @@ int vtkExodusIIWriter::CreateNewExodusFile()
 
   if (this->NumberOfProcesses == 1)
   {
-    if (this->CurrentTimeIndex == 0)
+    if (this->WriteAllTimeSteps == false || this->CurrentTimeIndex == 0)
     {
       this->fid = ex_create(this->FileName, EX_CLOBBER, &compWordSize, &IOWordSize);
       if (fid <= 0)
@@ -593,7 +578,7 @@ int vtkExodusIIWriter::CreateNewExodusFile()
     else
     {
       char *myFileName = new char [VTK_MAXPATH];
-      sprintf(myFileName, "%s_%06d", this->FileName, this->CurrentTimeIndex);
+      snprintf(myFileName, VTK_MAXPATH, "%s-s.%06d", this->FileName, this->CurrentTimeIndex);
       this->fid = ex_create(myFileName, EX_CLOBBER, &compWordSize, &IOWordSize);
       if (fid <= 0)
       {
@@ -607,10 +592,14 @@ int vtkExodusIIWriter::CreateNewExodusFile()
   else
   {
     std::ostringstream myFileName;
-    myFileName << this->FileName << ".";
-    if (this->CurrentTimeIndex != 0)
+    myFileName << this->FileName;
+    if (this->WriteAllTimeSteps == false || this->CurrentTimeIndex == 0)
     {
-      myFileName << "_" << std::setfill('0') << std::setw(6) <<
+      myFileName << ".";
+    }
+    else
+    {
+      myFileName << "-s." << std::setfill('0') << std::setw(6) <<
         this->CurrentTimeIndex << std::setw(0) << ".";
     }
     unsigned int numDigits = GetNumberOfDigits(
@@ -993,7 +982,7 @@ int vtkExodusIIWriter::ConstructBlockInfoMap ()
   int index = 0;
   for (iter = this->BlockInfoMap.begin ();
        iter != this->BlockInfoMap.end ();
-       iter ++)
+       ++iter)
   {
     iter->second.ElementStartIndex = runningCount;
     runningCount += iter->second.NumElements;
@@ -1188,12 +1177,12 @@ int vtkExodusIIWriter::ConstructVariableInfoMaps ()
     std::map<int, Block>::const_iterator blockIter;
     for (blockIter = this->BlockInfoMap.begin ();
          blockIter != this->BlockInfoMap.end ();
-         blockIter ++)
+         ++blockIter)
     {
       std::map<std::string, VariableInfo>::const_iterator varIter;
       for (varIter = this->BlockVariableMap.begin ();
            varIter != this->BlockVariableMap.end ();
-           varIter ++)
+           ++varIter)
       {
         vtkCellData *cd =
           this->FlattenedInput[blockIter->second.GridIndex]->GetCellData();
@@ -1225,7 +1214,7 @@ int vtkExodusIIWriter::CreateDefaultMetadata ()
   time_t currentTime = time(NULL);
   char *stime = ctime(&currentTime);
 
-  sprintf(title, "Created by vtkExodusIIWriter, %s", stime);
+  snprintf(title, MAX_LINE_LENGTH + 1, "Created by vtkExodusIIWriter, %s", stime);
 
   em->SetTitle(title);
 
@@ -1383,7 +1372,7 @@ int vtkExodusIIWriter::CreateBlockIdMetadata(vtkModelMetadata *em)
   std::map<int, Block>::const_iterator iter;
   for(iter = this->BlockInfoMap.begin();
       iter != this->BlockInfoMap.end();
-      iter++)
+      ++iter)
   {
     int index = iter->second.OutputIndex;
     blockIds[index] = iter->first;
@@ -1424,7 +1413,7 @@ int vtkExodusIIWriter::CreateBlockVariableMetadata (vtkModelMetadata *em)
     std::map<std::string, VariableInfo>::const_iterator var_iter;
     for (var_iter = this->BlockVariableMap.begin ();
          var_iter != this->BlockVariableMap.end ();
-         var_iter ++)
+         ++var_iter)
     {
       nms[index] =
         vtkExodusIIWriter::StrDupWithNew (var_iter->first.c_str ());
@@ -1453,7 +1442,7 @@ int vtkExodusIIWriter::CreateBlockVariableMetadata (vtkModelMetadata *em)
     std::map<std::string, VariableInfo>::const_iterator iter;
     for (iter = this->NodeVariableMap.begin ();
          iter != this->NodeVariableMap.end ();
-         iter ++)
+         ++iter)
     {
       nms[index] =
             vtkExodusIIWriter::StrDupWithNew (iter->first.c_str ());
@@ -1854,7 +1843,7 @@ int vtkExodusIIWriter::WriteBlockInformation()
   // within it's block in the ExodusModel object.
   for (blockIter = this->BlockInfoMap.begin ();
        blockIter != this->BlockInfoMap.end ();
-       blockIter ++)
+       ++blockIter)
   {
     int outputIndex = blockIter->second.OutputIndex;
     int numElts = blockIter->second.NumElements;
@@ -1981,7 +1970,7 @@ int vtkExodusIIWriter::WriteBlockInformation()
   int fail = 0;
   for (blockIter = this->BlockInfoMap.begin ();
        blockIter != this->BlockInfoMap.end ();
-       blockIter ++)
+       ++blockIter)
   {
     char *type_name = vtkExodusIIWriter::GetCellTypeName (blockIter->second.Type);
     if (blockIter->second.NodesPerElement == 0 &&
@@ -2119,7 +2108,7 @@ int vtkExodusIIWriter::WriteVariableArrayNames()
     std::map<std::string, VariableInfo>::const_iterator iter;
     for (iter = this->GlobalVariableMap.begin ();
          iter != this->GlobalVariableMap.end ();
-         iter ++)
+         ++iter)
     {
       int off = iter->second.ScalarOutOffset;
       for (int j=0; j< iter->second.NumComponents; j++)
@@ -2159,7 +2148,7 @@ int vtkExodusIIWriter::WriteVariableArrayNames()
     std::map<std::string, VariableInfo>::const_iterator iter;
     for (iter = this->BlockVariableMap.begin ();
          iter != this->BlockVariableMap.end ();
-         iter ++)
+         ++iter)
     {
       int off = iter->second.ScalarOutOffset;
       for (int j=0; j< iter->second.NumComponents; j++)
@@ -2211,7 +2200,7 @@ int vtkExodusIIWriter::WriteVariableArrayNames()
     std::map<std::string, VariableInfo>::const_iterator iter;
     for (iter = this->NodeVariableMap.begin ();
          iter != this->NodeVariableMap.end ();
-         iter ++)
+         ++iter)
     {
       int off = iter->second.ScalarOutOffset;
       for (int j=0; j<iter->second.NumComponents; j++)
@@ -2288,7 +2277,7 @@ void vtkExodusIIWriter::ConvertVariableNames(
   // Global output variable names
   for (varIter = variableMap.begin ();
        varIter != variableMap.end ();
-       varIter ++)
+       ++varIter)
   {
     int numComp = varIter->second.NumComponents;
     if (numComp == 1)
@@ -2317,7 +2306,7 @@ char **vtkExodusIIWriter::FlattenOutVariableNames(
   std::map<std::string, VariableInfo>::const_iterator iter;
   for (iter = variableMap.begin ();
        iter != variableMap.end ();
-       iter ++)
+       ++iter)
   {
     for (int component = 0; component < iter->second.NumComponents; component ++)
     {
@@ -2429,7 +2418,7 @@ std::string vtkExodusIIWriter::CreateNameForScalarArray(
     }
     // assume largest for 32 bit decimal representation
     char n[11];
-    sprintf (n, "%10d", component);
+    snprintf (n, sizeof(n), "%10d", component);
     s.append (n);
     return s;
   }
@@ -3081,7 +3070,7 @@ int vtkExodusIIWriter::WriteGlobalData (int timestep, vtkDataArray *buffer)
   buffer->SetNumberOfTuples (this->NumberOfScalarGlobalArrays);
   for (varIter = this->GlobalVariableMap.begin ();
        varIter != this->GlobalVariableMap.end ();
-       varIter ++)
+       ++varIter)
   {
     const char *nameIn = varIter->first.c_str ();
     int numComp = varIter->second.NumComponents;
@@ -3119,7 +3108,7 @@ int vtkExodusIIWriter::WriteCellData (int timestep, vtkDataArray *buffer)
   std::map<std::string, VariableInfo>::const_iterator varIter;
   for (varIter = this->BlockVariableMap.begin ();
        varIter != this->BlockVariableMap.end ();
-       varIter ++)
+       ++varIter)
   {
     const char *nameIn = varIter->first.c_str ();
     int numComp = varIter->second.NumComponents;
@@ -3133,7 +3122,7 @@ int vtkExodusIIWriter::WriteCellData (int timestep, vtkDataArray *buffer)
       std::map<int, Block>::const_iterator blockIter;
       for (blockIter = this->BlockInfoMap.begin ();
            blockIter != this->BlockInfoMap.end ();
-           blockIter ++)
+           ++blockIter)
       {
         int numElts = blockIter->second.NumElements;
         if (numElts < 1) continue;   // no cells in this block
@@ -3180,7 +3169,7 @@ int vtkExodusIIWriter::WritePointData (int timestep, vtkDataArray *buffer)
   std::map<std::string, VariableInfo>::const_iterator varIter;
   for (varIter = this->NodeVariableMap.begin ();
        varIter != this->NodeVariableMap.end ();
-       varIter ++)
+       ++varIter)
   {
     const char *nameIn = varIter->first.c_str ();
     int numComp = varIter->second.NumComponents;
@@ -3217,13 +3206,14 @@ int vtkExodusIIWriter::WritePointData (int timestep, vtkDataArray *buffer)
 int vtkExodusIIWriter::WriteNextTimeStep()
 {
   int rc = 0;
-
   int ts = this->CurrentTimeIndex - this->FileTimeOffset;
-  float tsv = (this->TimeValues->GetNumberOfTuples() > 0 ?
-               this->TimeValues->GetValue(this->CurrentTimeIndex):
-               0.0);
+  float tsv = 0.;
+  if (this->GetInput()->GetInformation()->Has(vtkDataObject::DATA_TIME_STEP()) )
+  {
+    tsv = this->GetInput()->GetInformation()->Get(vtkDataObject::DATA_TIME_STEP());
+  }
 
-  vtkDataArray *buffer;
+  vtkSmartPointer<vtkDataArray> buffer;
   if (this->PassDoubles)
   {
     double dtsv = (double)tsv;
@@ -3234,7 +3224,7 @@ int vtkExodusIIWriter::WriteNextTimeStep()
                     << " fid " << this->fid << " ts " << ts + 1 << " tsv " << tsv);
       return 0;
     }
-    buffer = vtkDoubleArray::New ();
+    buffer = vtkSmartPointer<vtkDoubleArray>::New ();
   }
   else
   {
@@ -3245,7 +3235,7 @@ int vtkExodusIIWriter::WriteNextTimeStep()
                     << " fid " << this->fid << " ts " << ts + 1 << " tsv " << tsv);
       return 0;
     }
-    buffer = vtkFloatArray::New ();
+    buffer = vtkSmartPointer<vtkFloatArray>::New ();
   }
 
   // Buffer is used to help these determine the type of the data to write out
@@ -3261,8 +3251,6 @@ int vtkExodusIIWriter::WriteNextTimeStep()
   {
     return 0;
   }
-
-  buffer->Delete ();
 
   return 1;
 }
@@ -3332,7 +3320,9 @@ vtkIntArray* vtkExodusIIWriter::GetBlockIdArray (
   this->SetBlockIdArrayName(0);
   if ((this->NumberOfProcesses > 1) &&
       // you don't have metadata but you have some tuples.
-      cd->GetNumberOfTuples() > 0)
+      cd->GetNumberOfTuples() > 0 &&
+      // depending on what we're trying to write out we may not care about missing metadata
+      this->IgnoreMetaDataWarning == 0)
   {
     // Parallel apps must have a global list of all block IDs, plus a
     // list of block IDs for each cell.

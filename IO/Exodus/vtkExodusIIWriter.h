@@ -86,7 +86,7 @@ class VTKIOEXODUS_EXPORT vtkExodusIIWriter : public vtkWriter
 public:
   static vtkExodusIIWriter *New ();
   vtkTypeMacro(vtkExodusIIWriter,vtkWriter);
-  void PrintSelf (ostream& os, vtkIndent indent);
+  void PrintSelf (ostream& os, vtkIndent indent) VTK_OVERRIDE;
 
   /**
    * Specify the vtkModelMetadata object which contains the Exodus file
@@ -171,9 +171,18 @@ public:
   vtkSetStringMacro(BlockIdArrayName);
   vtkGetStringMacro(BlockIdArrayName);
 
+  /**
+   * In certain cases we know that metadata doesn't exist and
+   * we want to ignore that warning.
+   */
+
+  vtkSetMacro(IgnoreMetaDataWarning, bool);
+  vtkGetMacro(IgnoreMetaDataWarning, bool);
+  vtkBooleanMacro(IgnoreMetaDataWarning, bool);
+
 protected:
   vtkExodusIIWriter ();
-  ~vtkExodusIIWriter ();
+  ~vtkExodusIIWriter () VTK_OVERRIDE;
 
   vtkModelMetadata* ModelMetadata;
 
@@ -195,10 +204,10 @@ protected:
   int WriteAllTimeSteps;
   int NumberOfTimeSteps;
 
-  vtkDoubleArray* TimeValues;
   int CurrentTimeIndex;
   int FileTimeOffset;
   bool TopologyChanged;
+  bool IgnoreMetaDataWarning;
 
   vtkDataObject *OriginalInput;
   std::vector< vtkSmartPointer<vtkUnstructuredGrid> > FlattenedInput;
@@ -276,7 +285,7 @@ protected:
 
   int ProcessRequest (vtkInformation* request,
                       vtkInformationVector** inputVector,
-                      vtkInformationVector* outputVector);
+                      vtkInformationVector* outputVector) VTK_OVERRIDE;
 
   int RequestInformation (vtkInformation* request,
                           vtkInformationVector** inputVector,
@@ -286,13 +295,13 @@ protected:
                                    vtkInformationVector** inputVector,
                                    vtkInformationVector* outputVector);
 
-  int FillInputPortInformation (int port, vtkInformation* info);
+  int FillInputPortInformation (int port, vtkInformation* info) VTK_OVERRIDE;
 
   int RequestData (vtkInformation* request,
                    vtkInformationVector** inputVector,
-                   vtkInformationVector* outputVector);
+                   vtkInformationVector* outputVector) VTK_OVERRIDE;
 
-  void WriteData ();
+  void WriteData () VTK_OVERRIDE;
 
   int FlattenHierarchy (vtkDataObject* input, const char *name, bool& changed);
 

@@ -471,9 +471,7 @@ vtkUnsignedCharArray *vtkMapper::MapScalars(vtkDataSet *input,
                                             double alpha,
                                             int &cellFlag)
 {
-  vtkAbstractArray *scalars = NULL;
-
-  scalars = vtkAbstractMapper::
+  vtkAbstractArray *scalars = vtkAbstractMapper::
     GetAbstractScalars(input, this->ScalarMode, this->ArrayAccessMode,
                        this->ArrayId, this->ArrayName, cellFlag);
 
@@ -831,7 +829,7 @@ void CreateColorTextureCoordinates(T* input, float* output,
                                    bool use_log_scale)
 {
   // We have to change the range used for computing texture
-  // coordinates slightly to accomodate the special above- and
+  // coordinates slightly to accommodate the special above- and
   // below-range colors that are the first and last texels,
   // respectively.
   double scalar_texel_width = (range[1] - range[0]) / static_cast<double>(tableNumberOfColors);
@@ -926,6 +924,14 @@ void vtkMapper::MapScalarsToTexture(vtkAbstractArray* scalars, double alpha)
     // In the future, we could extend vtkScalarsToColors.
     vtkIdType numberOfColors = this->LookupTable->GetNumberOfAvailableColors();
     numberOfColors += 2;
+    // number of available colors can return 2^24
+    // which is an absurd size for a tmap in this case. So we
+    // watch for cases like that and reduce it to a
+    // more reasonable size
+    if (numberOfColors > 65538) // 65536+2
+    {
+      numberOfColors = 8192;
+    }
     double k = (range[1]-range[0]) / (numberOfColors-1-2);
     vtkDoubleArray* tmp = vtkDoubleArray::New();
     tmp->SetNumberOfTuples(numberOfColors*2);

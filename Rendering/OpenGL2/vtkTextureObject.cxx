@@ -1524,6 +1524,7 @@ bool vtkTextureObject::Create3DFromRaw(unsigned int width, unsigned int height,
                                        int dataType, void *data)
 {
   assert(this->Context);
+  vtkOpenGLClearErrorMacro();
 
   // Now, detemine texture parameters using the arguments.
   this->GetDataType(dataType);
@@ -1562,13 +1563,52 @@ bool vtkTextureObject::Create3DFromRaw(unsigned int width, unsigned int height,
         this->Type,
         static_cast<const GLvoid *>(data));
 
-  vtkOpenGLCheckErrorMacro("failed at glTexImage2D");
-
   this->Deactivate();
 
-  return true;
+  return vtkOpenGLCheckErrors("Failed to allocate 3D texture.");
 }
 
+//----------------------------------------------------------------------------
+bool vtkTextureObject::AllocateProxyTexture3D(unsigned int const width,
+  unsigned int const height, unsigned int depth, int const numComps,
+  int const dataType)
+{
+#ifndef GL_ES_VERSION_3_0
+  assert(this->Context);
+
+  this->GetDataType(dataType);
+  this->GetInternalFormat(dataType, numComps, false);
+  this->GetFormat(dataType, numComps, false);
+
+  if (!this->InternalFormat || !this->Format || !this->Type)
+  {
+    vtkErrorMacro("Failed to detemine texture parameters.");
+    return false;
+  }
+
+  this->Target = GL_TEXTURE_3D;
+  this->Context->ActivateTexture(this);
+  this->CreateTexture();
+  this->Bind();
+
+  glTexImage3D(GL_PROXY_TEXTURE_3D, 0, this->InternalFormat,
+    static_cast<GLsizei>(width), static_cast<GLsizei>(height),
+    static_cast<GLsizei>(depth), 0, this->Format, this->Type, NULL);
+
+  GLsizei testWidth;
+  glGetTexLevelParameteriv(GL_PROXY_TEXTURE_3D, 0, GL_TEXTURE_WIDTH,
+    &testWidth);
+
+  vtkOpenGLCheckErrorMacro("Failed after glTexImage3D with PROXY target");
+  this->Deactivate();
+
+  if (testWidth == 0)
+  {
+    return false;
+  }
+#endif
+  return true;
+}
 
 //----------------------------------------------------------------------------
 bool vtkTextureObject::Create2DFromRaw(unsigned int width, unsigned int height,
@@ -1982,7 +2022,7 @@ void vtkTextureObject::CopyToFrameBuffer(
   int srcXmax, int srcYmax,
   int dstXmin, int dstYmin,
   int dstXmax, int dstYmax,
-  int dstSizeX, int dstSizeY,
+  int vtkNotUsed(dstSizeX), int vtkNotUsed(dstSizeY),
   vtkShaderProgram *program, vtkOpenGLVertexArrayObject *vao)
 {
   assert("pre: positive_srcXmin" && srcXmin>=0);
@@ -2008,7 +2048,7 @@ void vtkTextureObject::CopyToFrameBuffer(
 
   GLint saved_viewport[4];
   glGetIntegerv(GL_VIEWPORT, saved_viewport);
-  glViewport(0,0,dstSizeX,dstSizeY);
+  glViewport(dstXmin, dstYmin, dstXmax - dstXmin + 1, dstYmax - dstYmin + 1);
 
   float tcoords[] = {
     minXTexCoord, minYTexCoord,
@@ -2017,10 +2057,10 @@ void vtkTextureObject::CopyToFrameBuffer(
     minXTexCoord, maxYTexCoord};
 
   float verts[] = {
-    2.0f*dstXmin/dstSizeX-1.0f, 2.0f*dstYmin/dstSizeY-1.0f, 0.0f,
-    2.0f*(dstXmax+1.0f)/dstSizeX-1.0f, 2.0f*dstYmin/dstSizeY-1.0f, 0.0f,
-    2.0f*(dstXmax+1.0f)/dstSizeX-1.0f, 2.0f*(dstYmax+1.0f)/dstSizeY-1.0f, 0.0f,
-    2.0f*dstXmin/dstSizeX-1.0f, 2.0f*(dstYmax+1.0f)/dstSizeY-1.0f, 0.0f};
+    -1.f, -1.f, 0.0f,
+    1.0f, -1.f, 0.0f,
+    1.0f, 1.0f, 0.0f,
+    -1.f, 1.0f, 0.0f};
 
     this->CopyToFrameBuffer(tcoords, verts, program, vao);
 
@@ -2069,13 +2109,16 @@ void vtkTextureObject::CopyToFrameBuffer(float *tcoords, float *verts,
         this->ShaderProgram->Program);
     }
 
-    // bind and activate this texture
-    this->Activate();
-    int sourceId = this->GetTextureUnit();
-    this->ShaderProgram->Program->SetUniformi("source",sourceId);
-    vtkOpenGLRenderUtilities::RenderQuad(verts, tcoords, this->ShaderProgram->Program,
-      this->ShaderProgram->VAO);
-    this->Deactivate();
+    if (this->ShaderProgram->Program)
+    {
+      // bind and activate this texture
+      this->Activate();
+      int sourceId = this->GetTextureUnit();
+      this->ShaderProgram->Program->SetUniformi("source",sourceId);
+      vtkOpenGLRenderUtilities::RenderQuad(verts, tcoords, this->ShaderProgram->Program,
+        this->ShaderProgram->VAO);
+      this->Deactivate();
+    }
   }
   else
   {
@@ -2113,19 +2156,36 @@ void vtkTextureObject::CopyFromFrameBuffer(int srcXmin,
 //----------------------------------------------------------------------------
 int vtkTextureObject::GetMaximumTextureSize(vtkOpenGLRenderWindow* context)
 {
-  int maxSize = -1;
-
+  GLint maxSize = -1;
   if (context && context->IsCurrent())
   {
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxSize);
   }
 
-  return maxSize;
+  return static_cast<int>(maxSize);
 }
 
-void vtkTextureObject::Resize(
-  unsigned int width,
-  unsigned int height)
+//----------------------------------------------------------------------------
+int vtkTextureObject::GetMaximumTextureSize3D(vtkOpenGLRenderWindow* context)
+{
+  GLint maxSize = -1;
+  if (context && context->IsCurrent())
+  {
+    glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &maxSize);
+  }
+
+  return static_cast<int>(maxSize);
+}
+
+//----------------------------------------------------------------------------
+int vtkTextureObject::GetMaximumTextureSize3D()
+{
+  assert("Context == NULL" && this->Context);
+  return vtkTextureObject::GetMaximumTextureSize3D(this->Context);
+}
+
+//----------------------------------------------------------------------------
+void vtkTextureObject::Resize(unsigned int width, unsigned int height)
 {
   if (this->Width == width && this->Height == height)
   {

@@ -31,7 +31,7 @@
 #include <cassert>
 #include <vector>
 
-// Some usefull extent macros
+// Some useful extent macros
 #define EMIN(ext, dim) (ext[2*dim])
 #define EMAX(ext, dim) (ext[2*dim+1])
 #define IMIN(ext) (ext[0])
@@ -477,6 +477,14 @@ void vtkExtractStructuredGridHelper::CopyCellData(int inExt[6], int outExt[6],
 
   int outCellExt[6];
   vtkStructuredData::GetCellExtentFromPointExtent(outExt,outCellExt);
+
+  // clamp outCellExt using inpCellExt. This is needed for the case where outExt
+  // is the outer face of the dataset along any of the dimensions.
+  for (int dim = 0; dim < 3; ++dim)
+  {
+    EMIN(outCellExt, dim) = std::min(EMAX(inpCellExt, dim), EMIN(outCellExt, dim));
+    EMAX(outCellExt, dim) = std::min(EMAX(inpCellExt, dim), EMAX(outCellExt, dim));
+  }
 
   // Lists for batching copy operations:
   vtkNew<vtkIdList> srcIds;

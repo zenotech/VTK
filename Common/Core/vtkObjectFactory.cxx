@@ -70,7 +70,7 @@ vtkObject* vtkObjectFactory::CreateInstance(const char* vtkclassname,
 }
 
 #ifndef VTK_LEGACY_REMOVE
-void vtkObjectFactory::ConstructInstance(const char *vtkclassname)
+void vtkObjectFactory::ConstructInstance(const char* vtkclassname)
 {
   // no-op. Call vtkObjectBase::InitializeObjectBase() from the New()
   // implementation instead. That way we ensure that the
@@ -79,6 +79,8 @@ void vtkObjectFactory::ConstructInstance(const char *vtkclassname)
                            vtkObjectBase::InitializeObjectBase);
 #ifdef VTK_DEBUG_LEAKS
   vtkDebugLeaks::ConstructClass(vtkclassname);
+#else
+  vtkNotUsed(vtkclassname)
 #endif // VTK_DEBUG_LEAKS
 
 }
@@ -398,7 +400,7 @@ void vtkObjectFactory::PrintSelf(ostream& os, vtkIndent indent)
   for(int i =0; i < num; i++)
   {
     os << indent << "Class : " <<  this->GetClassOverrideName(i) << endl;
-    os << indent << "Overriden with: " <<  this->GetClassOverrideWithName(i)
+    os << indent << "Overridden with: " <<  this->GetClassOverrideWithName(i)
        << endl;
     os << indent << "Enable flag: " <<  this->GetEnableFlag(i) << endl;
     os << endl;
@@ -587,7 +589,7 @@ void vtkObjectFactory::Disable(const char* className)
   }
 }
 
-// 1,0 is the class overriden by className
+// 1,0 is the class overridden by className
 int vtkObjectFactory::HasOverride(const char* className)
 {
   for(int i =0; i < this->OverrideArrayLength; i++)
@@ -600,7 +602,7 @@ int vtkObjectFactory::HasOverride(const char* className)
   return 0;
 }
 
-// 1,0 is the class overriden by className/subclassName pair
+// 1,0 is the class overridden by className/subclassName pair
 int vtkObjectFactory::HasOverride(const char* className,
                                   const char* subclassName)
 {
@@ -629,7 +631,7 @@ vtkObjectFactoryCollection* vtkObjectFactory::GetRegisteredFactories()
 }
 
 
-// 1,0 is the className overriden by any registered factories
+// 1,0 is the className overridden by any registered factories
 int vtkObjectFactory::HasOverrideAny(const char* className)
 {
   vtkObjectFactory* factory;

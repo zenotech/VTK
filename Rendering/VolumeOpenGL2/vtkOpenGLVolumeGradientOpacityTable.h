@@ -53,7 +53,7 @@ public:
     this->TextureObject->Deactivate();
   }
 
-  // Update opacity tranfer function texture.
+  // Update opacity transfer function texture.
   //--------------------------------------------------------------------------
   void Update(vtkPiecewiseFunction* gradientOpacity,
               double sampleDistance,
@@ -184,7 +184,7 @@ protected:
   }
 
   //--------------------------------------------------------------------------
-  ~vtkOpenGLVolumeGradientOpacityTable()
+  ~vtkOpenGLVolumeGradientOpacityTable() VTK_OVERRIDE
   {
       if (this->TextureObject)
       {

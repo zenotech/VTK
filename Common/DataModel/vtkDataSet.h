@@ -110,6 +110,11 @@ public:
    * THIS METHOD IS NOT THREAD SAFE.
    */
   virtual vtkCell *GetCell(vtkIdType cellId) = 0;
+  virtual vtkCell *GetCell(int vtkNotUsed(i), int vtkNotUsed(j), int vtkNotUsed(k))
+  {
+    vtkErrorMacro("ijk indices are only valid with structured data!");
+    return NULL;
+  }
 
   /**
    * Get cell with cellId such that: 0 <= cellId < NumberOfCells.
@@ -374,7 +379,7 @@ public:
 
   //@{
   /**
-   * Normally called by pipeline executives or algoritms only. This method
+   * Normally called by pipeline executives or algorithms only. This method
    * computes the ghost arrays for a given dataset. The zeroExt argument
    * specifies the extent of the region which ghost type = 0.
    */
@@ -497,7 +502,7 @@ protected:
 
   //@{
   /**
-   * These arrays pointers are caches used to avoid a string comparision (when
+   * These arrays pointers are caches used to avoid a string comparison (when
    * getting ghost arrays using GetArray(name))
    */
   vtkUnsignedCharArray* PointGhostArray;

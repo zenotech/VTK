@@ -44,6 +44,7 @@ vtkPLYReader::~vtkPLYReader()
   delete [] this->FileName;
 }
 
+namespace { //required so we don't violate ODR
 typedef struct _plyVertex {
   float x[3];             // the usual 3-space position of a vertex
   float tex[2];
@@ -61,6 +62,7 @@ typedef struct _plyFace {
   unsigned char nverts;   // number of vertex indices in list
   int *verts;             // vertex index list
 } plyFace;
+}
 
 int vtkPLYReader::RequestData(
   vtkInformation *vtkNotUsed(request),
@@ -131,9 +133,7 @@ int vtkPLYReader::RequestData(
   if ( (elem = vtkPLY::find_element (ply, "vertex")) == NULL ||
        vtkPLY::find_property (elem, "x", &index) == NULL ||
        vtkPLY::find_property (elem, "y", &index) == NULL ||
-       vtkPLY::find_property (elem, "z", &index) == NULL ||
-       (elem = vtkPLY::find_element (ply, "face")) == NULL ||
-       vtkPLY::find_property (elem, "vertex_indices", &index) == NULL )
+       vtkPLY::find_property (elem, "z", &index) == NULL)
   {
     vtkErrorMacro(<<"Cannot read geometry");
     vtkPLY::ply_close (ply);

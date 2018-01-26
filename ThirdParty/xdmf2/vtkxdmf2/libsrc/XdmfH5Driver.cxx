@@ -33,7 +33,7 @@
 #include "XdmfDsmBuffer.h"
 #include "XdmfDsmComm.h"
 #include "assert.h"
-#include "hdf5.h"
+#include "vtk_hdf5.h"
 
 #include <cstring>
 #include <stdlib.h>
@@ -160,7 +160,7 @@ static const H5FD_class_t H5FD_dsm_g = {
     MAXADDR,                    /*maxaddr       */
     H5F_CLOSE_WEAK,             /*fc_degree     */
 #if (H5_VERS_MAJOR>1)||((H5_VERS_MAJOR==1)&&(H5_VERS_MINOR>=10))
-    NULL,                       /* terminate */
+    NULL,                       /*terminate     */
 #endif
     NULL,                       /*sb_size       */
     NULL,                       /*sb_encode     */
@@ -694,12 +694,11 @@ H5FD_dsm_set_eoa(H5FD_t *_file, haddr_t addr)
  *-------------------------------------------------------------------------
  */
 static haddr_t
-#if (H5_VERS_MAJOR>1)||((H5_VERS_MAJOR==1)&&(H5_VERS_MINOR>=8))
+
 #if (H5_VERS_MAJOR>1)||((H5_VERS_MAJOR==1)&&(H5_VERS_MINOR>=10))
 H5FD_dsm_get_eof(const H5FD_t *_file, H5FD_mem_t type)
-#else
+#elif ((H5_VERS_MAJOR==1)&&(H5_VERS_MINOR>=8))
 H5FD_dsm_get_eof(const H5FD_t *_file)
-#endif
 #else
 H5FD_dsm_get_eof(H5FD_t *_file)
 #endif

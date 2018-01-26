@@ -52,7 +52,6 @@ vtkWin32OpenGLRenderWindow::vtkWin32OpenGLRenderWindow()
   this->MFChandledWindow = FALSE;       // hsr
   this->StereoType = VTK_STEREO_CRYSTAL_EYES;
   this->CursorHidden = 0;
-  this->Capabilities = 0;
 
   this->CreatingOffScreenWindow = 0;
   this->WindowIdReferenceCount = 0;
@@ -69,8 +68,6 @@ vtkWin32OpenGLRenderWindow::~vtkWin32OpenGLRenderWindow()
   {
     ren->SetRenderWindow(NULL);
   }
-
-  delete[] this->Capabilities;
 }
 
 void vtkWin32OpenGLRenderWindow::Clean()
@@ -181,9 +178,7 @@ bool vtkWin32OpenGLRenderWindow::InitializeFromCurrentContext()
     this->SetWindowId(WindowFromDC(wglGetCurrentDC()));
     this->SetDeviceContext(wglGetCurrentDC());
     this->SetContextId(currentContext);
-    this->OpenGLInit();
-    this->OwnContext = 0;
-    return true;
+    return this->Superclass::InitializeFromCurrentContext();
   }
   return false;
 }
@@ -550,7 +545,13 @@ void vtkWin32OpenGLRenderWindow::SetupPixelFormatPaletteAndContext(
   }
 
   // make sure glew is initialized with fake window
-  this->OpenGLInit();
+  GLenum result = glewInit();
+  bool m_valid = (result == GLEW_OK);
+  if (!m_valid)
+  {
+    vtkErrorMacro("GLEW could not be initialized.");
+    return;
+  }
 
   // First we try to use the newer wglChoosePixelFormatARB which enables
   // features like multisamples.
@@ -564,16 +565,11 @@ void vtkWin32OpenGLRenderWindow::SetupPixelFormatPaletteAndContext(
       WGL_DRAW_TO_WINDOW_ARB, TRUE,
       WGL_DOUBLE_BUFFER_ARB, TRUE,
       WGL_COLOR_BITS_ARB, bpp/4*3,
+      WGL_ALPHA_BITS_ARB, bpp/4,
       WGL_DEPTH_BITS_ARB, zbpp/4*3,
       WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-    unsigned int n = 14;
-    if (this->AlphaBitPlanes)
-    {
-      attrib[n] = WGL_ALPHA_BITS_ARB;
-      attrib[n+1] = bpp/4;
-      n += 2;
-    }
+    unsigned int n = 16;
     if (this->StencilCapable)
     {
       attrib[n] = WGL_STENCIL_BITS_ARB;
@@ -804,7 +800,7 @@ LRESULT vtkWin32OpenGLRenderWindow::MessageProc(HWND hWnd, UINT message,
   {
     case WM_CREATE:
     {
-    // nothing to be done here, opengl is initilized after the call to
+    // nothing to be done here, opengl is initialized after the call to
     // create now
     return 0;
     }
@@ -912,7 +908,7 @@ void vtkWin32OpenGLRenderWindow::CreateAWindow()
         + (int)ceil( (double) log10( (double)(count+1) ) )
         + 1;
       windowName = new char [ len ];
-      sprintf(windowName,"Visualization Toolkit - Win32OpenGL #%i",count++);
+      snprintf(windowName,len,"Visualization Toolkit - Win32OpenGL #%i",count++);
       this->SetWindowName(windowName);
       delete [] windowName;
 

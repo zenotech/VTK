@@ -45,10 +45,7 @@
 #include <set>
 #include <stack>
 #include <vector>
-
-#if defined (__BORLANDC__)
-#include <cctype> // for isspace, isdigit
-#endif
+#include <cctype>
 
 // I need a safe way to read a line of arbitrary length.  It exists on
 // some platforms but not others so I'm afraid I have to write it
@@ -581,7 +578,7 @@ int vtkTulipReader::RequestData(
 
   // Create annotations.
   std::set<vtkStdString>::iterator labels = uniqueLabels.begin();
-  for (; labels != uniqueLabels.end(); labels++)
+  for (; labels != uniqueLabels.end(); ++labels)
   {
     vtkSmartPointer<vtkAnnotation> annotation = vtkSmartPointer<vtkAnnotation>::New();
     annotation->GetInformation()->Set(vtkAnnotation::COLOR(), 0.0, 0.0, 1.0);

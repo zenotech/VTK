@@ -1969,14 +1969,12 @@ vtkUnstructuredGrid *
 vtkIdTypeArray *vtkDistributedDataFilter::ExchangeCountsFast(
   vtkIdType myCount, int vtkNotUsed(tag))
 {
-  vtkIdTypeArray *countArray = NULL;
-
   int nprocs = this->NumProcesses;
 
   vtkIdType *counts = new vtkIdType [nprocs];
   this->Controller->AllGather(&myCount, counts, 1);
 
-  countArray = vtkIdTypeArray::New();
+  vtkIdTypeArray *countArray = vtkIdTypeArray::New();
   countArray->SetArray(counts, nprocs, 0,
     vtkIdTypeArray::VTK_DATA_ARRAY_DELETE);
   return countArray;
@@ -2785,16 +2783,18 @@ static int insideBoxFunction(vtkIdType cellId, vtkUnstructuredGrid *grid, void *
 void vtkDistributedDataFilter::AddConstantUnsignedCharPointArray(
   vtkUnstructuredGrid *grid, const char *arrayName, unsigned char val)
 {
-  vtkIdType npoints = grid->GetNumberOfPoints();
-
-  unsigned char *vals = new unsigned char [npoints];
-
-  memset(vals, val, npoints);
-
   vtkUnsignedCharArray *Array = vtkUnsignedCharArray::New();
   Array->SetName(arrayName);
-  Array->SetArray(vals, npoints, 0,
-    vtkUnsignedCharArray::VTK_DATA_ARRAY_DELETE);
+
+  vtkIdType npoints = grid->GetNumberOfPoints();
+  if (npoints)
+  {
+    unsigned char *vals = new unsigned char [npoints];
+    memset(vals, val, npoints);
+
+    Array->SetArray(vals, npoints, 0,
+      vtkUnsignedCharArray::VTK_DATA_ARRAY_DELETE);
+  }
 
   grid->GetPointData()->AddArray(Array);
 
@@ -2805,15 +2805,17 @@ void vtkDistributedDataFilter::AddConstantUnsignedCharPointArray(
 void vtkDistributedDataFilter::AddConstantUnsignedCharCellArray(
   vtkUnstructuredGrid *grid, const char *arrayName, unsigned char val)
 {
-  vtkIdType ncells = grid->GetNumberOfCells();
-
-  unsigned char *vals = new unsigned char [ncells];
-
-  memset(vals, val, ncells);
-
   vtkUnsignedCharArray *Array = vtkUnsignedCharArray::New();
   Array->SetName(arrayName);
-  Array->SetArray(vals, ncells, 0, vtkUnsignedCharArray::VTK_DATA_ARRAY_DELETE);
+
+  vtkIdType ncells = grid->GetNumberOfCells();
+  if (ncells)
+  {
+    unsigned char *vals = new unsigned char [ncells];
+    memset(vals, val, ncells);
+
+    Array->SetArray(vals, ncells, 0, vtkUnsignedCharArray::VTK_DATA_ARRAY_DELETE);
+  }
 
   grid->GetCellData()->AddArray(Array);
 
@@ -4298,7 +4300,7 @@ vtkIdList **vtkDistributedDataFilter::BuildRequestedGrids(
 
     globalPtIds[proc]->Delete();
 
-    vtkIdType numUniqueCellIds = subGridCellIds.size();
+    vtkIdType numUniqueCellIds = static_cast<vtkIdType>(subGridCellIds.size());
 
     if (numUniqueCellIds == 0)
     {

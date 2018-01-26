@@ -110,6 +110,7 @@
 #define VTKIS_FORWARDFLY   8
 #define VTKIS_REVERSEFLY   9
 #define VTKIS_TWO_POINTER 10
+#define VTKIS_CLIP        11
 
 #define VTKIS_ANIM_OFF 0
 #define VTKIS_ANIM_ON  1
@@ -135,13 +136,13 @@ public:
   static vtkInteractorStyle *New();
 
   vtkTypeMacro(vtkInteractorStyle,vtkInteractorObserver);
-  void PrintSelf(ostream& os, vtkIndent indent);
+  void PrintSelf(ostream& os, vtkIndent indent) VTK_OVERRIDE;
 
   /**
    * Set/Get the Interactor wrapper being controlled by this object.
    * (Satisfy superclass API.)
    */
-  virtual void SetInteractor(vtkRenderWindowInteractor *interactor);
+  void SetInteractor(vtkRenderWindowInteractor *interactor) VTK_OVERRIDE;
 
   /**
    * Turn on/off this interactor. Interactor styles operate a little
@@ -150,7 +151,7 @@ public:
    * themselves. This is a legacy requirement, and convenient for the
    * user.
    */
-  virtual void SetEnabled(int);
+  void SetEnabled(int) VTK_OVERRIDE;
 
   //@{
   /**
@@ -221,12 +222,16 @@ public:
   virtual void OnRightButtonUp() {}
   virtual void OnMouseWheelForward() {}
   virtual void OnMouseWheelBackward() {}
+  virtual void OnFourthButtonDown() {}
+  virtual void OnFourthButtonUp() {}
+  virtual void OnFifthButtonDown() {}
+  virtual void OnFifthButtonUp() {}
 
   /**
    * OnChar is triggered when an ASCII key is pressed. Some basic key presses
    * are handled here ('q' for Quit, 'p' for Pick, etc)
    */
-  virtual void OnChar();
+  void OnChar() VTK_OVERRIDE;
 
   // OnKeyDown is triggered by pressing any key (identical to OnKeyPress()).
   // An empty implementation is provided. The behavior of this function should
@@ -365,7 +370,7 @@ public:
 
 protected:
   vtkInteractorStyle();
-  ~vtkInteractorStyle();
+  ~vtkInteractorStyle() VTK_OVERRIDE;
 
   /**
    * Main process event method

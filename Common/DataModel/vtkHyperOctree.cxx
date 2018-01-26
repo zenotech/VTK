@@ -479,7 +479,7 @@ public:
   // Public only for vtkCompactHyperOctree.
   vtkIdType GetChildHistorySize()
   {
-      return this->ChildHistory.size();
+      return static_cast<vtkIdType>(this->ChildHistory.size());
   }
 
 protected:
@@ -713,7 +713,7 @@ public:
   //---------------------------------------------------------------------------
   vtkIdType GetNumberOfLeaves() VTK_OVERRIDE
   {
-      return this->LeafParent.size();
+      return static_cast<vtkIdType>(this->LeafParent.size());
   }
 
   //---------------------------------------------------------------------------
@@ -3620,7 +3620,7 @@ void vtkHyperOctree::TraverseDualRecursively(
 }
 
 //----------------------------------------------------------------------------
-// Contour the cell assocaited with the center point.
+// Contour the cell associated with the center point.
 // if it has not already been contoured.
 void vtkHyperOctree::EvaluateDualCorner(
   vtkHyperOctreeLightWeightCursor* neighborhood)

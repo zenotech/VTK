@@ -130,7 +130,7 @@ int vtkExtractCells::RequestData(
     ((vtkUnstructuredGrid::SafeDownCast(input)) != NULL);
 
   vtkIdType numCellsInput = input->GetNumberOfCells();
-  vtkIdType numCells = this->CellList->IdTypeSet.size();
+  vtkIdType numCells = static_cast<vtkIdType>(this->CellList->IdTypeSet.size());
 
   if (numCells == numCellsInput)
   {
@@ -420,7 +420,7 @@ vtkIdList *vtkExtractCells::reMapPointIds(vtkDataSet *grid)
 void vtkExtractCells::CopyCellsDataSet(vtkIdList *ptMap, vtkDataSet *input,
                                        vtkUnstructuredGrid *output)
 {
-  output->Allocate(this->CellList->IdTypeSet.size());
+  output->Allocate(static_cast<vtkIdType>(this->CellList->IdTypeSet.size()));
 
   vtkCellData *oldCD = input->GetCellData();
   vtkCellData *newCD = output->GetCellData();
@@ -500,13 +500,13 @@ void vtkExtractCells::CopyCellsUnstructuredGrid(vtkIdList *ptMap,
     origMap->Delete();
   }
 
-  int numCells = static_cast<int>(this->CellList->IdTypeSet.size());
+  vtkIdType numCells = static_cast<vtkIdType>(this->CellList->IdTypeSet.size());
 
   vtkCellArray *cellArray = vtkCellArray::New();                 // output
   vtkIdTypeArray *newcells = vtkIdTypeArray::New();
   newcells->SetNumberOfValues(this->SubSetUGridCellArraySize);
   cellArray->SetCells(numCells, newcells);
-  int cellArrayIdx = 0;
+  vtkIdType cellArrayIdx = 0;
 
   vtkIdTypeArray *locationArray = vtkIdTypeArray::New();
   locationArray->SetNumberOfValues(numCells);
@@ -514,7 +514,7 @@ void vtkExtractCells::CopyCellsUnstructuredGrid(vtkIdList *ptMap,
   vtkUnsignedCharArray *typeArray = vtkUnsignedCharArray::New();
   typeArray->SetNumberOfValues(numCells);
 
-  int nextCellId = 0;
+  vtkIdType nextCellId = 0;
 
   std::set<vtkIdType>::iterator cellPtr;                           // input
   vtkIdType *cells = ugrid->GetCells()->GetPointer();

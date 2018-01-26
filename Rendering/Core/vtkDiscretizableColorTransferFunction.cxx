@@ -84,7 +84,7 @@ void vtkDiscretizableColorTransferFunction::SetNumberOfIndexedColors(
 {
   if (static_cast<unsigned int>(this->Internals->IndexedColors.size()) != count)
   {
-    this->Internals->IndexedColors.resize(count);
+    this->Internals->IndexedColors.resize(count, vtkTuple<double,3>(0.0));
     this->Modified();
   }
 }
@@ -175,7 +175,7 @@ void vtkDiscretizableColorTransferFunction::Build()
 {
   this->Superclass::Build();
 
-  if (this->BuildTime > this->GetMTime())
+  if (this->LookupTableUpdateTime > this->GetMTime())
   {
     // no need to rebuild anything.
     return;
@@ -274,7 +274,7 @@ void vtkDiscretizableColorTransferFunction::Build()
 
   this->LookupTable->BuildSpecialColors();
 
-  this->BuildTime.Modified();
+  this->LookupTableUpdateTime.Modified();
 }
 
 //-----------------------------------------------------------------------------

@@ -108,7 +108,7 @@ using namespace std;
 // this issue.
 // We cannot just check for VTK_USE_SYSTEM_NETCDF because ParaView's superbuild
 // installs a "system" netcdf with the same modifications...
-#ifdef VTK_NETCDF_USE_SIZE_T
+#if defined(VTK_NETCDFCPP_USE_SIZE_T) || defined(VTK_NETCDF_USE_SIZE_T)
 typedef size_t nc_size_t;
 #else
 typedef long nc_size_t;
@@ -2510,7 +2510,7 @@ void vtkMPASReader::UpdateDimensions(bool force)
   }
 
   typedef std::set<std::string>::const_iterator SetIter;
-  this->Internals->extraDims->Allocate(dimSet.size());
+  this->Internals->extraDims->Allocate(static_cast<vtkIdType>(dimSet.size()));
   for (SetIter it = dimSet.begin(), itEnd = dimSet.end(); it != itEnd; ++it)
   {
     this->Internals->extraDims->InsertNextValue(it->c_str());

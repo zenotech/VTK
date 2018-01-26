@@ -1,4 +1,5 @@
 vtk_add_test_cxx(${vtk-module}CxxTests tests
+  TestAppendArcLength.cxx,NO_VALID
   TestAppendFilter.cxx,NO_VALID
   TestAppendPolyData.cxx,NO_VALID
   TestAppendSelection.cxx,NO_VALID
@@ -6,6 +7,7 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestAssignAttribute.cxx,NO_VALID
   TestBinCellDataFilter.cxx,NO_VALID
   TestCategoricalPointDataToCellData.cxx,NO_VALID
+  TestCategoricalResampleWithDataSet.cxx,NO_VALID
   TestCellDataToPointData.cxx,NO_VALID
   TestCenterOfMass.cxx,NO_VALID
   TestCleanPolyData.cxx,NO_VALID
@@ -41,9 +43,11 @@ vtk_add_test_cxx(${vtk-module}CxxTests tests
   TestThreshold.cxx,NO_VALID
   TestThresholdPoints.cxx,NO_VALID
   TestTransposeTable.cxx,NO_VALID
-  TestTubeFilter.cxx,NO_VALID
+  TestTriangleMeshPointNormals.cxx
+  TestTubeFilter.cxx
   TestUnstructuredGridQuadricDecimation.cxx,NO_VALID
   UnitTestMaskPoints.cxx,NO_VALID
   UnitTestMergeFilter.cxx,NO_VALID
   )
+
 vtk_test_cxx_executable(${vtk-module}CxxTests tests)

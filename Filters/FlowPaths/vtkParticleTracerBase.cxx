@@ -683,7 +683,7 @@ void vtkParticleTracerBase::AssignUniqueIds(
   vtkParticleTracerBaseNamespace::ParticleVector &localSeedPoints)
 {
   vtkIdType particleCountOffset = 0;
-  vtkIdType numParticles = localSeedPoints.size();
+  vtkIdType numParticles = static_cast<vtkIdType>(localSeedPoints.size());
   for (vtkIdType i=0; i<numParticles; i++)
   {
     localSeedPoints[i].UniqueParticleId =
@@ -857,7 +857,7 @@ vtkPolyData* vtkParticleTracerBase::Execute(vtkInformationVector** inputVector)
     ParticleListIterator  it_next;
 
     //
-    // Perform mulitple passes. The number of passes is equal to one more than
+    // Perform multiple passes. The number of passes is equal to one more than
     // the maximum times a particle gets migrated between processes.
     bool continueExecuting = true;
     int pass = 0; // really just for debugging

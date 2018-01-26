@@ -141,7 +141,7 @@ int vtkDecimatePro::RequestData(
   vtkIdType pt1, pt2, cellId, fedges[2];
   vtkIdType *cells;
   vtkIdList *CollapseTris;
-  double max, *bounds;
+  double max;
   if (!input)
   {
     vtkErrorMacro(<<"No input!");
@@ -166,7 +166,7 @@ int vtkDecimatePro::RequestData(
   }
 
   // Initialize
-  bounds = input->GetBounds();
+  const double *bounds = input->GetBounds();
   for (max=0.0, i=0; i<3; i++)
   {
     max = ((bounds[2*i+1]-bounds[2*i]) > max ?
@@ -1562,7 +1562,7 @@ int vtkDecimatePro::Pop(double &error)
     }
   }
 
-  // If here, then this->Mesh splitting hasn't helped or is exhausted. Run thru
+  // If here, then this->Mesh splitting hasn't helped or is exhausted. Run through
   // vertices and split them as necessary no matter what.
   if ( this->NumberOfRemainingTris > 0 && this->Split && this->SplitState != VTK_STATE_SPLIT_ALL )
   {

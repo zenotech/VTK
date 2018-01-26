@@ -749,10 +749,9 @@ void vtkTecplotReader::GetArraysFromPointPackingZone
   int     isXcoord;
   int     isYcoord;
   int     isZcoord;
-  int   * anyCoord = NULL; // is any coordinate?
-  int   * coordIdx = NULL; // index of the coordinate array, just in case
-  int   * selected = NULL; // is a selected data array?
-  float * cordsPtr = NULL;
+  int   * anyCoord; // is any coordinate?
+  int   * coordIdx; // index of the coordinate array, just in case
+  int   * selected; // is a selected data array?
   float * arrayPtr = NULL;
   float   theValue;
   vtkFloatArray * theArray = NULL;
@@ -765,7 +764,7 @@ void vtkTecplotReader::GetArraysFromPointPackingZone
   // geoemtry: 3D point coordinates (note that this array must be initialized
   // since only 2D coordinates might be provided by a Tecplot file)
   theNodes->SetNumberOfPoints( numNodes );
-  cordsPtr = static_cast< float * > (  theNodes->GetVoidPointer( 0 )  );
+  float * cordsPtr = static_cast< float * > (  theNodes->GetVoidPointer( 0 )  );
   memset( cordsPtr, 0, sizeof( float ) * 3 * numNodes );
 
   // three arrays used to determine the role of each variable (including
@@ -883,9 +882,8 @@ void vtkTecplotReader::GetArraysFromBlockPackingZone( int numNodes, int numCells
   int     isXcoord;
   int     isYcoord;
   int     isZcoord;
-  int   * anyCoord = NULL; // is any coordinate?
-  int   * selected = NULL; // is a selected data attribute?
-  float * cordsPtr = NULL;
+  int   * anyCoord; // is any coordinate?
+  int   * selected; // is a selected data attribute?
   float * arrayPtr = NULL;
   vtkFloatArray * theArray = NULL;
   std::vector< vtkFloatArray * > zoneData;
@@ -896,7 +894,7 @@ void vtkTecplotReader::GetArraysFromBlockPackingZone( int numNodes, int numCells
   // geoemtry: 3D point coordinates (note that this array must be initialized
   // since only 2D coordinates might be provided by a Tecplot file)
   theNodes->SetNumberOfPoints( numNodes );
-  cordsPtr = static_cast< float * > (  theNodes->GetVoidPointer( 0 )  );
+  float * cordsPtr = static_cast< float * > (  theNodes->GetVoidPointer( 0 )  );
   memset( cordsPtr, 0, sizeof( float ) * 3 * numNodes );
 
   // two arrays used to determine the role of each variable (including
@@ -1229,6 +1227,7 @@ void vtkTecplotReader::GetUnstructuredGridCells( int numberCells,
   else
   {
     vtkErrorMacro( << this->FileName << ": Unknown cell type for a zone." );
+    return;
   }
 
   // the storage of each cell begins with the number of points per cell,
@@ -1642,7 +1641,7 @@ void vtkTecplotReader::ReadFile( vtkMultiBlockDataSet * multZone )
       int      numNodes    = 0;
       int      numElements = 0;
       char     untitledZoneName[40];
-      sprintf( untitledZoneName, "zone%05d", zoneIndex );
+      snprintf( untitledZoneName, sizeof(untitledZoneName), "zone%05d", zoneIndex );
 
       std::string format    = "";
       std::string elemType  = "";
@@ -1674,6 +1673,7 @@ void vtkTecplotReader::ReadFile( vtkMultiBlockDataSet * multZone )
           {
             vtkErrorMacro( << this->FileName << ": Zone titles MUST be "
                            << "quoted." );
+            return;
           }
         }
         else if ( tok == "I" )
@@ -1780,18 +1780,19 @@ void vtkTecplotReader::ReadFile( vtkMultiBlockDataSet * multZone )
         }
         else if ( tok == "D" )
         {
-          vtkErrorMacro( << this->FileName << "; Tecplot zone record parameter "
+          vtkWarningMacro( << this->FileName << "; Tecplot zone record parameter "
                          << "'D' is currently unsupported." );
+          this->Internal->GetNextToken();
         }
         else if ( tok == "STRANDID" )
         {
-          vtkErrorMacro( << this->FileName << "; Tecplot zone record parameter "
+          vtkWarningMacro( << this->FileName << "; Tecplot zone record parameter "
                          << "'STRANDID' is currently unsupported." );
           this->Internal->GetNextToken();
         }
         else if ( tok == "SOLUTIONTIME" )
         {
-          vtkErrorMacro( << this->FileName << "; Tecplot zone record parameter "
+          vtkWarningMacro( << this->FileName << "; Tecplot zone record parameter "
                          << "'SOLUTIONTIME' is currently unsupported." );
           this->Internal->GetNextToken();
         }
@@ -1843,6 +1844,7 @@ void vtkTecplotReader::ReadFile( vtkMultiBlockDataSet * multZone )
         // UNKNOWN FORMAT
         vtkErrorMacro( << this->FileName << ": The format " << format.c_str()
                        << " found in the file is unknown." );
+        return;
       }
 
       zoneIndex ++;
@@ -1909,6 +1911,7 @@ void vtkTecplotReader::ReadFile( vtkMultiBlockDataSet * multZone )
       // UNKNOWN RECORD TYPE
       vtkErrorMacro( << this->FileName << ": The record type " << tok.c_str()
                      << " found in the file is unknown." );
+      return;
     }
 
     firstToken = false;

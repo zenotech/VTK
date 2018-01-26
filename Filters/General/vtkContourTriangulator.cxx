@@ -2116,7 +2116,9 @@ int vtkCCSFindCuts(
 
         // This check is done for both cuts
         if (vtkCCSCheckCut(polys, points, normal, polyGroup,
-                           outerPolyId, innerPolyId, k, j))
+                           outerPolyId, innerPolyId,
+                           static_cast<vtkIdType>(k),
+                           static_cast<vtkIdType>(j)))
         {
           cuts[cutId][0] = k;
           cuts[cutId][1] = j;
@@ -2296,7 +2298,7 @@ int vtkCCSCutHoleyPolys(
 
       if (madeCut)
       {
-        // Move successfuly cut innerPolyId into its own group
+        // Move successfully cut innerPolyId into its own group
         polyGroup.erase(polyGroup.begin() + inner);
         polyGroups[innerPolyId].push_back(innerPolyId);
       }

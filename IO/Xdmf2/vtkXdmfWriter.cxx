@@ -703,7 +703,7 @@ int vtkXdmfWriter::CreateTopology(vtkDataSet *ds, xdmf2::XdmfGrid *grid, vtkIdTy
     //TODO: When is it beneficial to take advantage of a homogenous topology?
     //If no compelling reason not to used MIXED, then this should go away.
     //This special case code requires an in memory copy just to get rid of
-    //each cell's preceeding number of points int.
+    //each cell's preceding number of points int.
     //If don't have to do that, could use pointer sharing,
     //and the extra code path is bound to cause problems eventually.
     if ( cellTypes.size() == 1 )
@@ -1303,8 +1303,10 @@ void vtkXdmfWriter::ConvertVToXArray(vtkDataArray *vda,
       break;
     case VTK_LONG_LONG:
     case VTK_UNSIGNED_LONG_LONG:
+#if !defined(VTK_LEGACY_REMOVE)
     case VTK___INT64:
     case VTK_UNSIGNED___INT64:
+#endif
     case VTK_UNSIGNED_LONG:
     case VTK_STRING:
     {

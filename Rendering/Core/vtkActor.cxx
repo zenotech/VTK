@@ -347,7 +347,7 @@ vtkProperty *vtkActor::GetProperty()
 double *vtkActor::GetBounds()
 {
   int i,n;
-  double *bounds, bbox[24], *fptr;
+  double bbox[24], *fptr;
 
   vtkDebugMacro( << "Getting Bounds" );
 
@@ -357,11 +357,11 @@ double *vtkActor::GetBounds()
     return this->Bounds;
   }
 
-  bounds = this->Mapper->GetBounds();
+  const double *bounds = this->Mapper->GetBounds();
   // Check for the special case when the mapper's bounds are unknown
   if (!bounds)
   {
-    return bounds;
+    return NULL;
   }
 
   // Check for the special case when the actor is empty.
@@ -466,14 +466,15 @@ vtkMTimeType vtkActor::GetRedrawMTime()
   vtkMTimeType mTime=this->GetMTime();
   vtkMTimeType time;
 
-  if ( this->Mapper != NULL )
+  vtkMapper *myMapper = this->GetMapper();
+  if ( myMapper != NULL )
   {
-    time = this->Mapper->GetMTime();
+    time = myMapper->GetMTime();
     mTime = ( time > mTime ? time : mTime );
-    if (this->GetMapper()->GetInput() != NULL)
+    if (myMapper->GetInput() != NULL)
     {
-      this->GetMapper()->GetInputAlgorithm()->Update();
-      time = this->Mapper->GetInput()->GetMTime();
+      myMapper->GetInputAlgorithm()->Update();
+      time = myMapper->GetInput()->GetMTime();
       mTime = ( time > mTime ? time : mTime );
     }
   }

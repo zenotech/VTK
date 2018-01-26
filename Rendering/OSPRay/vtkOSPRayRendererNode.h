@@ -26,9 +26,12 @@
 #include "vtkRendererNode.h"
 #include <vector> // for ivars
 
-class vtkRenderer;
 class vtkInformationIntegerKey;
 class vtkInformationStringKey;
+class vtkMatrix4x4;
+class vtkOSPRayRendererNodeInternals;
+class vtkRenderer;
+
 // ospray forward decs so that someone does not need to include ospray.h
 namespace osp {
 struct Model;
@@ -58,7 +61,7 @@ public:
   virtual void Build(bool prepass);
 
   /**
-   * Traverse graph in ospray's prefered order and render
+   * Traverse graph in ospray's preferred order and render
    */
   virtual void Render(bool prepass);
 
@@ -181,6 +184,10 @@ protected:
   bool Accumulate;
   bool CompositeOnGL;
   float* ODepthBuffer;
+  int AccumulateCount;
+  vtkMTimeType AccumulateTime;
+  vtkMatrix4x4 *AccumulateMatrix;
+  vtkOSPRayRendererNodeInternals *Internal;
 
 private:
   vtkOSPRayRendererNode(const vtkOSPRayRendererNode&) VTK_DELETE_FUNCTION;

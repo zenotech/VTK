@@ -147,7 +147,7 @@ bool vtkADIOSWriter::DefineAndWrite(vtkDataObject *input)
     // Things to do on the first step, before writing any data
     if(this->CurrentStep == 0)
     {
-      // Before any data can be writen, it's structure must be declared
+      // Before any data can be written, it's structure must be declared
       this->Define("", data);
 
       if(localProc == 0)
@@ -526,7 +526,7 @@ void vtkADIOSWriter::Write(const std::string& path, const vtkDataArray* v)
   if(lut)
   {
     // Only check the mtime here if a LUT is present.  Otherwise it will be
-    // handled apropriately by the abstract array writer
+    // handled appropriately by the abstract array writer
     if(!this->UpdateMTimeTable(path, v))
     {
       return;

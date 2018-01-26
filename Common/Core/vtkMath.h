@@ -753,6 +753,24 @@ public:
 
   //@{
   /**
+   * rotate a vector by a normalized quaternion
+   * using // https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
+   */
+  static void RotateVectorByNormalizedQuaternion(const float v[3], const float q[4], float r[3]);
+  static void RotateVectorByNormalizedQuaternion(const double v[3], const double q[4], double r[3]);
+  //@}
+
+  //@{
+  /**
+   * rotate a vector by WXYZ
+   * using // https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
+   */
+  static void RotateVectorByWXYZ(const float v[3], const float q[4], float r[3]);
+  static void RotateVectorByWXYZ(const double v[3], const double q[4], double r[3]);
+  //@}
+
+  //@{
+  /**
    * Orthogonalize a 3x3 matrix and put the result in B.  If matrix A
    * has a negative determinant, then B will be a rotation plus a flip
    * i.e. it will have a determinant of -1.
@@ -1056,7 +1074,7 @@ public:
   /**
    * Are the bounds initialized?
    */
-  static vtkTypeBool AreBoundsInitialized(double bounds[6]){
+  static vtkTypeBool AreBoundsInitialized(const double bounds[6]){
     if ( bounds[1]-bounds[0]<0.0 )
     {
       return 0;
@@ -1151,6 +1169,18 @@ public:
    * Delta is the error margin along each axis (usually a small number)
    */
   static vtkTypeBool PointIsWithinBounds(double point[3], double bounds[6], double delta[3]);
+
+  /**
+   * Implements Plane / Axis-Aligned Bounding-Box intersection as described in
+   * Graphics Gems IV, Ned Greene; pp. 75-76. Variable names are based on the
+   * description in the book. This function returns +1 if the box lies fully in
+   * the positive side of the plane (by convention, the side to which the plane's
+   * normal points to), -1 if the box fully lies in the negative side and 0 if
+   * the plane intersects the box.  -2 is returned if any of the arguments is
+   * invalid.
+   */
+  static int PlaneIntersectsAABB(double const bounds[6], double const normal[3],
+    double const point[3]);
 
   /**
    * In Euclidean space, there is a unique circle passing through any given

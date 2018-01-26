@@ -130,7 +130,7 @@ PyObject *PyVTKObject_String(PyObject *op)
 PyObject *PyVTKObject_Repr(PyObject *op)
 {
   char buf[255];
-  sprintf(buf, "(%.200s)%p", Py_TYPE(op)->tp_name, static_cast<void*>(op));
+  snprintf(buf, sizeof(buf), "(%.200s)%p", Py_TYPE(op)->tp_name, static_cast<void*>(op));
 
   return PyString_FromString(buf);
 }
@@ -250,7 +250,7 @@ static PyObject *PyVTKObject_GetThis(PyObject *op, void *)
   {
     classname = vtkPythonUtil::StripModule(Py_TYPE(op)->tp_name);
   }
-  sprintf(buf, "p_%.500s", classname);
+  snprintf(buf, sizeof(buf), "p_%.500s", classname);
   return PyString_FromString(
     vtkPythonUtil::ManglePointer(self->vtk_ptr, buf));
 }
@@ -350,8 +350,10 @@ static const char *pythonTypeFormat(int t)
     case VTK_UNSIGNED_LONG: b = "L"; break;
     case VTK_LONG_LONG: b = "q"; break;
     case VTK_UNSIGNED_LONG_LONG: b = "Q"; break;
+#if !defined(VTK_LEGACY_REMOVE)
     case VTK___INT64: b = "q"; break;
     case VTK_UNSIGNED___INT64: b = "Q"; break;
+#endif
     case VTK_FLOAT: b = "f"; break;
     case VTK_DOUBLE: b = "d"; break;
 #ifndef VTK_USE_64BIT_IDS

@@ -150,6 +150,9 @@ void vtkShadowMapPass::Render(const vtkRenderState *s)
      // Test for Hardware support. If not supported, just render the delegate.
     bool supported=vtkOpenGLFramebufferObject::IsSupported(context);
 
+    this->ShadowTextureUnits.clear();
+    this->ShadowAttenuation.clear();
+
     if(!supported)
     {
       vtkErrorMacro("FBOs are not supported by the context. Cannot use shadow mapping.");
@@ -168,9 +171,7 @@ void vtkShadowMapPass::Render(const vtkRenderState *s)
     }
 
     vtkLightCollection *lights=r->GetLights();
-    this->ShadowTextureUnits.clear();
     this->ShadowTextureUnits.resize(lights->GetNumberOfItems());
-    this->ShadowAttenuation.clear();
     this->ShadowAttenuation.resize(lights->GetNumberOfItems());
 
     // get the shadow maps and activate them
@@ -355,14 +356,25 @@ bool vtkShadowMapPass::PostReplaceShaderValues(
   vtkAbstractMapper *,
   vtkProp *)
 {
-  vtkShaderProgram::Substitute(fragmentShader,
-    "diffuse += (df * lightColor[lightNum]);",
-    "diffuse += (df * factors[lightNum] * lightColor[lightNum]);",
-    false);
-  vtkShaderProgram::Substitute(fragmentShader,
-    "specular += (sf * lightColor[lightNum]);",
-    "specular += (sf * factors[lightNum] * lightColor[lightNum]);",
-    false);
+  size_t numLights = this->ShadowTextureUnits.size();
+
+  for (size_t i = 0; i < numLights; ++i)
+  {
+    std::ostringstream toString1;
+    std::ostringstream toString2;
+    toString1 << "diffuse += (df * lightColor" << i << ");";
+    toString2 << "diffuse += (df * factor" << i << " * lightColor" << i << ");";
+    vtkShaderProgram::Substitute(fragmentShader,
+      toString1.str(), toString2.str(),
+      false);
+    std::ostringstream toString3;
+    std::ostringstream toString4;
+    toString3 << "specular += (df * lightColor" << i << ");";
+    toString4 << "specular += (df * factor" << i << " * lightColor" << i << ");";
+    vtkShaderProgram::Substitute(fragmentShader,
+      toString3.str(), toString4.str(),
+      false);
+  }
   return true;
 }
 
@@ -401,14 +413,14 @@ void vtkShadowMapPass::BuildShaderCode()
     "       && projected.y >= 0.0 && projected.y <= 1.0)\n"
     "      {\n"
     "      result = 0.0;\n"
-    "      float zval = shadowCoord.z - 0.005;\n"
+    "      float zval = min(shadowCoord.z/shadowCoord.w, 1.0) - 0.005;\n"
     "      vec2 projT = projected*" + toString.str() + ";\n"
     "      projT = fract(projT);\n"
     "      if (texture2D(shadowMap,projected + (vec2(-1.0,-1.0)/" + toString.str() + ")).r - zval > 0.0) { result = result + (1.0-projT.x)*(1.0-projT.y); }\n"
     "      if (texture2D(shadowMap,projected + (vec2(0.0,-1.0)/" + toString.str() + ")).r - zval > 0.0) { result = result + (1.0-projT.y); }\n"
     "      if (texture2D(shadowMap,projected + (vec2(1.0,-1.0)/" + toString.str() + ")).r - zval > 0.0) { result = result + projT.x*(1.0-projT.y); }\n"
     "      if (texture2D(shadowMap,projected + (vec2(1.0,0.0)/" + toString.str() + ")).r - zval > 0.0) { result = result + projT.x; }\n"
-    "      if (texture2D(shadowMap,projected + (vec2(0.0,0.0)/" + toString.str() + ")).r - zval > 0.0) { result = result + 1.0; }\n"
+    "      if (texture2D(shadowMap,projected).r - zval > 0.0) { result = result + 1.0; }\n"
     "      if (texture2D(shadowMap,projected + (vec2(-1.0,0.0)/" + toString.str() + ")).r - zval > 0.0) { result = result + (1.0-projT.x); }\n"
     "      if (texture2D(shadowMap,projected + (vec2(0.0,1.0)/" + toString.str() + ")).r - zval > 0.0) { result = result + projT.y; }\n"
     "      if (texture2D(shadowMap,projected + (vec2(-1.0,1.0)/" + toString.str() + ")).r - zval > 0.0) { result = result + (1.0-projT.x)*projT.y; }\n"
@@ -432,33 +444,31 @@ void vtkShadowMapPass::BuildShaderCode()
   }
 
   // build the code for the lighting factors
-  std::string fimpl = "float factors[6];\n";
+  toString.str("");
+  toString.clear();
   numSMT = 0;
-  for (size_t i = 0; i < 6; i++)
+  for (size_t i = 0; i < numLights; i++)
   {
-    toString.str("");
-    toString.clear();
-    toString << i;
-    fimpl += "  factors[" + toString.str() + "] = ";
+    toString << "float factor" << i << " = ";
     if (i < numLights && this->ShadowTextureUnits[i] >= 0)
     {
       std::ostringstream toString2;
       toString2 << numSMT;
-      fimpl += "calcShadow(vertexVC, shadowMap" +toString2.str() +
-        ", shadowTransform" + toString2.str() +
-        ", shadowAttenuation" + toString2.str() +");\n";
+      toString << "calcShadow(vertexVC, shadowMap" << toString2.str() <<
+        ", shadowTransform" << toString2.str() <<
+        ", shadowAttenuation" << toString2.str() << ");\n";
       numSMT++;
     }
     else
     {
-      fimpl += "1.0;\n";
+      toString << "1.0;\n";
     }
   }
 
   // compute the factors then do the normal lighting
-  fimpl += "//VTK::Light::Impl\n";
+  toString << "//VTK::Light::Impl\n";
   this->FragmentDeclaration = fdec;
-  this->FragmentImplementation = fimpl;
+  this->FragmentImplementation = toString.str();
 }
 
 // ----------------------------------------------------------------------------

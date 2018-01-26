@@ -239,7 +239,7 @@ namespace vtkPSLACReaderTypes
                               midpointListsType &recvMidpoints,
                               int process)
   {
-    vtkIdType sendLength = sendMidpoints.position.size();
+    vtkIdType sendLength = static_cast<vtkIdType>(sendMidpoints.position.size());
     if (sendLength != static_cast<vtkIdType>(sendMidpoints.topology.size()))
     {
       vtkGenericWarningMacro(<< "Bad midpoint array structure.");
@@ -635,10 +635,10 @@ int vtkPSLACReader::ReadConnectivity(int meshFD,
   // local to global id map for now.  We will fill the global to local id
   // later when we iterate over the local ids.
   this->Internal->LocalToGlobalIds->Allocate(
-                                       this->Internal->GlobalToLocalIds.size());
+    static_cast<vtkIdType>(this->Internal->GlobalToLocalIds.size()));
   vtkInternal::GlobalToLocalIdType::iterator itr;
   for (itr = this->Internal->GlobalToLocalIds.begin();
-       itr != this->Internal->GlobalToLocalIds.end(); itr++)
+       itr != this->Internal->GlobalToLocalIds.end(); ++itr)
   {
     this->Internal->LocalToGlobalIds->InsertNextValue(itr->first);
   }
@@ -900,9 +900,9 @@ vtkSmartPointer<vtkDataArray> vtkPSLACReader::ReadPointDataArray(int ncFD,
   for (int i = 0; i < this->NumberOfPieces; i++)
   {
     sendLengths->SetValue(i,
-     this->Internal->PointsToSendToProcessesLengths->GetValue(i)*numComponents);
+     static_cast<int>(this->Internal->PointsToSendToProcessesLengths->GetValue(i)*numComponents));
     sendOffsets->SetValue(i,
-     this->Internal->PointsToSendToProcessesOffsets->GetValue(i)*numComponents);
+     static_cast<int>(this->Internal->PointsToSendToProcessesOffsets->GetValue(i)*numComponents));
   }
 
   // Let each process have a turn sending data to the other processes.
@@ -911,8 +911,10 @@ vtkSmartPointer<vtkDataArray> vtkPSLACReader::ReadPointDataArray(int ncFD,
   {
     // Scatter data from source.  Note that lengths and offsets are only valid
     // on the source process.  All others are ignored.
-    vtkIdType destLength = numComponents*this->Internal->PointsExpectedFromProcessesLengths->GetValue(proc);
-    vtkIdType destOffset = numComponents*this->Internal->PointsExpectedFromProcessesOffsets->GetValue(proc);
+    vtkIdType destLength = static_cast<vtkIdType>(
+      numComponents*this->Internal->PointsExpectedFromProcessesLengths->GetValue(proc));
+    vtkIdType destOffset = static_cast<vtkIdType>(
+      numComponents*this->Internal->PointsExpectedFromProcessesOffsets->GetValue(proc));
     this->Controller->GetCommunicator()->ScatterVVoidArray(
                                      sendBuffer->GetVoidPointer(0),
                                      finalDataArray->GetVoidPointer(destOffset),
@@ -1031,7 +1033,7 @@ int vtkPSLACReader::ReadMidpointCoordinates (
   for (posIter = midpointsToRedistribute.position.begin(),
          topIter = midpointsToRedistribute.topology.begin();
        posIter != midpointsToRedistribute.position.end();
-       posIter++, topIter++)
+       ++posIter, ++topIter)
   {
     midpointPointersType mp;
     mp.position = &(*posIter);  mp.topology = &(*topIter);
@@ -1110,7 +1112,7 @@ int vtkPSLACReader::ReadMidpointCoordinates (
   for (posIter = midpointsToReceive.position.begin(),
          topIter = midpointsToReceive.topology.begin();
        posIter != midpointsToReceive.position.end();
-       posIter++, topIter++)
+       ++posIter, ++topIter)
   {
     if (topIter->globalId < 0) continue;
 

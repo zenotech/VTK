@@ -157,7 +157,7 @@ public:
     this->MainNodeTable.FreeZone=1;
     // Clear node
     this->GetNode(1)->ArcUpId = ((int)-2);
-    // Intialize DownArc
+    // Initialize DownArc
     this->GetNode(1)->ArcDownId = 0;
     this->MainArcTable.FreeZone=1;
     // Clear Arc label 1
@@ -527,7 +527,7 @@ public:
                          vtkIdType vertex1Id, double scalar1,
                          vtkIdType vertex2Id, double scalar2,
                          vtkIdType vertex3Id, double scalar3);
-  int StreamTriangle(	vtkIdType vertex0Id, double scalar0,
+  int StreamTriangle( vtkIdType vertex0Id, double scalar0,
                       vtkIdType vertex1Id, double scalar1,
                       vtkIdType vertex2Id, double scalar2);
 
@@ -1419,7 +1419,7 @@ int vtkReebGraph::Implementation::SimplifyBranches(double simplificationThreshol
     bool simplified=false;
 
     // M is a maximum
-    if (!simplified && !Mup)
+    if (!Mup)
     {
       if ((Down = FindSplitNode(A, RouteOld)))
       {
@@ -1802,7 +1802,8 @@ int vtkReebGraph::Implementation::CommitSimplification()
     {
       vtkVariantArray *edgeProperties = vtkVariantArray::New();
       vtkIdTypeArray  *vertexList = vtkIdTypeArray::New();
-      vertexList->SetNumberOfValues(after[i].second.size());
+      vertexList->SetNumberOfValues(
+        static_cast<vtkIdType>(after[i].second.size()));
       for(unsigned int j = 0; j < after[i].second.size(); j++)
         vertexList->SetValue(j, after[i].second[j]);
       edgeProperties->SetNumberOfValues(1);
@@ -1977,7 +1978,7 @@ void vtkReebGraph::CloseStream()
         }
       }
     }
-      aIt++;
+      ++aIt;
   }
   while(aIt != localAdjacency.end());
 
@@ -2048,7 +2049,8 @@ void vtkReebGraph::CloseStream()
     {
       vtkVariantArray *edgeProperties = vtkVariantArray::New();
       vtkIdTypeArray  *vertexList = vtkIdTypeArray::New();
-      vertexList->SetNumberOfValues(globalAdjacency[i].second.size());
+      vertexList->SetNumberOfValues(
+        static_cast<vtkIdType>(globalAdjacency[i].second.size()));
       for(unsigned int j = 0; j < globalAdjacency[i].second.size(); j++)
         vertexList->SetValue(j, globalAdjacency[i].second[j]);
       edgeProperties->SetNumberOfValues(1);
@@ -3100,7 +3102,7 @@ int vtkReebGraph::Implementation::StreamTetrahedron( vtkIdType vertex0Id,
 }
 
 //----------------------------------------------------------------------------
-int vtkReebGraph::StreamTriangle(	vtkIdType vertex0Id, double scalar0,
+int vtkReebGraph::StreamTriangle( vtkIdType vertex0Id, double scalar0,
                                   vtkIdType vertex1Id, double scalar1,
                                   vtkIdType vertex2Id, double scalar2)
 {

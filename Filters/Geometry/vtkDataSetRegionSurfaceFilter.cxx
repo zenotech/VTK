@@ -533,7 +533,7 @@ int vtkDataSetRegionSurfaceFilter::UnstructuredGridExecute(vtkDataSet *dataSetIn
   cellPointer = input->GetCells()->GetPointer();
   for(cellId=0; cellId < numCells && !abort && flag2D; cellId++)
   {
-    // Direct acces to cells.
+    // Direct access to cells.
     cellType = input->GetCellType(cellId);
     numCellPts = cellPointer[0];
     ids = cellPointer+1;
@@ -807,7 +807,7 @@ int vtkDataSetRegionSurfaceFilter::UnstructuredGridExecute(vtkDataSet *dataSetIn
     std::map<std::pair<int,int>, int>::iterator it;
     for (it = this->Internal->NewRegions.begin();
          it != this->Internal->NewRegions.end();
-         it++)
+         ++it)
     {
       int index = it->second;
       outMaterialIDs->SetValue(index, index);

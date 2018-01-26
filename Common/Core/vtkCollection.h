@@ -14,10 +14,10 @@
 =========================================================================*/
 /**
  * @class   vtkCollection
- * @brief   create and manipulate unsorted lists of objects
+ * @brief   create and manipulate ordered lists of objects
  *
  * vtkCollection is a general object for creating and manipulating lists
- * of objects. The lists are unsorted and allow duplicate entries.
+ * of objects. The lists are ordered and allow duplicate entries.
  * vtkCollection also serves as a base class for lists of specific types
  * of objects.
  *
@@ -57,7 +57,7 @@ public:
   static vtkCollection *New();
 
   /**
-   * Add an object to the list. Does not prevent duplicate entries.
+   * Add an object to the bottom of the list. Does not prevent duplicate entries.
    */
   void AddItem(vtkObject *);
 
@@ -68,7 +68,7 @@ public:
   void InsertItem(int i, vtkObject *);
 
   /**
-   * Replace the i'th item in the collection with a
+   * Replace the i'th item in the collection with another item.
    */
   void ReplaceItem(int i, vtkObject *);
 
@@ -202,8 +202,3 @@ inline vtkObject *vtkCollection::GetNextItemAsObject(void *&cookie)
 }
 
 #endif
-
-
-
-
-

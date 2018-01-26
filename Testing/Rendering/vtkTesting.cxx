@@ -37,8 +37,6 @@
 #include "vtkStreamingDemandDrivenPipeline.h"
 #include "vtkInformation.h"
 
-#include <sys/stat.h>
-
 #include <sstream>
 #include <vtksys/SystemTools.hxx>
 
@@ -295,7 +293,7 @@ int vtkTesting::IsValidImageSpecified()
 char* vtkTesting::IncrementFileName(const char* fname, int count)
 {
   char counts[256];
-  sprintf(counts, "%d", count);
+  snprintf(counts, sizeof(counts), "%d", count);
 
   int orgLen = static_cast<int>(strlen(fname));
   if (orgLen < 5)
@@ -324,8 +322,8 @@ int vtkTesting::LookForFile(const char* newFileName)
   {
     return 0;
   }
-  struct stat fs;
-  if (stat(newFileName, &fs) != 0)
+  vtksys::SystemTools::Stat_t fs;
+  if (vtksys::SystemTools::Stat(newFileName, &fs) != 0)
   {
     return 0;
   }
@@ -397,9 +395,14 @@ int vtkTesting::RegressionTest(double thresh, ostream &os)
 
   std::ostringstream out1;
   // perform and extra render to make sure it is displayed
+  int swapBuffers = this->RenderWindow->GetSwapBuffers();
+  // since we're reading from back-buffer, it's essential that we turn off swapping
+  // otherwise what remains in the back-buffer after the swap is undefined by OpenGL specs.
+  this->RenderWindow->SwapBuffersOff();
   this->RenderWindow->Render();
   rtW2if->ReadFrontBufferOff();
   rtW2if->Update();
+  this->RenderWindow->SetSwapBuffers(swapBuffers); // restore swap state.
   int res = this->RegressionTest(rtW2if.Get(), thresh, out1);
   if (res == FAILED)
   {
@@ -463,6 +466,10 @@ int vtkTesting::RegressionTest(vtkAlgorithm* imageSource,
   {
     validName = validName.substr(slashPos + 1);
   }
+
+  // We want to print the filename of the best matching image for better
+  // comparisons in CDash:
+  string bestImageFileName = this->ValidImageFileName;
 
   // check the valid image
   FILE *rtFin = fopen(this->ValidImageFileName, "r");
@@ -637,6 +644,7 @@ int vtkTesting::RegressionTest(vtkAlgorithm* imageSource,
       {
         errIndex = count;
         minError = error;
+        bestImageFileName = newFileName;
       }
     }
     ++count;
@@ -764,7 +772,7 @@ int vtkTesting::RegressionTest(vtkAlgorithm* imageSource,
   }
 
   os << "<DartMeasurementFile name=\"ValidImage\" type=\"image/png\">";
-  os << this->ValidImageFileName;
+  os << bestImageFileName;
   os <<  "</DartMeasurementFile>";
 
   return FAILED;

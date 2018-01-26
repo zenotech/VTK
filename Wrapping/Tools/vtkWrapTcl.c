@@ -85,7 +85,9 @@ static const char *quote_string(const char *comment, size_t maxlen)
       strcpy(&result[j],"\\n");
       j += 2;
     }
-    else if (isprint(comment[i]))
+    /* the "0x80" checks for non-ASCII chars, which we do not consider
+       to be printable since we don't know the encoding */
+    else if ((comment[i] & 0x80) == 0 && isprint(comment[i]))
     {
       result[j] = comment[i];
       j++;
@@ -878,7 +880,7 @@ int checkFunctionSignature(ClassInfo *data)
     args_ok = 0;
   }
 
-  /* watch out for functions that dont have enough info */
+  /* watch out for functions that don't have enough info */
   switch (baseType)
   {
     case VTK_PARSE_FLOAT:
@@ -915,7 +917,7 @@ int checkFunctionSignature(ClassInfo *data)
     args_ok = 0;
   }
 
-  /* check for methods that will be overriden especially for Tcl */
+  /* check for methods that will be overridden especially for Tcl */
   if (!strcmp("vtkObject",data->Name))
   {
     if (!strcmp(currentFunction->Name,"AddObserver"))

@@ -82,7 +82,7 @@ namespace
           {
             // we need to go to the very last entry
             it = this->dist2ToIds.end();
-            it --;
+            --it;
 
             // Even if we remove the very last entry, the number of points
             // will still be greater than that of requested points. This
@@ -96,7 +96,7 @@ namespace
               this->NumberPoints -= it->second.size();
               std::map<  double,  std::list< vtkIdType >  >::iterator
                 it2 = it;
-              it2 --;
+              --it2;
               this->LargestDist2 = it2->first;
               this->dist2ToIds.erase( it );
             }
@@ -108,8 +108,9 @@ namespace
     {
         // determine how many points will be actually exported
         idList->Reset();
-        vtkIdType numIds = ( this->NumRequested < this->NumberPoints )
-                           ? this->NumRequested : this->NumberPoints;
+        vtkIdType numIds = static_cast<vtkIdType>(
+          ( this->NumRequested < this->NumberPoints )
+            ? this->NumRequested : this->NumberPoints);
 
         idList->SetNumberOfIds( numIds );
 
@@ -127,10 +128,10 @@ namespace
           {
             idList->InsertId( counter, *lit );
             counter ++;
-            lit ++;
+            ++lit;
           }
 
-          it ++;
+          ++it;
         }
     }
 
@@ -341,7 +342,7 @@ void vtkIncrementalOctreePointLocator::GenerateRepresentation
   nodeQuads = vtkCellArray::New();
   nodeQuads->Allocate(  6  *  static_cast < int > ( nodesList.size() )  );
   for ( std::list< vtkIncrementalOctreeNode * >::iterator
-        lit = nodesList.begin(); lit != nodesList.end(); lit ++ )
+        lit = nodesList.begin(); lit != nodesList.end(); ++lit )
   {
     vtkIncrementalOctreePointLocator::AddPolys( *lit, thePoints, nodeQuads );
   }
@@ -413,9 +414,7 @@ vtkIdType vtkIncrementalOctreePointLocator::FindClosestPointInLeafNode
   double      tmpPnt[3];
   vtkIdType   tmpIdx = -1;
   vtkIdType   pntIdx = -1;
-  vtkIdList * idList = NULL;
-
-  idList = leafNode->GetPointIdSet();
+  vtkIdList * idList = leafNode->GetPointIdSet();
   numPts = idList->GetNumberOfIds( );
 
   for ( int i = 0; i < numPts; i ++ )
@@ -1156,22 +1155,19 @@ vtkIdType vtkIncrementalOctreePointLocator::FindClosestPointInSphereWithToleranc
 vtkIdType vtkIncrementalOctreePointLocator::FindDuplicateFloatTypePointInVisitedLeafNode
   ( vtkIncrementalOctreeNode * leafNode, const double point[3] )
 {
-  int         numPts = 0;
-  float       thePnt[3];
-  float *     pFloat = NULL;
   float *     tmpPnt = NULL;
   vtkIdType   tmpIdx = -1;
   vtkIdType   pntIdx = -1;
-  vtkIdList * idList = NULL;
 
+  float       thePnt[3];
   thePnt[0] = static_cast< float >( point[0] );
   thePnt[1] = static_cast< float >( point[1] );
   thePnt[2] = static_cast< float >( point[2] );
 
-  idList = leafNode->GetPointIdSet();
-  numPts = idList->GetNumberOfIds( );
-  pFloat = (  static_cast< vtkFloatArray * > ( this->LocatorPoints->GetData() )  )
-           ->GetPointer( 0 );
+  vtkIdList * idList = leafNode->GetPointIdSet();
+  int numPts = idList->GetNumberOfIds( );
+  float * pFloat = (  static_cast< vtkFloatArray * > ( this->LocatorPoints->GetData() )  )
+                   ->GetPointer( 0 );
 
   for ( int i = 0; i < numPts; i ++ )
   {
@@ -1188,10 +1184,6 @@ vtkIdType vtkIncrementalOctreePointLocator::FindDuplicateFloatTypePointInVisited
     }
   }
 
-  pFloat = NULL;
-  tmpPnt = NULL;
-  idList = NULL;
-
   return pntIdx;
 }
 
@@ -1199,17 +1191,14 @@ vtkIdType vtkIncrementalOctreePointLocator::FindDuplicateFloatTypePointInVisited
 vtkIdType vtkIncrementalOctreePointLocator::FindDuplicateDoubleTypePointInVisitedLeafNode
   ( vtkIncrementalOctreeNode * leafNode, const double point[3] )
 {
-  int         numPts = 0;
-  double *    pArray = NULL;
   double *    tmpPnt = NULL;
   vtkIdType   tmpIdx = -1;
   vtkIdType   pntIdx = -1;
-  vtkIdList * idList = NULL;
 
-  idList = leafNode->GetPointIdSet();
-  numPts = idList->GetNumberOfIds( );
-  pArray = (  static_cast< vtkDoubleArray * > ( this->LocatorPoints->GetData() )  )
-           ->GetPointer( 0 );
+  vtkIdList * idList = leafNode->GetPointIdSet();
+  int numPts = idList->GetNumberOfIds( );
+  double * pArray = (  static_cast< vtkDoubleArray * > ( this->LocatorPoints->GetData() )  )
+                    ->GetPointer( 0 );
 
   for ( int i = 0; i < numPts; i ++ )
   {
@@ -1225,10 +1214,6 @@ vtkIdType vtkIncrementalOctreePointLocator::FindDuplicateDoubleTypePointInVisite
       break;
     }
   }
-
-  pArray = NULL;
-  tmpPnt = NULL;
-  idList = NULL;
 
   return pntIdx;
 }

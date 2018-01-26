@@ -117,6 +117,8 @@ void vtkOpenGLFXAAFilter::Execute(vtkOpenGLRenderer *ren)
 void vtkOpenGLFXAAFilter::ReleaseGraphicsResources()
 {
   this->FreeGLObjects();
+  this->PreparationTimer->ReleaseGraphicsResources();
+  this->FXAATimer->ReleaseGraphicsResources();
 }
 
 //------------------------------------------------------------------------------
@@ -307,6 +309,11 @@ void vtkOpenGLFXAAFilter::ApplyFilter()
   else
   {
     renWin->GetShaderCache()->ReadyShaderProgram(this->Program);
+  }
+
+  if (!this->Program)
+  {
+    return;
   }
 
   if (!this->VAO)

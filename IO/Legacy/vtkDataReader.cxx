@@ -48,18 +48,18 @@
 #include "vtkStringArray.h"
 #include "vtkTable.h"
 #include "vtkTypeInt64Array.h"
+#include "vtkTypeUInt64Array.h"
 #include "vtkUnicodeStringArray.h"
 #include "vtkUnsignedCharArray.h"
 #include "vtkUnsignedIntArray.h"
 #include "vtkUnsignedLongArray.h"
 #include "vtkUnsignedShortArray.h"
 #include "vtkVariantArray.h"
+
+#include <vtksys/SystemTools.hxx>
+
 #include <sstream>
-
-#include "vtkTypeUInt64Array.h"
-
 #include <cctype>
-#include <sys/stat.h>
 
 // I need a safe way to read a line of arbitrary length.  It exists on
 // some platforms but not others so I'm afraid I have to write it
@@ -220,6 +220,12 @@ int vtkDataReader::ReadLine(char result[256])
       this->IS->clear();
       this->IS->ignore(VTK_INT_MAX, '\n');
     }
+  }
+  // remove '\r', if present.
+  size_t slen = strlen(result);
+  if (slen > 0 && result[slen-1] == '\r')
+  {
+    result[slen-1] = '\0';
   }
   return 1;
 }
@@ -424,13 +430,14 @@ int vtkDataReader::OpenVTKFile()
 
     // first make sure the file exists, this prevents an empty file from
     // being created on older compilers
-    struct stat fs;
-    if (stat(this->FileName, &fs) != 0)
+    vtksys::SystemTools::Stat_t fs;
+    if (vtksys::SystemTools::Stat(this->FileName, &fs) != 0)
     {
       vtkErrorMacro(<< "Unable to open file: "<< this->FileName);
       this->SetErrorCode( vtkErrorCode::CannotOpenFileError );
       return 0;
     }
+
     this->IS = new ifstream(this->FileName, ios::in | ios::binary);
     if (this->IS->fail())
     {
@@ -614,7 +621,7 @@ int vtkDataReader::IsFileValid(const char *dstype)
 // Read the cell data of a vtk data file. The number of cells (from the
 // dataset) must match the number of cells defined in cell attributes (unless
 // no geometry was defined).
-int vtkDataReader::ReadCellData(vtkDataSet *ds, int numCells)
+int vtkDataReader::ReadCellData(vtkDataSet *ds, vtkIdType numCells)
 {
   char line[256];
   vtkDataSetAttributes *a=ds->GetCellData();
@@ -747,7 +754,7 @@ int vtkDataReader::ReadCellData(vtkDataSet *ds, int numCells)
     //
     else if ( ! strncmp(line, "point_data", 10) )
     {
-      int npts;
+      vtkIdType npts;
       if (!this->Read(&npts))
       {
         vtkErrorMacro(<<"Cannot read point data!");
@@ -772,7 +779,7 @@ int vtkDataReader::ReadCellData(vtkDataSet *ds, int numCells)
 // Read the point data of a vtk data file. The number of points (from the
 // dataset) must match the number of points defined in point attributes (unless
 // no geometry was defined).
-int vtkDataReader::ReadPointData(vtkDataSet *ds, int numPts)
+int vtkDataReader::ReadPointData(vtkDataSet *ds, vtkIdType numPts)
 {
   char line[256];
   vtkDataSetAttributes *a=ds->GetPointData();
@@ -916,7 +923,7 @@ int vtkDataReader::ReadPointData(vtkDataSet *ds, int numPts)
     //
     else if ( ! strncmp(line, "cell_data", 9) )
     {
-      int ncells;
+      vtkIdType ncells;
       if (!this->Read(&ncells))
       {
         vtkErrorMacro(<<"Cannot read cell data!");
@@ -940,7 +947,7 @@ int vtkDataReader::ReadPointData(vtkDataSet *ds, int numPts)
 // Read the vertex data of a vtk data file. The number of vertices (from the
 // graph) must match the number of vertices defined in vertex attributes (unless
 // no geometry was defined).
-int vtkDataReader::ReadVertexData(vtkGraph *g, int numVertices)
+int vtkDataReader::ReadVertexData(vtkGraph *g, vtkIdType numVertices)
 {
   char line[256];
   vtkDataSetAttributes *a=g->GetVertexData();
@@ -1073,7 +1080,7 @@ int vtkDataReader::ReadVertexData(vtkGraph *g, int numVertices)
     //
     else if ( ! strncmp(line, "edge_data", 10) )
     {
-      int npts;
+      vtkIdType npts;
       if (!this->Read(&npts))
       {
         vtkErrorMacro(<<"Cannot read point data!");
@@ -1097,7 +1104,7 @@ int vtkDataReader::ReadVertexData(vtkGraph *g, int numVertices)
 // Read the edge data of a vtk data file. The number of edges (from the
 // graph) must match the number of edges defined in edge attributes (unless
 // no geometry was defined).
-int vtkDataReader::ReadEdgeData(vtkGraph *g, int numEdges)
+int vtkDataReader::ReadEdgeData(vtkGraph *g, vtkIdType numEdges)
 {
   char line[256];
   vtkDataSetAttributes *a=g->GetEdgeData();
@@ -1230,7 +1237,7 @@ int vtkDataReader::ReadEdgeData(vtkGraph *g, int numEdges)
     //
     else if ( ! strncmp(line, "vertex_data", 10) )
     {
-      int npts;
+      vtkIdType npts;
       if (!this->Read(&npts))
       {
         vtkErrorMacro(<<"Cannot read vertex data!");
@@ -1252,7 +1259,7 @@ int vtkDataReader::ReadEdgeData(vtkGraph *g, int numEdges)
 }
 
 // Read the row data of a vtk data file.
-int vtkDataReader::ReadRowData(vtkTable *t, int numEdges)
+int vtkDataReader::ReadRowData(vtkTable *t, vtkIdType numEdges)
 {
   char line[256];
   vtkDataSetAttributes *a=t->GetRowData();
@@ -1393,7 +1400,7 @@ int vtkDataReader::ReadRowData(vtkTable *t, int numEdges)
 
 // General templated function to read data of various types.
 template <class T>
-int vtkReadBinaryData(istream *IS, T *data, int numTuples, int numComp)
+int vtkReadBinaryData(istream *IS, T *data, vtkIdType numTuples, vtkIdType numComp)
 {
   if (numTuples==0 || numComp==0)
   {
@@ -1415,9 +1422,9 @@ int vtkReadBinaryData(istream *IS, T *data, int numTuples, int numComp)
 
 // General templated function to read data of various types.
 template <class T>
-int vtkReadASCIIData(vtkDataReader *self, T *data, int numTuples, int numComp)
+int vtkReadASCIIData(vtkDataReader *self, T *data, vtkIdType numTuples, vtkIdType numComp)
 {
-  int i, j;
+  vtkIdType i, j;
 
   for (i=0; i<numTuples; i++)
   {
@@ -1440,7 +1447,7 @@ int vtkReadASCIIData(vtkDataReader *self, T *data, int numTuples, int numComp)
 // object with initial count of one; proper protocol is for you to assign
 // the data object and then invoke Delete() it to restore proper reference
 // count.
-vtkAbstractArray *vtkDataReader::ReadArray(const char *dataType, int numTuples, int numComp)
+vtkAbstractArray *vtkDataReader::ReadArray(const char *dataType, vtkIdType numTuples, vtkIdType numComp)
 {
   char *type=strdup(dataType);
   type=this->LowerCase(type);
@@ -1468,10 +1475,10 @@ vtkAbstractArray *vtkDataReader::ReadArray(const char *dataType, int numTuples, 
       }
       else
       {
-        int b;
-        for (int i=0; i<numTuples; i++)
+        vtkIdType b;
+        for (vtkIdType i=0; i<numTuples; i++)
         {
-          for (int j=0; j<numComp; j++)
+          for (vtkIdType j=0; j<numComp; j++)
           {
             if ( !this->Read(&b) )
             {
@@ -1718,9 +1725,9 @@ vtkAbstractArray *vtkDataReader::ReadArray(const char *dataType, int numTuples, 
       char line[256];
       IS->getline(line,256);
 
-      for (int i=0; i<numTuples; i++)
+      for (vtkIdType i=0; i<numTuples; i++)
       {
-        for (int j=0; j<numComp; j++)
+        for (vtkIdType j=0; j<numComp; j++)
         {
           vtkTypeUInt8 firstByte;
           vtkTypeUInt8 headerType;
@@ -1773,9 +1780,9 @@ vtkAbstractArray *vtkDataReader::ReadArray(const char *dataType, int numTuples, 
       vtkStdString s;
       my_getline(*(this->IS), s);
 
-      for (int i=0; i<numTuples; i++)
+      for (vtkIdType i=0; i<numTuples; i++)
       {
-        for (int j=0; j<numComp; j++)
+        for (vtkIdType j=0; j<numComp; j++)
         {
           my_getline(*(this->IS), s);
           int length = static_cast<int>(s.length());
@@ -1799,9 +1806,9 @@ vtkAbstractArray *vtkDataReader::ReadArray(const char *dataType, int numTuples, 
       char line[256];
       IS->getline(line,256);
 
-      for (int i=0; i<numTuples; i++)
+      for (vtkIdType i=0; i<numTuples; i++)
       {
-        for (int j=0; j<numComp; j++)
+        for (vtkIdType j=0; j<numComp; j++)
         {
           vtkTypeUInt8 firstByte;
           vtkTypeUInt8 headerType;
@@ -1854,9 +1861,9 @@ vtkAbstractArray *vtkDataReader::ReadArray(const char *dataType, int numTuples, 
       vtkStdString s;
       my_getline(*(this->IS), s);
 
-      for (int i=0; i<numTuples; i++)
+      for (vtkIdType i=0; i<numTuples; i++)
       {
-        for (int j=0; j<numComp; j++)
+        for (vtkIdType j=0; j<numComp; j++)
         {
           my_getline(*(this->IS), s);
           int length = static_cast<int>(s.length());
@@ -1873,9 +1880,9 @@ vtkAbstractArray *vtkDataReader::ReadArray(const char *dataType, int numTuples, 
   {
     array = vtkVariantArray::New();
     array->SetNumberOfComponents(numComp);
-    for (int i=0; i<numTuples; i++)
+    for (vtkIdType i=0; i<numTuples; i++)
     {
-      for (int j=0; j<numComp; j++)
+      for (vtkIdType j=0; j<numComp; j++)
       {
         int t;
         vtkStdString str;
@@ -1951,14 +1958,18 @@ vtkAbstractArray *vtkDataReader::ReadArray(const char *dataType, int numTuples, 
   bool readyToCheckMetaData = false;
   char line[256];
   size_t peekSize = this->Peek(line, 256);
+  bool hasNewData = false;
   do
   {
+    hasNewData = false;
     // Strip leading whitespace, check for newlines:
     for (size_t i = 0; i < peekSize; ++i)
     {
       switch (line[i])
       {
         case ' ':
+          continue;
+        case '\r':
           continue;
         case '\n':
           // pop line, peek at next
@@ -1967,6 +1978,7 @@ vtkAbstractArray *vtkDataReader::ReadArray(const char *dataType, int numTuples, 
             return array;
           }
           peekSize = this->Peek(line, 256);
+          hasNewData = true;
           i = peekSize; // Break outer loop
           if (peekSize == 0) // EOF
           {
@@ -1980,7 +1992,13 @@ vtkAbstractArray *vtkDataReader::ReadArray(const char *dataType, int numTuples, 
       }
     }
   }
-  while (!readyToCheckMetaData && peekSize > 0);
+  // The only time peekSize will be less than 256 (the requested size)
+  // is if the end of file was reached or an error occurred.  Break this
+  // outermost loop if we are past the whitespace (readyToCheckMetaData)
+  // or the peekSize hit the end of file but wasn't read in during this
+  // time through the loop.  This handles the case of files that end in
+  // whitespace without a trailing newline.
+  while (!readyToCheckMetaData && (peekSize == 256 || hasNewData));
 
   // Peek at the next line to see if there's any array metadata:
   if (this->Peek(line, 8) < 8) // looking for "metadata"
@@ -2049,7 +2067,7 @@ vtkAbstractArray *vtkDataReader::ReadArray(const char *dataType, int numTuples, 
 }
 
 // Read point coordinates. Return 0 if error.
-int vtkDataReader::ReadPoints(vtkPointSet *ps, int numPts)
+int vtkDataReader::ReadPoints(vtkPointSet *ps, vtkIdType numPts)
 {
   char line[256];
   vtkDataArray *data;
@@ -2083,7 +2101,7 @@ int vtkDataReader::ReadPoints(vtkPointSet *ps, int numPts)
 }
 
 // Read point coordinates. Return 0 if error.
-int vtkDataReader::ReadPoints(vtkGraph *g, int numPts)
+int vtkDataReader::ReadPoints(vtkGraph *g, vtkIdType numPts)
 {
   char line[256];
   vtkDataArray *data;
@@ -2161,7 +2179,7 @@ int vtkDataReader::ReadCoordinates(vtkRectilinearGrid *rg, int axes,
 }
 
 // Read scalar point attributes. Return 0 if error.
-int vtkDataReader::ReadScalarData(vtkDataSetAttributes *a, int numPts)
+int vtkDataReader::ReadScalarData(vtkDataSetAttributes *a, vtkIdType numPts)
 {
   char line[256], name[256], key[256], tableName[256];
   int skipScalar=0;
@@ -2250,7 +2268,7 @@ int vtkDataReader::ReadScalarData(vtkDataSetAttributes *a, int numPts)
 }
 
 // Read vector point attributes. Return 0 if error.
-int vtkDataReader::ReadVectorData(vtkDataSetAttributes *a, int numPts)
+int vtkDataReader::ReadVectorData(vtkDataSetAttributes *a, vtkIdType numPts)
 {
   int skipVector=0;
   char line[256], name[256];
@@ -2300,7 +2318,7 @@ int vtkDataReader::ReadVectorData(vtkDataSetAttributes *a, int numPts)
 }
 
 // Read normal point attributes. Return 0 if error.
-int vtkDataReader::ReadNormalData(vtkDataSetAttributes *a, int numPts)
+int vtkDataReader::ReadNormalData(vtkDataSetAttributes *a, vtkIdType numPts)
 {
   int skipNormal=0;
   char line[256], name[256];
@@ -2350,7 +2368,7 @@ int vtkDataReader::ReadNormalData(vtkDataSetAttributes *a, int numPts)
 }
 
 // Read tensor point attributes. Return 0 if error.
-int vtkDataReader::ReadTensorData(vtkDataSetAttributes *a, int numPts, int numComp)
+int vtkDataReader::ReadTensorData(vtkDataSetAttributes *a, vtkIdType numPts, vtkIdType numComp)
 {
   int skipTensor=0;
   char line[256], name[256];
@@ -2399,7 +2417,7 @@ int vtkDataReader::ReadTensorData(vtkDataSetAttributes *a, int numPts, int numCo
 }
 
 // Read color scalar point attributes. Return 0 if error.
-int vtkDataReader::ReadCoScalarData(vtkDataSetAttributes *a, int numPts)
+int vtkDataReader::ReadCoScalarData(vtkDataSetAttributes *a, vtkIdType numPts)
 {
   int i, j, idx, numComp=0, skipScalar=0;
   char name[256];
@@ -2493,7 +2511,7 @@ int vtkDataReader::ReadCoScalarData(vtkDataSetAttributes *a, int numPts)
 }
 
 // Read texture coordinates point attributes. Return 0 if error.
-int vtkDataReader::ReadTCoordsData(vtkDataSetAttributes *a, int numPts)
+int vtkDataReader::ReadTCoordsData(vtkDataSetAttributes *a, vtkIdType numPts)
 {
   int dim = 0;
   int skipTCoord = 0;
@@ -2553,7 +2571,7 @@ int vtkDataReader::ReadTCoordsData(vtkDataSetAttributes *a, int numPts)
 }
 
 // Read texture coordinates point attributes. Return 0 if error.
-int vtkDataReader::ReadGlobalIds(vtkDataSetAttributes *a, int numPts)
+int vtkDataReader::ReadGlobalIds(vtkDataSetAttributes *a, vtkIdType numPts)
 {
   int skipGlobalIds = 0;
   char line[256], name[256];
@@ -2598,7 +2616,7 @@ int vtkDataReader::ReadGlobalIds(vtkDataSetAttributes *a, int numPts)
 }
 
 // Read pedigree ids. Return 0 if error.
-int vtkDataReader::ReadPedigreeIds(vtkDataSetAttributes *a, int numPts)
+int vtkDataReader::ReadPedigreeIds(vtkDataSetAttributes *a, vtkIdType numPts)
 {
   int skipPedigreeIds = 0;
   char line[256], name[256];
@@ -2642,7 +2660,7 @@ int vtkDataReader::ReadPedigreeIds(vtkDataSetAttributes *a, int numPts)
 }
 
 // Read edge flags. Return 0 if error.
-int vtkDataReader::ReadEdgeFlags(vtkDataSetAttributes *a, int numPts)
+int vtkDataReader::ReadEdgeFlags(vtkDataSetAttributes *a, vtkIdType numPts)
 {
   int skipEdgeFlags = 0;
   char line[256], name[256];
@@ -2685,7 +2703,7 @@ int vtkDataReader::ReadEdgeFlags(vtkDataSetAttributes *a, int numPts)
   return 1;
 }
 
-int vtkDataReader::ReadInformation(vtkInformation *info, int numKeys)
+int vtkDataReader::ReadInformation(vtkInformation *info, vtkIdType numKeys)
 {
   // Assuming that the opening INFORMATION line has been read.
   char line[256];
@@ -3030,7 +3048,7 @@ int vtkDataReader::ReadLutData(vtkDataSetAttributes *a)
 
 
 // Read lookup table. Return 0 if error.
-int vtkDataReader::ReadCells(int size, int *data)
+int vtkDataReader::ReadCells(vtkIdType size, int *data)
 {
   char line[256];
   int i;
@@ -3067,7 +3085,7 @@ int vtkDataReader::ReadCells(int size, int *data)
   return 1;
 }
 
-int vtkDataReader::ReadCells(int size, int *data,
+int vtkDataReader::ReadCells(vtkIdType size, int *data,
                              int skip1, int read2, int skip3)
 {
   char line[256];
@@ -3215,7 +3233,7 @@ vtkFieldData *vtkDataReader::ReadFieldData(FieldType fieldType)
   int i, numArrays=0, skipField=0;
   vtkFieldData *f;
   char name[256], type[256];
-  int numComp, numTuples;
+  vtkIdType numComp, numTuples;
   vtkAbstractArray *data;
 
   if ( !(this->ReadString(name) && this->Read(&numArrays)) )

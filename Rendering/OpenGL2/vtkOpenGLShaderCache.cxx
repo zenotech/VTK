@@ -99,7 +99,7 @@ vtkOpenGLShaderCache::~vtkOpenGLShaderCache()
 {
   typedef std::map<std::string,vtkShaderProgram*>::const_iterator SMapIter;
   SMapIter iter = this->Internal->ShaderPrograms.begin();
-  for ( ; iter != this->Internal->ShaderPrograms.end(); iter++)
+  for ( ; iter != this->Internal->ShaderPrograms.end(); ++iter)
   {
     iter->second->Delete();
   }
@@ -245,6 +245,12 @@ unsigned int vtkOpenGLShaderCache::ReplaceShaderValues(
       done = !vtkShaderProgram::Substitute(FSSource, src.str(),dst.str());
       if (!done)
       {
+#if GL_ES_VERSION_3_0
+        src.str("");
+        src.clear();
+        src << count;
+        fragDecls += "layout(location = " + src.str() + ") ";
+#endif
         fragDecls += "out vec4 " + dst.str() + ";\n";
         count++;
       }
@@ -404,7 +410,7 @@ void vtkOpenGLShaderCache::ReleaseGraphicsResources(vtkWindow *win)
 
   typedef std::map<std::string,vtkShaderProgram*>::const_iterator SMapIter;
   SMapIter iter = this->Internal->ShaderPrograms.begin();
-  for ( ; iter != this->Internal->ShaderPrograms.end(); iter++)
+  for ( ; iter != this->Internal->ShaderPrograms.end(); ++iter)
   {
     iter->second->ReleaseGraphicsResources(win);
   }

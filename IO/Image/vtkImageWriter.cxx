@@ -43,6 +43,8 @@ vtkImageWriter::vtkImageWriter()
 
   this->FileLowerLeft = 0;
 
+  this->WriteToMemory = 0;
+
   this->MinimumFileNumber = this->MaximumFileNumber = 0;
   this->FilesDeleted = 0;
   this->SetNumberOfOutputPorts(0);
@@ -76,6 +78,7 @@ void vtkImageWriter::PrintSelf(ostream& os, vtkIndent indent)
     (this->FilePattern ? this->FilePattern : "(none)") << "\n";
 
   os << indent << "FileDimensionality: " << this->FileDimensionality << "\n";
+  os << indent << "WriteToMemory: " << this->WriteToMemory << "\n";
 }
 
 
@@ -130,7 +133,10 @@ int vtkImageWriter::RequestData(
   // Write
   this->InvokeEvent(vtkCommand::StartEvent);
   this->UpdateProgress(0.0);
-  this->RecursiveWrite(2, input, inInfo, NULL);
+  if (!this->WriteToMemory)
+  {
+    this->RecursiveWrite(2, input, inInfo, NULL);
+  }
 
   if (this->ErrorCode == vtkErrorCode::OutOfDiskSpaceError)
   {
@@ -498,8 +504,6 @@ void vtkImageWriter::DeleteFiles()
   {
     return;
   }
-  int i;
-  char *fileName;
 
   vtkErrorMacro("Ran out of disk space; deleting file(s) already written");
 
@@ -511,23 +515,24 @@ void vtkImageWriter::DeleteFiles()
   {
     if (this->FilePrefix)
     {
-      fileName =
-        new char[strlen(this->FilePrefix) + strlen(this->FilePattern) + 10];
+      size_t fileNameLength = strlen(this->FilePrefix) + strlen(this->FilePattern) + 10;
+      char *fileName = new char[fileNameLength];
 
-      for (i = this->MinimumFileNumber; i <= this->MaximumFileNumber; i++)
+      for (int i = this->MinimumFileNumber; i <= this->MaximumFileNumber; i++)
       {
-        sprintf(fileName, this->FilePattern, this->FilePrefix, i);
+        snprintf(fileName, fileNameLength, this->FilePattern, this->FilePrefix, i);
         vtksys::SystemTools::RemoveFile(fileName);
       }
       delete [] fileName;
     }
     else
     {
-      fileName = new char[strlen(this->FilePattern) + 10];
+      size_t fileNameLength = strlen(this->FilePattern) + 10;
+      char *fileName = new char[fileNameLength];
 
-      for (i = this->MinimumFileNumber; i <= this->MaximumFileNumber; i++)
+      for (int i = this->MinimumFileNumber; i <= this->MaximumFileNumber; i++)
       {
-        sprintf(fileName, this->FilePattern, i);
+        snprintf(fileName, fileNameLength, this->FilePattern, i);
         vtksys::SystemTools::RemoveFile(fileName);
       }
       delete [] fileName;

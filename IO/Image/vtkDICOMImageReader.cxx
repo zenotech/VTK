@@ -21,10 +21,10 @@
 #include "vtkPointData.h"
 #include "vtkErrorCode.h"
 
+#include <vtksys/SystemTools.hxx>
+
 #include <vector>
 #include <string>
-
-#include <sys/stat.h>
 
 #include "DICOMAppHelper.h"
 #include "DICOMParser.h"
@@ -117,8 +117,8 @@ void vtkDICOMImageReader::ExecuteInformation()
 
   if (this->FileName)
   {
-    struct stat fs;
-    if ( stat(this->FileName, &fs) )
+    vtksys::SystemTools::Stat_t fs;
+    if (vtksys::SystemTools::Stat(this->FileName, &fs))
     {
       vtkErrorMacro("Unable to open file " << this->FileName );
       return;
@@ -180,7 +180,7 @@ void vtkDICOMImageReader::ExecuteInformation()
 
     for (iter = this->DICOMFileNames->begin();
          iter != this->DICOMFileNames->end();
-         iter++)
+         ++iter)
     {
       const char* fn = iter->c_str();
       vtkDebugMacro( << "Trying : " << fn);
@@ -216,7 +216,7 @@ void vtkDICOMImageReader::ExecuteInformation()
       std::vector<std::pair<float, std::string> >::iterator siter;
       for (siter = sortedFiles.begin();
            siter != sortedFiles.end();
-           siter++)
+           ++siter)
       {
         vtkDebugMacro(<< "Sorted filename : " << (*siter).second.c_str());
         vtkDebugMacro(<< "Adding file " << (*siter).second.c_str() << " at slice : " << (*siter).first);
@@ -315,7 +315,7 @@ void vtkDICOMImageReader::ExecuteDataWithInformation(vtkDataObject *output,
 
     for (fiter = this->DICOMFileNames->begin();
          fiter != this->DICOMFileNames->end();
-         fiter++)
+         ++fiter)
     {
       count++;
       const char *file = fiter->c_str();

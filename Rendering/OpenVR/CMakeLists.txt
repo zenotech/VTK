@@ -6,6 +6,11 @@ find_package(SDL2 REQUIRED)
 
 set(Module_SRCS
   vtkOpenVRCamera.cxx
+  vtkOpenVRDefaultOverlay.cxx
+  vtkOpenVRInteractorStyle.cxx
+  vtkOpenVRModel.cxx
+  vtkOpenVROverlay.cxx
+  vtkOpenVRPropPicker.cxx
   vtkOpenVRRenderer.cxx
   vtkOpenVRRenderWindow.cxx
   vtkOpenVRRenderWindowInteractor.cxx
@@ -13,6 +18,11 @@ set(Module_SRCS
 
 set_source_files_properties(
   vtkOpenVRCamera
+  vtkOpenVRDefaultOverlay
+  vtkOpenVRInteractorStyle
+  vtkOpenVRModel
+  vtkOpenVROverlay
+  vtkOpenVRPropPicker
   vtkOpenVRRenderer
   vtkOpenVRRenderWindow
   vtkOpenVRRenderWindowInteractor
@@ -62,7 +72,8 @@ if (VTK_OPENVR_OBJECT_FACTORY)
     for (oic->InitTraversal(); oi = oic->GetNextItem(); )\n\
       {\n\
       oi->GetObjectFactory()->Disable(\"vtkRenderer\");\n\
-      }\n")
+      }\n\
+    oic->Delete();\n")
   vtk_object_factory_configure("${vtk_module_overrides}")
 
   set(Module_SRCS ${Module_SRCS}
@@ -78,3 +89,9 @@ vtk_module_link_libraries(${vtk-module} LINK_PRIVATE ${OPENVR_LIBRARY} ${SDL2_LI
 
 include(vtkOpenGL)
 vtk_opengl_link(${vtk-module})
+
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/OpenVRDashboard.jpg"
+  "${CMAKE_BINARY_DIR}/OpenVRDashboard.jpg"
+  COPYONLY
+  )

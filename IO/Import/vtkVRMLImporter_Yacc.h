@@ -390,12 +390,13 @@ VrmlNodeType::addField(const char *nodeName, int type)
 void
 VrmlNodeType::addExposedField(const char *nodeName, int type)
 {
-  char tmp[1000];
+  size_t length = 20 + strlen(nodeName);
+  std::vector<char> tmp(length);
   add(fields, nodeName, type);
-  sprintf(tmp, "set_%s", nodeName);
-  add(eventIns, tmp, type);
-  sprintf(tmp, "%s_changed", nodeName);
-  add(eventOuts, tmp, type);
+  snprintf(&tmp[0], length, "set_%s", nodeName);
+  add(eventIns, &tmp[0], type);
+  snprintf(&tmp[0], length, "%s_changed", nodeName);
+  add(eventOuts, &tmp[0], type);
 };
 
 void
@@ -427,14 +428,11 @@ VrmlNodeType::hasExposedField(const char *nodeName) const
 {
   // Must have field "name", eventIn "set_name", and eventOut
   // "name_changed", all with same type:
-  char tmp[1000];
   int type;
   if ( (type = has(fields, nodeName)) == 0) return 0;
 
-  sprintf(tmp, "set_%s\n", nodeName);
   if (type != has(eventIns, nodeName)) return 0;
 
-  sprintf(tmp, "%s_changed", nodeName);
   if (type != has(eventOuts, nodeName)) return 0;
 
   return type;
@@ -990,7 +988,7 @@ int vtkVRMLYaccData::yyparse(vtkVRMLImporter* self)
   short yyssa[YYINITDEPTH];     /*  the state stack                     */
   YYSTYPE yyvsa[YYINITDEPTH];   /*  the semantic value stack            */
 
-  short *yyss = yyssa;          /*  refer to the stacks thru separate pointers */
+  short *yyss = yyssa;          /*  refer to the stacks through separate pointers */
   YYSTYPE *yyvs = yyvsa;        /*  to allow yyoverflow to reallocate them elsewhere */
 
 #ifdef YYLSP_NEEDED

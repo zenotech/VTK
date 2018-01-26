@@ -218,6 +218,7 @@ int vtkTetra::CellBoundary(int vtkNotUsed(subId), double pcoords[3],
 //----------------------------------------------------------------------------
 // Marching tetrahedron
 //
+namespace { //required so we don't violate ODR
 static int edges[6][2] = { {0,1}, {1,2}, {2,0},
                            {0,3}, {1,3}, {2,3} };
 static int faces[4][4] = { {0,1,3,-1}, {1,2,3,-1}, {2,0,3,-1}, {0,2,1,-1} };
@@ -245,6 +246,7 @@ static TRIANGLE_CASES triCases[] = {
   {{ 2, 0, 3, -1, -1, -1, -1}},
   {{-1, -1, -1, -1, -1, -1, -1}}
 };
+}
 
 //----------------------------------------------------------------------------
 void vtkTetra::Contour(double value, vtkDataArray *cellScalars,
@@ -914,8 +916,10 @@ void vtkTetra::Clip(double value, vtkDataArray *cellScalars,
   int allDifferent, numUnique=1;
   for (i=0; i<(edge[0]-1); i++)
   {
+    assert(i < 6 && "The point index is out-of-range.");
     for (allDifferent=1, j=i+1; j<edge[0] && allDifferent; j++)
     {
+      assert(j < 6 && "The point index is out-of-range.");
       if (pts[i] == pts[j]) allDifferent = 0;
     }
     if (allDifferent) numUnique++;

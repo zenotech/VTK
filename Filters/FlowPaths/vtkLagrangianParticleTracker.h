@@ -38,7 +38,7 @@
  * with the same composite layout of surface input if any, showing all
  *     interactions between particles and the surface input
  *
- * It has a parallel implementation wich streams particle between domains.
+ * It has a parallel implementation which streams particle between domains.
  *
  * The most important parameters of this filter is it's integrationModel.
  * Only one integration model implementation exist currently in ParaView
@@ -111,7 +111,7 @@ class VTKFILTERSFLOWPATHS_EXPORT vtkLagrangianParticleTracker :
 public:
 
   vtkTypeMacro(vtkLagrangianParticleTracker, vtkDataObjectAlgorithm);
-  void PrintSelf(ostream& os, vtkIndent indent);
+  void PrintSelf(ostream& os, vtkIndent indent) VTK_OVERRIDE;
   static vtkLagrangianParticleTracker *New();
 
   typedef enum CellLengthComputation{
@@ -272,32 +272,32 @@ public:
   /**
    * Declare input port type
    */
-  virtual int FillInputPortInformation(int port, vtkInformation* info);
+  int FillInputPortInformation(int port, vtkInformation* info) VTK_OVERRIDE;
 
   /**
    * Declare output port type
    */
-  virtual int FillOutputPortInformation(int port, vtkInformation* info);
+  int FillOutputPortInformation(int port, vtkInformation* info) VTK_OVERRIDE;
 
   /**
    * Create outputs objects.
    */
-  virtual int RequestDataObject(vtkInformation*,
+  int RequestDataObject(vtkInformation*,
     vtkInformationVector**,
-    vtkInformationVector*);
+    vtkInformationVector*) VTK_OVERRIDE;
 
   /**
    * Process inputs to integrate particle and generate output.
    */
-  virtual int RequestData(vtkInformation *request,
+  int RequestData(vtkInformation *request,
     vtkInformationVector **inputVector,
-    vtkInformationVector *outputVector);
+    vtkInformationVector *outputVector) VTK_OVERRIDE;
 
   /**
    * Get the tracker modified time taking into account the integration model
    * and the integrator.
    */
-  virtual vtkMTimeType GetMTime();
+  vtkMTimeType GetMTime() VTK_OVERRIDE;
 
   /**
    * Get an unique id for a particle
@@ -306,7 +306,7 @@ public:
 
 protected:
   vtkLagrangianParticleTracker();
-  ~vtkLagrangianParticleTracker();
+  ~vtkLagrangianParticleTracker() VTK_OVERRIDE;
 
   virtual bool InitializeInputs(vtkInformationVector **inputVector,
     vtkDataObject*& flow, vtkDataObject*& seeds, vtkDataObject*& surfaces,

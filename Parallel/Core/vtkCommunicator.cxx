@@ -571,7 +571,7 @@ int vtkCommunicator::MarshalDataObject(vtkDataObject *object,
       id->GetExtent(extent);
     }
     char extentHeader[EXTENT_HEADER_SIZE];
-    sprintf(extentHeader, "EXTENT %d %d %d %d %d %d",
+    snprintf(extentHeader, sizeof(extentHeader), "EXTENT %d %d %d %d %d %d",
             extent[0], extent[1], extent[2], extent[3], extent[4], extent[5]);
 
     buffer->SetNumberOfTuples(size+EXTENT_HEADER_SIZE);
@@ -601,7 +601,7 @@ int vtkCommunicator::UnMarshalDataObject(vtkCharArray *buffer, vtkDataObject *ob
   vtkSmartPointer<vtkDataObject> dobj = vtkCommunicator::UnMarshalDataObject(buffer);
   if (dobj)
   {
-    if (!object->IsA(dobj->GetClassName()))
+    if (!dobj->IsA(object->GetClassName()))
     {
       vtkGenericWarningMacro("Type mismatch while unmarshalling data.");
     }
