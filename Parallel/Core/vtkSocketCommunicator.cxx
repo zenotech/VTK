@@ -500,8 +500,6 @@ int vtkSocketCommunicator::ServerSideHandshake()
     }
     if (strncmp(myHash, clientHash, sizeof(myHash)-1) != 0)
     {
-      vtkWarningMacro(<< "Client hash " << clientHash);
-      vtkWarningMacro(<< "My hash " << myHash);
       vtkSocketCommunicatorErrorMacro("Client/server version hash mismatch.");
       return 0;
     }
@@ -611,8 +609,6 @@ int vtkSocketCommunicator::ClientSideHandshake()
   }
   if (strncmp(myHash, serverHash, sizeof(myHash)-1) != 0)
   {
-      vtkErrorMacro(<< "Server hash " << serverHash);
-      vtkErrorMacro(<< "My hash " << myHash);
     vtkSocketCommunicatorErrorMacro("Client/server version hash mismatch.");
     return 0;
   }
