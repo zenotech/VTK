@@ -606,7 +606,6 @@ void vtkEnSightWriter::WriteData()
                     }
                   }
                 }
-            }
           }
         }
       }
