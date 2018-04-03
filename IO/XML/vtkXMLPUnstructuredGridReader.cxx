@@ -203,7 +203,7 @@ int vtkXMLPUnstructuredGridReader::ReadPieceData()
     inTypes->GetNumberOfTuples()*components*inTypes->GetDataTypeSize());
 
   // Copy face data
-  if(input->GetFaces() || input->GetFaceLocations())
+  /*if(input->GetFaces() || input->GetFaceLocations())
   {
     if(!output->GetFaces())
       output->InitializeFacesRepresentation(startLoc);
@@ -211,7 +211,7 @@ int vtkXMLPUnstructuredGridReader::ReadPieceData()
     this->CopyFaceArray(input->GetFaces(), output->GetFaces(),
                         input->GetFaceLocations(),
                         output->GetFaceLocations());
-  }
+  }*/
 
   return 1;
 }
