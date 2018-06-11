@@ -214,6 +214,7 @@ void vtkComputeMVCWeightsForPolygonMesh(double x[3], T *pts, vtkIdType npts,
 
       //alpha[j] = acos(vtkMath::Dot(n0, n1));
       l = sqrt(vtkMath::Distance2BetweenPoints(n0, n1));
+      l = std::max(std::min(l,2.0),-2.0);
       alpha[j] = 2.0*asin(l/2.0);
       vtkMath::Cross(n0, n1, temp);
       if (vtkMath::Dot(temp, v) < 0)
@@ -224,6 +225,7 @@ void vtkComputeMVCWeightsForPolygonMesh(double x[3], T *pts, vtkIdType npts,
       // theta_j
       //theta[j] = acos(vtkMath::Dot(u[j], v));
       l = sqrt(vtkMath::Distance2BetweenPoints(u[j], v));
+      l = std::max(std::min(l,2.0),-2.0);
       theta[j] = 2.0*asin(l/2.0);
     }
 
@@ -233,6 +235,7 @@ void vtkComputeMVCWeightsForPolygonMesh(double x[3], T *pts, vtkIdType npts,
     vtkMath::Normalize(n1);
     //alpha[nPolyPts-1] = acos(vtkMath::Dot(n0, n1));
     l = sqrt(vtkMath::Distance2BetweenPoints(n0, n1));
+    l = std::max(std::min(l,2.0),-2.0);
     alpha[nPolyPts-1] = 2.0*asin(l/2.0);
     vtkMath::Cross(n0, n1, temp);
     if (vtkMath::Dot(temp, v) < 0)
