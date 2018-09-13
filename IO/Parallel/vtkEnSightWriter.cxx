@@ -96,6 +96,7 @@ vtkEnSightWriter::vtkEnSightWriter()
   this->FileName = nullptr;
   this->TimeStep = 0;
   this->Path=nullptr;
+  this->DisableGeometryOutput = false;
   this->GhostLevelMultiplier=10000;
   this->GhostLevel = 0;
   this->TransientGeometry=false;
@@ -493,7 +494,7 @@ void vtkEnSightWriter::WriteData()
     elementTypes.push_back(VTK_HEXAHEDRON);
     elementTypes.push_back(VTK_WEDGE);
     elementTypes.push_back(VTK_PYRAMID);
-    elementTypes.push_back(VTK_CONVEX_POINT_SET);
+    elementTypes.push_back(VTK_POLYHEDRON);
     elementTypes.push_back(VTK_QUADRATIC_EDGE);
     elementTypes.push_back(VTK_QUADRATIC_TRIANGLE);
     elementTypes.push_back(VTK_QUADRATIC_QUAD);
@@ -510,7 +511,7 @@ void vtkEnSightWriter::WriteData()
     elementTypes.push_back(this->GhostLevelMultiplier+VTK_HEXAHEDRON);
     elementTypes.push_back(this->GhostLevelMultiplier+VTK_WEDGE);
     elementTypes.push_back(this->GhostLevelMultiplier+VTK_PYRAMID);
-    elementTypes.push_back(this->GhostLevelMultiplier+VTK_CONVEX_POINT_SET);
+    elementTypes.push_back(this->GhostLevelMultiplier+VTK_POLYHEDRON);
     elementTypes.push_back(this->GhostLevelMultiplier+VTK_QUADRATIC_EDGE);
     elementTypes.push_back(this->GhostLevelMultiplier+VTK_QUADRATIC_TRIANGLE);
     elementTypes.push_back(this->GhostLevelMultiplier+VTK_QUADRATIC_QUAD);
@@ -538,20 +539,73 @@ void vtkEnSightWriter::WriteData()
           //element ID's
           for (k=0;k<CellsByElement[elementType].size();k++)
           {
-            int CellId=CellsByElement[elementType][k];
+            int CellId=CellsByElement[elementType][k]+1;
             this->WriteIntToFile(CellId,fd);
           }
-
-          //element conenctivity information
-          for (k=0;k<CellsByElement[elementType].size();k++)
+          if(elementType != VTK_POLYHEDRON)
           {
-            int CellId=CellsByElement[elementType][k];
-            vtkIdList *PointIds=input->GetCell(CellId)->GetPointIds();
-            for (int m=0;m<PointIds->GetNumberOfIds();m++)
+            //element connectivity information
+            for (k=0;k<CellsByElement[elementType].size();k++)
             {
-              int PointId=PointIds->GetId(m);
-              this->WriteIntToFile(NodeIdToOrder[PointId],fd);
+              int CellId=CellsByElement[elementType][k];
+              vtkIdList *PointIds=input->GetCell(CellId)->GetPointIds();
+              for (int m=0;m<PointIds->GetNumberOfIds();m++)
+              {
+                int PointId=PointIds->GetId(m);
+                this->WriteIntToFile(NodeIdToOrder[PointId],fd);
+              }
             }
+          }
+          else
+          {
+              // For each element write number of faces  per element
+              int numFaces=0;
+              for (k=0;k<CellsByElement[elementType].size();k++)
+                {
+                  int CellId=CellsByElement[elementType][k];
+                  vtkIdType nfaces;
+                  vtkIdType *ptids;
+                  input->GetFaceStream(CellId,nfaces,ptids);
+
+                  this->WriteIntToFile(nfaces,fd);
+
+                  numFaces += nfaces;
+                }
+              // For each face number of nodes per face
+              for (k=0;k<CellsByElement[elementType].size();k++)
+                {
+                  int CellId=CellsByElement[elementType][k];
+                  vtkIdType nfaces;
+                  vtkIdType *ptids;
+                  input->GetFaceStream(CellId,nfaces,ptids);
+                  int count = 0;
+                  for(int i = 0; i < nfaces; ++i)
+                  {
+                    int nnodes = ptids[count];
+                    this->WriteIntToFile(nnodes,fd);
+                    count += nnodes + 1;
+                  }
+                }
+
+              for (k=0;k<CellsByElement[elementType].size();k++)
+                {
+                  int CellId=CellsByElement[elementType][k];
+                  vtkIdType nfaces;
+                  vtkIdType *ptids;
+                  input->GetFaceStream(CellId,nfaces,ptids);
+                  int count = 0;
+                  for(int i = 0; i < nfaces; ++i)
+                  {
+                    int nnodes = ptids[count];
+                    count++;
+                    for(int l=0;l<nnodes;++l)
+                    {
+                      int PointId = ptids[count];
+                      this->WriteIntToFile(NodeIdToOrder[PointId],fd);
+                      count++;
+                    }
+                  }
+                }
           }
         }
       }
@@ -570,10 +624,10 @@ void vtkEnSightWriter::WriteData()
         {
           this->WriteElementTypeToFile(elementTypes[k],
             cellArrayFiles[j]);
-          for (unsigned int m=0;m<CellsByElement[elementTypes[k]].size();m++)
+          for ( int CurrentDimension = 0; CurrentDimension < DataSize;
+                   CurrentDimension ++ )
           {
-            for ( int CurrentDimension = 0; CurrentDimension < DataSize;
-                     CurrentDimension ++ )
+            for (unsigned int m=0;m<CellsByElement[elementTypes[k]].size();m++)
             {
               this->WriteFloatToFile
                 (  (float)
@@ -853,8 +907,8 @@ void vtkEnSightWriter::WriteCaseFile(int TotalTimeSteps)
       }
     }
   }
-
-
+  //close file
+  fclose(fd);
 }
 
 //----------------------------------------------------------------------------
@@ -901,7 +955,8 @@ void vtkEnSightWriter::WriteSOSCaseFile(int numProcs)
     snprintf(charBuffer,sizeof(charBuffer),"casefile: %s.%d.case\n\n",this->BaseName,i);
     this->WriteTerminatedStringToFile(charBuffer,fd);
   }
-
+  //close file
+  fclose(fd);
 
 }
 
@@ -971,7 +1026,7 @@ void vtkEnSightWriter::WriteElementTypeToFile(int elementType,FILE* fd)
     case(VTK_PYRAMID):
       this->WriteStringToFile("pyramid5",fd);
       break;
-    case(VTK_CONVEX_POINT_SET):
+    case(VTK_POLYHEDRON):
       this->WriteStringToFile("nfaced",fd);
       break;
     case(VTK_QUADRATIC_EDGE):
@@ -1059,7 +1114,11 @@ void vtkEnSightWriter::WriteElementTypeToFile(int elementType,FILE* fd)
 //----------------------------------------------------------------------------
 bool vtkEnSightWriter::ShouldWriteGeometry()
 {
-  return (this->TransientGeometry || (this->TimeStep==0));
+  return (
+           (this->TransientGeometry || (!this->TransientGeometry && this->TimeStep == 0)) &&
+           !DisableGeometryOutput
+         );
+  //return (this->TransientGeometry || (this->TimeStep==0));
 }
 
 //----------------------------------------------------------------------------

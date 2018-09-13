@@ -228,29 +228,34 @@ void vtkXMLPolyDataWriter::WriteAppendedPiece(int index, vtkIndent indent)
     return;
   }
 
-  this->WriteCellsAppended("Verts", nullptr, indent,
+  //this->WriteCellsAppended("Verts", nullptr, indent,
+  this->WriteCellsAppended("Verts", 0, 0, 0, indent,
     &this->VertsOM->GetPiece(index));
   if (this->ErrorCode == vtkErrorCode::OutOfDiskSpaceError)
   {
     return;
   }
 
-  this->WriteCellsAppended("Lines", nullptr, indent ,
+  //this->WriteCellsAppended("Lines", nullptr, indent ,
+  this->WriteCellsAppended("Lines", 0, 0, 0, indent ,
     &this->LinesOM->GetPiece(index));
   if (this->ErrorCode == vtkErrorCode::OutOfDiskSpaceError)
   {
     return;
   }
 
-  this->WriteCellsAppended("Strips", nullptr, indent,
+  //this->WriteCellsAppended("Strips", nullptr, indent,
+  this->WriteCellsAppended("Strips", 0, 0, 0, indent,
     &this->StripsOM->GetPiece(index));
   if (this->ErrorCode == vtkErrorCode::OutOfDiskSpaceError)
   {
     return;
   }
 
-  this->WriteCellsAppended("Polys", nullptr, indent,
+  //this->WriteCellsAppended("Polys", nullptr, indent,
+  this->WriteCellsAppended("Polys", 0, 0, 0, indent,
     &this->PolysOM->GetPiece(index));
+
 }
 
 //----------------------------------------------------------------------------

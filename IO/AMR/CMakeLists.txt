@@ -12,3 +12,6 @@ set(Module_SRCS
   )
 
 vtk_module_library(vtkIOAMR ${Module_SRCS})
+if(PARAVIEW_USE_MPI)
+    vtk_mpi_link(vtkIOAMR)
+endif()
