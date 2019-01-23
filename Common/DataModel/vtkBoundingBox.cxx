@@ -440,7 +440,7 @@ ComputeDivisions(vtkIdType totalBins, double bounds[6], int divs[3]) const
     if ( lengths[i] > max )
     {
       maxIdx = i;
-      max = legnths[i];
+      max = lengths[i];
     }
     if ( lengths[i] > 1.0e-12*totLen)
     {
