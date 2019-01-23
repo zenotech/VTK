@@ -434,14 +434,15 @@ ComputeDivisions(vtkIdType totalBins, double bounds[6], int divs[3]) const
   int numNonZero=0, nonZero[3], maxIdx=(-1);
   double max=0.0, lengths[3];
   this->GetLengths(lengths);
-
+  double totLen = lengths[0] + lengths[1] + lengths[2];
   for (int i=0; i<3; ++i)
   {
     if ( lengths[i] > max )
     {
       maxIdx = i;
+      max = legnths[i];
     }
-    if ( lengths[i] > 0.0 )
+    if ( lengths[i] > 1.0e-12*totLen)
     {
       nonZero[i] = 1;
       numNonZero++;
@@ -468,7 +469,7 @@ ComputeDivisions(vtkIdType totalBins, double bounds[6], int divs[3]) const
   // Okay we need to compute the divisions roughly in proportion to the
   // bounding box edge lengths.  The idea is to make the bins as close to a
   // cube as possible. Ensure that the number of divisions is valid.
-  double totLen = lengths[0] + lengths[1] + lengths[2];
+  //double totLen = lengths[0] + lengths[1] + lengths[2];
   double f = static_cast<double>(totalBins);
   f /= (nonZero[0] ? (lengths[0]/totLen) : 1.0);
   f /= (nonZero[1] ? (lengths[1]/totLen) : 1.0);
