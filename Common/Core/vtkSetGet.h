@@ -424,7 +424,7 @@ virtual void Set##name(type data[]) \
 // Examples: float *GetColor() and void GetColor(float c[count]).
 //
 #define vtkGetVectorMacro(name,type,count) \
-virtual type *Get##name () \
+virtual type *Get##name () VTK_SIZEHINT(count)\
 { \
   vtkDebugMacro(<< this->GetClassName() << " (" << this << "): returning " << #name " pointer " << this->name); \
   return this->name; \
@@ -484,10 +484,13 @@ extern VTKCOMMONCORE_EXPORT void vtkOutputWindowDisplayDebugText(const char*);
 // This macro is used to print out errors
 // vtkErrorWithObjectMacro(self, << "Error message" << variable);
 // self can be null
+// Using two casts here so that nvcc compiler can handle const this
+// pointer properly
 //
 #define vtkErrorWithObjectMacro(self, x)                             \
 {                                                                    \
-  vtkObject* _object = self;                                         \
+  vtkObject* _object = const_cast<vtkObject*>(static_cast            \
+<const vtkObject*>(self));                                           \
   if (vtkObject::GetGlobalWarningDisplay())                          \
   {                                                                  \
     vtkOStreamWrapper::EndlType endl;                                \
@@ -515,10 +518,13 @@ extern VTKCOMMONCORE_EXPORT void vtkOutputWindowDisplayDebugText(const char*);
 // This macro is used to print out warnings
 // vtkWarningWithObjectMacro(self, "Warning message" << variable);
 // self can be null
+// Using two casts here so that nvcc compiler can handle const this
+// pointer properly
 //
 #define vtkWarningWithObjectMacro(self, x)                           \
 {                                                                    \
-  vtkObject* _object = self;                                         \
+  vtkObject* _object = const_cast<vtkObject*>(static_cast            \
+<const vtkObject*>(self));                                           \
   if (vtkObject::GetGlobalWarningDisplay())                          \
   {                                                                  \
     vtkOStreamWrapper::EndlType endl;                                \
@@ -547,13 +553,16 @@ extern VTKCOMMONCORE_EXPORT void vtkOutputWindowDisplayDebugText(const char*);
  * This macro is used to print out debug message
  * vtkDebugWithObjectMacro(self, "Warning message" << variable);
  * self can be null
+ * Using two casts here so that nvcc compiler can handle const this
+ * pointer properly
  */
 #ifdef NDEBUG
 # define vtkDebugWithObjectMacro(self, x)
 #else
 # define vtkDebugWithObjectMacro(self, x)                                        \
 {                                                                                \
-   vtkObject* _object = self;                                                    \
+  vtkObject* _object = const_cast<vtkObject*>(static_cast                        \
+<const vtkObject*>(self));                                                       \
   if ((!_object || _object->GetDebug()) && vtkObject::GetGlobalWarningDisplay()) \
   {                                                                              \
     vtkOStreamWrapper::EndlType endl;                                            \
@@ -603,7 +612,7 @@ virtual void Set##name(double x, double y, double z) \
 { \
     this->name##Coordinate->SetValue(x,y,z); \
 } \
-virtual double *Get##name() \
+virtual double *Get##name() VTK_SIZEHINT(3)\
 { \
     return this->name##Coordinate->GetValue(); \
 }
@@ -619,7 +628,7 @@ virtual void Set##name(double x, double y) \
 { \
     this->name##Coordinate->SetValue(x,y); \
 } \
-virtual double *Get##name() \
+virtual double *Get##name() VTK_SIZEHINT(2)\
 { \
     return this->name##Coordinate->GetValue(); \
 }

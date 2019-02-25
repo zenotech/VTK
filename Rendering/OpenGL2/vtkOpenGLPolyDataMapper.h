@@ -179,8 +179,8 @@ public:
 
   // the following is all extra stuff to work around the
   // fact that gl_PrimitiveID does not work correctly on
-  // Apple devices with AMD graphics hardware. See apple
-  // bug ID 20747550
+  // Apple Macs with AMD graphics hardware (before macOS 10.11).
+  // See <rdar://20747550>.
   static vtkPolyData *HandleAppleBug(
     vtkPolyData *poly,
     std::vector<float> &buffData);
@@ -231,14 +231,21 @@ public:
     PrimitiveEnd
   };
 
+  void UpdateCellMaps(
+    bool HaveAppleBug,
+    vtkPolyData *poly,
+    vtkCellArray **prims, int representation,
+    vtkPoints *points);
+
   /**
    * Get access to the map of glprim to vtkcell ids
    */
-  static void MakeCellCellMap(std::vector<vtkIdType> &CellCellMap,
-                              bool HaveAppleBug,
-                              vtkPolyData *poly,
-                              vtkCellArray **prims, int representation,
-                              vtkPoints *points);
+  static void MakeCellCellMap(
+    std::vector<vtkIdType> &cellCellMap,
+    bool HaveAppleBug,
+    vtkPolyData *poly,
+    vtkCellArray **prims, int representation,
+    vtkPoints *points);
 
   /**
    * Select a data array from the point/cell data
@@ -266,11 +273,6 @@ public:
     const char *tname,
     const char* dataArrayName, int fieldAssociation, int componentno = -1) override;
 
-  // deprecated in favor of the const char * signature
-  VTK_LEGACY(void MapDataArrayToMultiTextureAttribute(
-    int unit,
-    const char* dataArrayName, int fieldAssociation, int componentno = -1) override);
-
   /**
    * Remove a vertex attribute mapping.
    */
@@ -280,6 +282,14 @@ public:
    * Remove all vertex attributes.
    */
   void RemoveAllVertexAttributeMappings() override;
+
+  /**
+   * allows a mapper to update a selections color buffers
+   * Called from a prop which in turn is called from the selector
+   */
+  void ProcessSelectorPixelBuffers(vtkHardwareSelector *sel,
+    std::vector<unsigned int> &pixeloffsets,
+    vtkProp *prop) override;
 
 protected:
   vtkOpenGLPolyDataMapper();
@@ -294,13 +304,13 @@ protected:
     int fieldAssociation,
     int componentno);
 
-  // what coordinate shoudl be used for this texture
+  // what coordinate should be used for this texture
   std::string GetTextureCoordinateName(const char *tname);
 
   // the following is all extra stuff to work around the
   // fact that gl_PrimitiveID does not work correctly on
-  // Apple devices with AMD graphics hardware. See apple
-  // bug ID 20747550
+  // Apple Macs with AMD graphics hardware (before macOS 10.11).
+  // See <rdar://20747550>.
   bool HaveAppleBug;
   int HaveAppleBugForce; // 0 = default 1 = 0ff 2 = on
   std::vector<float> AppleBugPrimIDs;
@@ -499,7 +509,7 @@ protected:
   // mapper has identified a texture map as well.
   bool ForceTextureCoordinates;
 
-  void BuildCellTextures(
+  virtual void BuildCellTextures(
     vtkRenderer *ren,
     vtkActor *,
     vtkCellArray *prims[4],
@@ -514,7 +524,6 @@ protected:
     std::vector<float> &normals,
     vtkPolyData *pd);
 
-  bool HavePickScalars;
   vtkTextureObject *CellScalarTexture;
   vtkOpenGLBufferObject *CellScalarBuffer;
   bool HaveCellScalars;
@@ -558,8 +567,16 @@ protected:
   // typically 2 for points, 4 for lines, 6 for surface
   int GetPointPickingPrimitiveSize(int primType);
 
-  // a map from drawn triangles back to containing cell id
-  std::vector<unsigned int> CellCellMap;
+  // used to occasionally invoke timers
+  unsigned int TimerQueryCounter;
+
+  // stores the mapping from vtk cells to gl_PrimitiveId
+  std::vector<vtkIdType> CellCellMap;
+  std::vector<vtkIdType> PointCellMap;
+  std::string CellMapsBuildString;
+
+  // compute and set the maximum point and cell ID used in selection
+  virtual void UpdateMaximumPointCellIds(vtkRenderer* ren, vtkActor *actor);
 
 private:
   vtkOpenGLPolyDataMapper(const vtkOpenGLPolyDataMapper&) = delete;

@@ -13,8 +13,6 @@
 
 =========================================================================*/
 
-#include "vtk_glew.h"
-
 #include "vtkImageProcessingPass.h"
 #include "vtkObjectFactory.h"
 #include <cassert>
@@ -23,6 +21,8 @@
 #include "vtkOpenGLFramebufferObject.h"
 #include "vtkTextureObject.h"
 #include "vtkOpenGLRenderWindow.h"
+#include "vtkOpenGLState.h"
+#include "vtk_glew.h"
 
 // to be able to dump intermediate passes into png files for debugging.
 // only for vtkImageProcessingPass developers.
@@ -105,6 +105,8 @@ void vtkImageProcessingPass::RenderDelegate(const vtkRenderState *s,
   vtkCamera *newCamera=vtkCamera::New();
   newCamera->DeepCopy(savedCamera);
 
+  vtkOpenGLState *ostate = static_cast<vtkOpenGLRenderWindow *>(r->GetVTKWindow())->GetState();
+
 #ifdef VTK_IMAGE_PROCESSING_PASS_DEBUG
   cout << "old camera params=";
   savedCamera->Print(cout);
@@ -165,11 +167,11 @@ void vtkImageProcessingPass::RenderDelegate(const vtkRenderState *s,
 
   fbo->AddDepthAttachment(fbo->GetBothMode());
   fbo->StartNonOrtho(newWidth,newHeight);
-  glViewport(0, 0, newWidth, newHeight);
-  glScissor(0, 0, newWidth, newHeight);
+  ostate->vtkglViewport(0, 0, newWidth, newHeight);
+  ostate->vtkglScissor(0, 0, newWidth, newHeight);
 
   // 2. Delegate render in FBO
-  glEnable(GL_DEPTH_TEST);
+  ostate->vtkglEnable(GL_DEPTH_TEST);
   this->DelegatePass->Render(&s2);
   this->NumberOfRenderedProps+=
     this->DelegatePass->GetNumberOfRenderedProps();

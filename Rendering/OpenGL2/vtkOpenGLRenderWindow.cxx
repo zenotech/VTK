@@ -30,11 +30,14 @@
 #include "vtkOpenGLLight.h"
 #include "vtkOpenGLProperty.h"
 #include "vtkOpenGLRenderer.h"
+#include "vtkOpenGLRenderUtilities.h"
 #include "vtkOpenGLResourceFreeCallback.h"
 #include "vtkOpenGLShaderCache.h"
+#include "vtkOpenGLState.h"
 #include "vtkOpenGLVertexArrayObject.h"
 #include "vtkOpenGLVertexBufferObjectCache.h"
 #include "vtkOutputWindow.h"
+#include "vtkPerlinNoise.h"
 #include "vtkRendererCollection.h"
 #include "vtkRenderTimerLog.h"
 #include "vtkShaderProgram.h"
@@ -170,24 +173,6 @@ int vtkOpenGLRenderWindow::GetGlobalMaximumNumberOfMultiSamples()
   return vtkOpenGLRenderWindowGlobalMaximumNumberOfMultiSamples;
 }
 
-// used for OpenGL32 Support
-static bool vtkOpenGLRenderWindowContextSupportsOpenGL32 = false;
-
-bool vtkOpenGLRenderWindow::GetContextSupportsOpenGL32()
-{
-  return vtkOpenGLRenderWindowContextSupportsOpenGL32;
-}
-
-// ----------------------------------------------------------------------------
-void vtkOpenGLRenderWindow::SetContextSupportsOpenGL32(bool val)
-{
-  if (val == vtkOpenGLRenderWindowContextSupportsOpenGL32)
-  {
-    return;
-  }
-  vtkOpenGLRenderWindowContextSupportsOpenGL32 = val;
-}
-
 //----------------------------------------------------------------------------
 const char *vtkOpenGLRenderWindow::GetRenderingBackend()
 {
@@ -197,6 +182,8 @@ const char *vtkOpenGLRenderWindow::GetRenderingBackend()
 // ----------------------------------------------------------------------------
 vtkOpenGLRenderWindow::vtkOpenGLRenderWindow()
 {
+  this->State = new vtkOpenGLState;
+
   this->Initialized = false;
   this->GlewInitValid = false;
 
@@ -237,6 +224,9 @@ vtkOpenGLRenderWindow::vtkOpenGLRenderWindow()
   this->DepthRenderBufferObject = 0;
   this->AlphaBitPlanes = 8;
   this->Capabilities = nullptr;
+
+  this->TQuad2DVBO = nullptr;
+  this->NoiseTextureObject = nullptr;
 }
 
 // free up memory & close the window
@@ -260,10 +250,22 @@ vtkOpenGLRenderWindow::~vtkOpenGLRenderWindow()
 
   this->ShaderCache->UnRegister(this);
 
+  if (this->TQuad2DVBO)
+  {
+    this->TQuad2DVBO->Delete();
+    this->TQuad2DVBO = nullptr;
+  }
+
+  if (this->NoiseTextureObject)
+  {
+    this->NoiseTextureObject->Delete();
+  }
+
   delete [] this->Capabilities;
   this->Capabilities = nullptr;
 
   this->VBOCache->UnRegister(this);
+  delete this->State;
 }
 
 const char* vtkOpenGLRenderWindow::ReportCapabilities()
@@ -310,6 +312,10 @@ const char* vtkOpenGLRenderWindow::ReportCapabilities()
 void vtkOpenGLRenderWindow::ReleaseGraphicsResources(vtkRenderWindow *renWin)
 {
   // release the registered resources
+  if (this->NoiseTextureObject)
+  {
+    this->NoiseTextureObject->ReleaseGraphicsResources(this);
+  }
 
   std::set<vtkGenericOpenGLResourceFreeCallback *>::iterator it
    = this->Resources.begin();
@@ -350,6 +356,15 @@ void vtkOpenGLRenderWindow::ReleaseGraphicsResources(vtkRenderWindow *renWin)
   }
 
   this->RenderTimer->ReleaseGraphicsResources();
+
+  if (this->TQuad2DVBO)
+  {
+    this->TQuad2DVBO->ReleaseGraphicsResources();
+  }
+
+  delete this->State;
+  this->State = new vtkOpenGLState();
+
   this->Initialized = false;
 }
 
@@ -471,8 +486,7 @@ void vtkOpenGLRenderWindow::OpenGLInit()
 
 void vtkOpenGLRenderWindow::OpenGLInitState()
 {
-  glDepthFunc( GL_LEQUAL );
-  glEnable( GL_DEPTH_TEST );
+  this->State->Initialize(this);
 
 #ifdef GL_FRAMEBUFFER_SRGB
   if (this->UseSRGBColorSpace && this->GetUsingSRGBColorSpace())
@@ -480,37 +494,6 @@ void vtkOpenGLRenderWindow::OpenGLInitState()
     glEnable(GL_FRAMEBUFFER_SRGB);
   }
 #endif
-
-  // initialize blending for transparency
-  glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
-                      GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
-  glEnable(GL_BLEND);
-
-if (this->LineSmoothing)
-  {
-#ifdef GL_LINE_SMOOTH
-    glEnable(GL_LINE_SMOOTH);
-#endif
-  }
-  else
-  {
-#ifdef GL_LINE_SMOOTH
-    glDisable(GL_LINE_SMOOTH);
-#endif
-  }
-
-  if (this->PolygonSmoothing)
-  {
-#ifdef GL_POLYGON_SMOOTH
-    glEnable(GL_POLYGON_SMOOTH);
-#endif
-  }
-  else
-  {
-#ifdef GL_POLYGON_SMOOTH
-    glDisable(GL_POLYGON_SMOOTH);
-#endif
-  }
 
   // Default OpenGL is 4 bytes but it is only safe with RGBA format.
   // If format is RGB, row alignment is 4 bytes only if the width is divisible
@@ -623,91 +606,63 @@ void vtkOpenGLRenderWindow::InitializeTextureInternalFormats()
   this->TextureInternalFormats[VTK_SHORT][0][4] = GL_RGBA16_SNORM;
 #endif
 
-#if GL_ES_VERSION_3_0 == 1
-  bool haveFloatTextures = true;
-  bool haveIntTextures = true;
-#else
-  bool haveFloatTextures = false;
-  bool haveIntTextures = false;
-  if (vtkOpenGLRenderWindow::GetContextSupportsOpenGL32())
-  {
-    haveFloatTextures = true;
-    haveIntTextures = true;
-  }
-  else
-  {
-    haveFloatTextures= (glewIsSupported("GL_ARB_texture_float") != 0
-     && glewIsSupported("GL_ARB_texture_rg") != 0);
-    haveIntTextures= (glewIsSupported("GL_EXT_texture_integer") != 0);
-  }
-#endif
-
-  if (haveIntTextures)
-  {
 #ifdef GL_R8I
-    this->TextureInternalFormats[VTK_SIGNED_CHAR][2][1] = GL_R8I;
-    this->TextureInternalFormats[VTK_SIGNED_CHAR][2][2] = GL_RG8I;
-    this->TextureInternalFormats[VTK_SIGNED_CHAR][2][3] = GL_RGB8I;
-    this->TextureInternalFormats[VTK_SIGNED_CHAR][2][4] = GL_RGBA8I;
-    this->TextureInternalFormats[VTK_UNSIGNED_CHAR][2][1] = GL_R8UI;
-    this->TextureInternalFormats[VTK_UNSIGNED_CHAR][2][2] = GL_RG8UI;
-    this->TextureInternalFormats[VTK_UNSIGNED_CHAR][2][3] = GL_RGB8UI;
-    this->TextureInternalFormats[VTK_UNSIGNED_CHAR][2][4] = GL_RGBA8UI;
+  this->TextureInternalFormats[VTK_SIGNED_CHAR][2][1] = GL_R8I;
+  this->TextureInternalFormats[VTK_SIGNED_CHAR][2][2] = GL_RG8I;
+  this->TextureInternalFormats[VTK_SIGNED_CHAR][2][3] = GL_RGB8I;
+  this->TextureInternalFormats[VTK_SIGNED_CHAR][2][4] = GL_RGBA8I;
+  this->TextureInternalFormats[VTK_UNSIGNED_CHAR][2][1] = GL_R8UI;
+  this->TextureInternalFormats[VTK_UNSIGNED_CHAR][2][2] = GL_RG8UI;
+  this->TextureInternalFormats[VTK_UNSIGNED_CHAR][2][3] = GL_RGB8UI;
+  this->TextureInternalFormats[VTK_UNSIGNED_CHAR][2][4] = GL_RGBA8UI;
 
-    this->TextureInternalFormats[VTK_SHORT][2][1] = GL_R16I;
-    this->TextureInternalFormats[VTK_SHORT][2][2] = GL_RG16I;
-    this->TextureInternalFormats[VTK_SHORT][2][3] = GL_RGB16I;
-    this->TextureInternalFormats[VTK_SHORT][2][4] = GL_RGBA16I;
-    this->TextureInternalFormats[VTK_UNSIGNED_SHORT][2][1] = GL_R16UI;
-    this->TextureInternalFormats[VTK_UNSIGNED_SHORT][2][2] = GL_RG16UI;
-    this->TextureInternalFormats[VTK_UNSIGNED_SHORT][2][3] = GL_RGB16UI;
-    this->TextureInternalFormats[VTK_UNSIGNED_SHORT][2][4] = GL_RGBA16UI;
+  this->TextureInternalFormats[VTK_SHORT][2][1] = GL_R16I;
+  this->TextureInternalFormats[VTK_SHORT][2][2] = GL_RG16I;
+  this->TextureInternalFormats[VTK_SHORT][2][3] = GL_RGB16I;
+  this->TextureInternalFormats[VTK_SHORT][2][4] = GL_RGBA16I;
+  this->TextureInternalFormats[VTK_UNSIGNED_SHORT][2][1] = GL_R16UI;
+  this->TextureInternalFormats[VTK_UNSIGNED_SHORT][2][2] = GL_RG16UI;
+  this->TextureInternalFormats[VTK_UNSIGNED_SHORT][2][3] = GL_RGB16UI;
+  this->TextureInternalFormats[VTK_UNSIGNED_SHORT][2][4] = GL_RGBA16UI;
 
-    this->TextureInternalFormats[VTK_INT][2][1] = GL_R32I;
-    this->TextureInternalFormats[VTK_INT][2][2] = GL_RG32I;
-    this->TextureInternalFormats[VTK_INT][2][3] = GL_RGB32I;
-    this->TextureInternalFormats[VTK_INT][2][4] = GL_RGBA32I;
-    this->TextureInternalFormats[VTK_UNSIGNED_INT][2][1] = GL_R32UI;
-    this->TextureInternalFormats[VTK_UNSIGNED_INT][2][2] = GL_RG32UI;
-    this->TextureInternalFormats[VTK_UNSIGNED_INT][2][3] = GL_RGB32UI;
-    this->TextureInternalFormats[VTK_UNSIGNED_INT][2][4] = GL_RGBA32UI;
+  this->TextureInternalFormats[VTK_INT][2][1] = GL_R32I;
+  this->TextureInternalFormats[VTK_INT][2][2] = GL_RG32I;
+  this->TextureInternalFormats[VTK_INT][2][3] = GL_RGB32I;
+  this->TextureInternalFormats[VTK_INT][2][4] = GL_RGBA32I;
+  this->TextureInternalFormats[VTK_UNSIGNED_INT][2][1] = GL_R32UI;
+  this->TextureInternalFormats[VTK_UNSIGNED_INT][2][2] = GL_RG32UI;
+  this->TextureInternalFormats[VTK_UNSIGNED_INT][2][3] = GL_RGB32UI;
+  this->TextureInternalFormats[VTK_UNSIGNED_INT][2][4] = GL_RGBA32UI;
 #endif
-  }
 
   // on mesa we may not have float textures even though we think we do
-  // this is due to Mesa being iompacted by a patent issue with SGI
+  // this is due to Mesa being impacted by a patent issue with SGI
+  // that is due to expire in the US in summer 2018
 #if GL_ES_VERSION_3_0 != 1
-  if (haveFloatTextures)
+  const char *glVersion =
+    reinterpret_cast<const char *>(glGetString(GL_VERSION));
+  if (glVersion && strstr(glVersion,"Mesa") != nullptr &&
+      !GLEW_ARB_texture_float)
   {
-    const char *glVersion =
-      reinterpret_cast<const char *>(glGetString(GL_VERSION));
-    if (glVersion && strstr(glVersion,"Mesa") != nullptr &&
-        !GLEW_ARB_texture_float)
-    {
-      haveFloatTextures = false;
-      // mesa without float support cannot even use
-      // uchar textures with underlying float data
-      // so pretty much anything with float data
-      // is out of luck so return
-      return;
-    }
+    // mesa without float support cannot even use
+    // uchar textures with underlying float data
+    // so pretty much anything with float data
+    // is out of luck so return
+    return;
   }
 #endif
 
-  if (haveFloatTextures)
-  {
 #ifdef GL_R32F
-    this->TextureInternalFormats[VTK_FLOAT][1][1] = GL_R32F;
-    this->TextureInternalFormats[VTK_FLOAT][1][2] = GL_RG32F;
-    this->TextureInternalFormats[VTK_FLOAT][1][3] = GL_RGB32F;
-    this->TextureInternalFormats[VTK_FLOAT][1][4] = GL_RGBA32F;
+  this->TextureInternalFormats[VTK_FLOAT][1][1] = GL_R32F;
+  this->TextureInternalFormats[VTK_FLOAT][1][2] = GL_RG32F;
+  this->TextureInternalFormats[VTK_FLOAT][1][3] = GL_RGB32F;
+  this->TextureInternalFormats[VTK_FLOAT][1][4] = GL_RGBA32F;
 
-    this->TextureInternalFormats[VTK_SHORT][1][1] = GL_R32F;
-    this->TextureInternalFormats[VTK_SHORT][1][2] = GL_RG32F;
-    this->TextureInternalFormats[VTK_SHORT][1][3] = GL_RGB32F;
-    this->TextureInternalFormats[VTK_SHORT][1][4] = GL_RGBA32F;
+  this->TextureInternalFormats[VTK_SHORT][1][1] = GL_R32F;
+  this->TextureInternalFormats[VTK_SHORT][1][2] = GL_RG32F;
+  this->TextureInternalFormats[VTK_SHORT][1][3] = GL_RGB32F;
+  this->TextureInternalFormats[VTK_SHORT][1][4] = GL_RGBA32F;
 #endif
-  }
 }
 
 void vtkOpenGLRenderWindow::GetOpenGLVersion(int &major, int &minor)
@@ -717,8 +672,8 @@ void vtkOpenGLRenderWindow::GetOpenGLVersion(int &major, int &minor)
 
   if (this->Initialized)
   {
-    glGetIntegerv(GL_MAJOR_VERSION, & glMajorVersion);
-    glGetIntegerv(GL_MINOR_VERSION, & glMinorVersion);
+    this->State->vtkglGetIntegerv(GL_MAJOR_VERSION, & glMajorVersion);
+    this->State->vtkglGetIntegerv(GL_MINOR_VERSION, & glMinorVersion);
   }
 
   major = glMajorVersion;
@@ -784,24 +739,15 @@ void vtkOpenGLRenderWindow::OpenGLInitContext()
 
     if (!GLEW_VERSION_3_2 && !GLEW_VERSION_3_1)
     {
-      if (!GLEW_EXT_gpu_shader4)
-      {
-        vtkErrorMacro("GL version 2.1 with the gpu_shader4 extension is not "
-        "supported by your graphics driver but is required for the new "
-        "OpenGL rendering backend. Please update your OpenGL driver. "
-        "If you are using Mesa please make sure you have version 10.6.5 or "
-        "later and make sure your driver in Mesa supports OpenGL 3.2.");
-        return;
-      }
-      vtkWarningMacro(
-        "VTK is designed to work with OpenGL version 3.2 but it appears "
-        "it has been given a context that does not support 3.2. VTK will "
-        "run in a compatibility mode designed to work with earlier versions "
-        "of OpenGL but some features may not work.");
-    }
-    else
-    {
-      this->SetContextSupportsOpenGL32(true);
+      vtkErrorMacro("Unable to find a valid OpenGL 3.2 or later implementation. "
+        "Please update your video card driver to the latest version. "
+        "If you are using Mesa please make sure you have version 11.2 or "
+        "later and make sure your driver in Mesa supports OpenGL 3.2 such "
+        "as llvmpipe or openswr. If you are on windows and using Microsoft "
+        "remote desktop note that it only supports OpenGL 3.2 with nvidia "
+        "quadro cards. You can use other remoting software such as nomachine "
+        "to avoid this issue.");
+      return;
     }
 #else
     // GLEW is not being used, so avoid false failure on GL checks later.
@@ -849,27 +795,20 @@ int vtkOpenGLRenderWindow::GetDepthBufferSize()
   {
     this->MakeCurrent();
     size = 0;
-    if (vtkOpenGLRenderWindow::GetContextSupportsOpenGL32())
-    {
-      GLint fboBind = 0;
-      glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &fboBind);
+    GLint fboBind = 0;
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &fboBind);
 
-      if (fboBind == 0)
-      {
-        glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,
-          GL_DEPTH,
-          GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE, &size);
-      }
-      else
-      {
-        glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,
-          GL_DEPTH_ATTACHMENT,
-          GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE, &size);
-      }
+    if (fboBind == 0)
+    {
+      glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,
+        GL_DEPTH,
+        GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE, &size);
     }
     else
     {
-      glGetIntegerv( GL_DEPTH_BITS, &size );
+      glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,
+        GL_DEPTH_ATTACHMENT,
+        GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE, &size);
     }
     return static_cast<int>(size);
   }
@@ -942,62 +881,48 @@ int vtkOpenGLRenderWindow::GetColorBufferSizes(int *rgba)
   if ( this->Mapped)
   {
     this->MakeCurrent();
-    if (vtkOpenGLRenderWindow::GetContextSupportsOpenGL32())
-    {
-      GLint attachment = GL_BACK_LEFT;
+    GLint attachment = GL_BACK_LEFT;
 #ifdef GL_DRAW_BUFFER
-      glGetIntegerv(GL_DRAW_BUFFER, &attachment);
+    glGetIntegerv(GL_DRAW_BUFFER, &attachment);
 #endif
-      // GL seems odd with its handling of left/right.
-      // if it says we are using GL_FRONT or GL_BACK
-      // then convert those to GL_FRONT_LEFT and
-      // GL_BACK_LEFT.
-      if (attachment == GL_FRONT)
-      {
-        attachment = GL_FRONT_LEFT;
-      }
-      if (attachment == GL_BACK)
-      {
-        attachment = GL_BACK_LEFT;
-      }
-      glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,
-        attachment,
-        GL_FRAMEBUFFER_ATTACHMENT_RED_SIZE, &size);
-      if (glGetError() == GL_NO_ERROR)
-      {
-        rgba[0] = static_cast<int>(size);
-      }
-      glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,
-        attachment,
-        GL_FRAMEBUFFER_ATTACHMENT_GREEN_SIZE, &size);
-      if (glGetError() == GL_NO_ERROR)
-      {
-        rgba[1] = static_cast<int>(size);
-      }
-      glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,
-        attachment,
-        GL_FRAMEBUFFER_ATTACHMENT_BLUE_SIZE, &size);
-      if (glGetError() == GL_NO_ERROR)
-      {
-        rgba[2] = static_cast<int>(size);
-      }
-      glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,
-        attachment,
-        GL_FRAMEBUFFER_ATTACHMENT_ALPHA_SIZE, &size);
-      if (glGetError() == GL_NO_ERROR)
-      {
-        rgba[3] = static_cast<int>(size);
-      }
-    }
-    else
+    // GL seems odd with its handling of left/right.
+    // if it says we are using GL_FRONT or GL_BACK
+    // then convert those to GL_FRONT_LEFT and
+    // GL_BACK_LEFT.
+    if (attachment == GL_FRONT)
     {
-      glGetIntegerv( GL_RED_BITS, &size );
+      attachment = GL_FRONT_LEFT;
+    }
+    if (attachment == GL_BACK)
+    {
+      attachment = GL_BACK_LEFT;
+    }
+    glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,
+      attachment,
+      GL_FRAMEBUFFER_ATTACHMENT_RED_SIZE, &size);
+    if (glGetError() == GL_NO_ERROR)
+    {
       rgba[0] = static_cast<int>(size);
-      glGetIntegerv( GL_GREEN_BITS, &size  );
+    }
+    glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,
+      attachment,
+      GL_FRAMEBUFFER_ATTACHMENT_GREEN_SIZE, &size);
+    if (glGetError() == GL_NO_ERROR)
+    {
       rgba[1] = static_cast<int>(size);
-      glGetIntegerv( GL_BLUE_BITS, &size );
+    }
+    glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,
+      attachment,
+      GL_FRAMEBUFFER_ATTACHMENT_BLUE_SIZE, &size);
+    if (glGetError() == GL_NO_ERROR)
+    {
       rgba[2] = static_cast<int>(size);
-      glGetIntegerv( GL_ALPHA_BITS, &size );
+    }
+    glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,
+      attachment,
+      GL_FRAMEBUFFER_ATTACHMENT_ALPHA_SIZE, &size);
+    if (glGetError() == GL_NO_ERROR)
+    {
       rgba[3] = static_cast<int>(size);
     }
     return rgba[0]+rgba[1]+rgba[2]+rgba[3];
@@ -1011,6 +936,39 @@ int vtkOpenGLRenderWindow::GetColorBufferSizes(int *rgba)
     rgba[3] = 8;
     return 32;
   }
+}
+
+int vtkOpenGLRenderWindow::GetColorBufferInternalFormat(int attachmentPoint)
+{
+  int format = 0;
+
+#ifndef GL_ES_VERSION_3_0
+  if (GLEW_ARB_direct_state_access)
+  {
+    int type;
+    glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachmentPoint,
+      GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &type);
+    if (type == GL_TEXTURE)
+    {
+      int texName;
+      glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachmentPoint,
+        GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &texName);
+
+      glGetTextureLevelParameteriv(texName, 0, GL_TEXTURE_INTERNAL_FORMAT, &format);
+    }
+    else if (type == GL_RENDERBUFFER)
+    {
+      int rbName;
+      glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachmentPoint,
+        GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &rbName);
+
+      glGetNamedRenderbufferParameteriv(rbName, GL_RENDERBUFFER_INTERNAL_FORMAT, &format);
+    }
+    vtkOpenGLClearErrorMacro();
+  }
+#endif
+
+  return format;
 }
 
 unsigned char* vtkOpenGLRenderWindow::GetPixelData(int x1, int y1,
@@ -1129,7 +1087,7 @@ int vtkOpenGLRenderWindow::ReadPixels(
     resolveMSAA = (samples > 0);
   }
 
-  glDisable( GL_SCISSOR_TEST );
+  this->State->vtkglDisable( GL_SCISSOR_TEST );
 
   // Calling pack alignment ensures that we can grab the any size window
   glPixelStorei( GL_PACK_ALIGNMENT, 1 );
@@ -1187,6 +1145,106 @@ int vtkOpenGLRenderWindow::ReadPixels(
   }
 }
 
+//----------------------------------------------------------------------------
+// Update the system, if needed, due to stereo rendering. For some stereo
+// methods, subclasses might need to switch some hardware settings here.
+void vtkOpenGLRenderWindow::StereoUpdate(void)
+{
+  this->Superclass::StereoUpdate();
+
+
+  // // if were on a stereo renderer draw to special parts of screen
+  // if (this->Stereo)
+  // {
+  //   unsigned int dfbo = win->GetDefaultFrameBufferId();
+  //   if (dfbo)
+  //   {
+  //     // If the render window is using an FBO to render into, we ensure that
+  //     // it's selected.
+  //     glBindFramebuffer(GL_FRAMEBUFFER, dfbo);
+  //   }
+  // }
+
+
+  if (this->StereoRender && this->GetStereoType() == VTK_STEREO_CRYSTAL_EYES)
+  {
+    if (this->GetDoubleBuffer())
+    {
+      glDrawBuffer(static_cast<GLenum>(this->GetBackLeftBuffer()));
+      glReadBuffer(static_cast<GLenum>(this->GetBackLeftBuffer()));
+    }
+    else
+    {
+      glDrawBuffer(static_cast<GLenum>(this->GetFrontLeftBuffer()));
+      glReadBuffer(static_cast<GLenum>(this->GetFrontLeftBuffer()));
+    }
+  }
+  else
+  {
+    if (this->GetDoubleBuffer())
+    {
+      glDrawBuffer(static_cast<GLenum>(this->GetBackBuffer()));
+
+      // Reading back buffer means back left. see OpenGL spec.
+      // because one can write to two buffers at a time but can only read from
+      // one buffer at a time.
+      glReadBuffer(static_cast<GLenum>(this->GetBackBuffer()));
+    }
+    else
+    {
+      glDrawBuffer(static_cast<GLenum>(this->GetFrontBuffer()));
+
+      // Reading front buffer means front left. see OpenGL spec.
+      // because one can write to two buffers at a time but can only read from
+      // one buffer at a time.
+      glReadBuffer(static_cast<GLenum>(this->GetFrontBuffer()));
+    }
+  }
+}
+
+//----------------------------------------------------------------------------
+// Intermediate method performs operations required between the rendering
+// of the left and right eye.
+void vtkOpenGLRenderWindow::StereoMidpoint(void)
+{
+  this->Superclass::StereoMidpoint();
+
+  if (this->GetStereoType() == VTK_STEREO_CRYSTAL_EYES)
+  {
+    if (this->GetDoubleBuffer())
+    {
+      glDrawBuffer(static_cast<GLenum>(this->GetBackRightBuffer()));
+      glReadBuffer(static_cast<GLenum>(this->GetBackRightBuffer()));
+    }
+    else
+    {
+      glDrawBuffer(static_cast<GLenum>(this->GetFrontRightBuffer()));
+      glReadBuffer(static_cast<GLenum>(this->GetFrontRightBuffer()));
+    }
+  }
+  else
+  {
+    if (this->GetDoubleBuffer())
+    {
+      glDrawBuffer(static_cast<GLenum>(this->GetBackBuffer()));
+
+      // Reading back buffer means back left. see OpenGL spec.
+      // because one can write to two buffers at a time but can only read from
+      // one buffer at a time.
+      glReadBuffer(static_cast<GLenum>(this->GetBackBuffer()));
+    }
+    else
+    {
+      glDrawBuffer(static_cast<GLenum>(this->GetFrontBuffer()));
+
+      // Reading front buffer means front left. see OpenGL spec.
+      // because one can write to two buffers at a time but can only read from
+      // one buffer at a time.
+      glReadBuffer(static_cast<GLenum>(this->GetFrontBuffer()));
+    }
+  }
+}
+
 int vtkOpenGLRenderWindow::SetPixelData(int x1, int y1, int x2, int y2,
                                         vtkUnsignedCharArray *data, int front,
                                         int right)
@@ -1235,8 +1293,8 @@ int vtkOpenGLRenderWindow::SetPixelData(int x1, int y1, int x2, int y2,
 void vtkOpenGLRenderWindow::DrawPixels(
   int srcWidth, int srcHeight, int numComponents, int dataType, void *data)
 {
-  glDisable( GL_SCISSOR_TEST );
-  glDisable(GL_DEPTH_TEST);
+  this->State->vtkglDisable( GL_SCISSOR_TEST );
+  this->State->vtkglDisable(GL_DEPTH_TEST);
   if (!this->DrawPixelsTextureObject)
   {
     this->DrawPixelsTextureObject = vtkTextureObject::New();
@@ -1257,8 +1315,8 @@ void vtkOpenGLRenderWindow::DrawPixels(
   int srcXmin, int srcYmin, int srcXmax, int srcYmax,
   int srcWidth, int srcHeight, int numComponents, int dataType, void *data)
 {
-  glDisable( GL_SCISSOR_TEST );
-  glDisable(GL_DEPTH_TEST);
+  this->State->vtkglDisable( GL_SCISSOR_TEST );
+  this->State->vtkglDisable(GL_DEPTH_TEST);
   if (!this->DrawPixelsTextureObject)
   {
     this->DrawPixelsTextureObject = vtkTextureObject::New();
@@ -1494,9 +1552,9 @@ int vtkOpenGLRenderWindow::SetRGBAPixelData(int x1, int y1, int x2, int y2,
   FrameBufferHelper helper(FrameBufferHelper::DRAW, this, front, right);
   if (!blend)
   {
-    glDisable(GL_BLEND);
+    this->GetState()->vtkglDisable(GL_BLEND);
     this->DrawPixels(x1, y1, x2, y2, 4, VTK_FLOAT, data); // TODO replace dprecated function
-    glEnable(GL_BLEND);
+    this->GetState()->vtkglEnable(GL_BLEND);
   }
   else
   {
@@ -1668,14 +1726,14 @@ int vtkOpenGLRenderWindow::SetRGBACharPixelData(int x1, int y1, int x2,
   FrameBufferHelper helper(FrameBufferHelper::DRAW, this, front, right);
 
   // Disable writing on the z-buffer.
-  glDepthMask(GL_FALSE);
-  glDisable(GL_DEPTH_TEST);
+  this->GetState()->vtkglDepthMask(GL_FALSE);
+  this->GetState()->vtkglDisable(GL_DEPTH_TEST);
 
   if (!blend)
   {
-    glDisable(GL_BLEND);
+    this->GetState()->vtkglDisable(GL_BLEND);
     this->DrawPixels(x1,y1,x2,y2,4, VTK_UNSIGNED_CHAR, data);
-    glEnable(GL_BLEND);
+    this->GetState()->vtkglEnable(GL_BLEND);
   }
   else
   {
@@ -1683,8 +1741,8 @@ int vtkOpenGLRenderWindow::SetRGBACharPixelData(int x1, int y1, int x2,
   }
 
   // Renenable writing on the z-buffer.
-  glDepthMask(GL_TRUE);
-  glEnable(GL_DEPTH_TEST);
+  this->GetState()->vtkglDepthMask(GL_TRUE);
+  this->GetState()->vtkglEnable(GL_DEPTH_TEST);
 
   if (glGetError() != GL_NO_ERROR)
   {
@@ -1739,7 +1797,7 @@ int vtkOpenGLRenderWindow::GetZbufferData( int x1, int y1, int x2, int y2,
 
   // Turn of texturing in case it is on - some drivers have a problem
   // getting / setting pixels with texturing enabled.
-  glDisable( GL_SCISSOR_TEST );
+  this->GetState()->vtkglDisable( GL_SCISSOR_TEST );
   glPixelStorei( GL_PACK_ALIGNMENT, 1 );
 
   glReadPixels( x_low, y_low,
@@ -1807,10 +1865,11 @@ int vtkOpenGLRenderWindow::SetZbufferData( int x1, int y1,
                                            float *buffer )
 {
 //  glDrawBuffer(this->GetBackBuffer());
-  glDisable( GL_SCISSOR_TEST );
-  glEnable(GL_DEPTH_TEST);
-  glDepthFunc(GL_ALWAYS);
-  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+  vtkOpenGLState *ostate = this->GetState();
+  ostate->vtkglDisable( GL_SCISSOR_TEST );
+  ostate->vtkglEnable(GL_DEPTH_TEST);
+  ostate->vtkglDepthFunc(GL_ALWAYS);
+  ostate->vtkglColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
   if (!this->DrawPixelsTextureObject)
   {
     this->DrawPixelsTextureObject = vtkTextureObject::New();
@@ -1828,7 +1887,7 @@ int vtkOpenGLRenderWindow::SetZbufferData( int x1, int y1,
     this->GetShaderCache()->ReadyShaderProgram(
       vtkTextureObjectVS,
       "//VTK::System::Dec\n"
-      "varying vec2 tcoordVC;\n"
+      "in vec2 tcoordVC;\n"
       "uniform sampler2D source;\n"
       "//VTK::Output::Dec\n"
       "void main(void) {\n"
@@ -1852,8 +1911,9 @@ int vtkOpenGLRenderWindow::SetZbufferData( int x1, int y1,
     program, VAO);
   this->DrawPixelsTextureObject->Deactivate();
   VAO->Delete();
-  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-  glDepthFunc(GL_LEQUAL);
+
+  ostate->vtkglColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  ostate->vtkglDepthFunc(GL_LEQUAL);
 
   return VTK_OK;
 }
@@ -1923,6 +1983,13 @@ int vtkOpenGLRenderWindow::CreateHardwareOffScreenWindow(int width, int height)
   this->CreateAWindow();
   this->MakeCurrent();
   this->OpenGLInit();
+
+  // make sure OPenGL initialized correctly before proceeding
+  if (!this->Initialized)
+  {
+    this->DestroyWindow();
+    return 0;
+  }
 
   int result = this->CreateHardwareOffScreenBuffers(width, height);
   if (!result)
@@ -2366,20 +2433,14 @@ int vtkOpenGLRenderWindow::SupportsOpenGL()
     oldOW->Delete();
     return 0;
   }
-  if (rw->GetContextSupportsOpenGL32())
-  {
-    this->OpenGLSupportResult = 1;
-    this->OpenGLSupportMessage =
-      "The system appears to support OpenGL 3.2";
-  }
 
 #ifdef GLEW_OK
 
-  else if (GLEW_VERSION_3_2 || GLEW_VERSION_3_1 || GLEW_EXT_gpu_shader4)
+  else if (GLEW_VERSION_3_2 || GLEW_VERSION_3_1)
   {
     this->OpenGLSupportResult = 1;
     this->OpenGLSupportMessage =
-      "The system appears to support OpenGL 3.2/3.1 or has 2.1 with the required extension";
+      "The system appears to support OpenGL 3.2/3.1";
   }
 
 #endif
@@ -2392,7 +2453,7 @@ int vtkOpenGLRenderWindow::SupportsOpenGL()
       rw->GetShaderCache()->ReadyShaderProgram(
         // simple vert shader
         "//VTK::System::Dec\n"
-        "attribute vec4 vertexMC;\n"
+        "in vec4 vertexMC;\n"
         "void main() { gl_Position = vertexMC; }\n",
         // frag shader that used gl_PrimitiveId
         "//VTK::System::Dec\n"
@@ -2421,4 +2482,84 @@ int vtkOpenGLRenderWindow::SupportsOpenGL()
   this->OpenGLSupportTested = true;
 
   return this->OpenGLSupportResult;
+}
+
+vtkOpenGLBufferObject *vtkOpenGLRenderWindow::GetTQuad2DVBO()
+{
+  if (!this->TQuad2DVBO || !this->TQuad2DVBO->GetHandle())
+  {
+    if (!this->TQuad2DVBO)
+    {
+      this->TQuad2DVBO = vtkOpenGLBufferObject::New();
+      this->TQuad2DVBO->SetType(vtkOpenGLBufferObject::ArrayBuffer);
+    }
+    float verts[16] = {  1.f, 1.f, 1.f, 1.f,
+                        -1.f, 1.f, 0.f, 1.f,
+                         1.f,-1.f, 1.f, 0.f,
+                        -1.f,-1.f, 0.f, 0.f };
+
+    bool res = this->TQuad2DVBO->Upload(verts, 16, vtkOpenGLBufferObject::ArrayBuffer);
+    if (!res)
+    {
+      vtkGenericWarningMacro("Error uploading fullscreen quad vertex data.");
+    }
+  }
+  return this->TQuad2DVBO;
+}
+
+int vtkOpenGLRenderWindow::GetNoiseTextureUnit()
+{
+  if (!this->NoiseTextureObject)
+  {
+    this->NoiseTextureObject = vtkTextureObject::New();
+    this->NoiseTextureObject->SetContext(this);
+  }
+
+  if (this->NoiseTextureObject->GetHandle() == 0)
+  {
+    vtkNew<vtkPerlinNoise> generator;
+    generator->SetFrequency(64, 64, 1.0);
+    generator->SetAmplitude(0.5);
+
+    int const bufferSize = 64 * 64;
+    float *noiseTextureData = new float[bufferSize];
+    for (int i = 0; i < bufferSize; i++)
+    {
+      int const x = i % 64;
+      int const y = i / 64;
+      noiseTextureData[i] = static_cast<float>(
+        generator->EvaluateFunction(x, y, 0.0) + 0.5);
+    }
+
+    // Prepare texture
+    this->NoiseTextureObject->Create2DFromRaw(64, 64, 1, VTK_FLOAT,
+      noiseTextureData);
+
+    this->NoiseTextureObject->SetWrapS(vtkTextureObject::Repeat);
+    this->NoiseTextureObject->SetWrapT(vtkTextureObject::Repeat);
+    this->NoiseTextureObject->SetMagnificationFilter(vtkTextureObject::Nearest);
+    this->NoiseTextureObject->SetMinificationFilter(vtkTextureObject::Nearest);
+    delete [] noiseTextureData;
+  }
+
+
+  int result = this->GetTextureUnitForTexture(this->NoiseTextureObject);
+
+  if (result >= 0)
+  {
+    return result;
+  }
+
+  this->NoiseTextureObject->Activate();
+  return this->GetTextureUnitForTexture(this->NoiseTextureObject);
+}
+
+void vtkOpenGLRenderWindow::Render()
+{
+  this->Superclass::Render();
+  if (this->NoiseTextureObject &&
+    this->GetTextureUnitForTexture(this->NoiseTextureObject) >= 0)
+  {
+    this->NoiseTextureObject->Deactivate();
+  }
 }

@@ -239,7 +239,7 @@ int vtkDataArraySelection::GetArraySetting(int index)
 void vtkDataArraySelection::RemoveAllArrays()
 {
   vtkDebugMacro("Removing all arrays.");
-  if (this->Internal->Arrays.size())
+  if (!this->Internal->Arrays.empty())
   {
     this->Internal->Arrays.clear();
     this->Modified();
@@ -247,7 +247,7 @@ void vtkDataArraySelection::RemoveAllArrays()
 }
 
 //----------------------------------------------------------------------------
-int vtkDataArraySelection::AddArray(const char* name)
+int vtkDataArraySelection::AddArray(const char* name, bool state)
 {
   vtkDebugMacro("Adding array \"" << name << "\".");
   // This function is called only by the filter owning the selection.
@@ -257,7 +257,7 @@ int vtkDataArraySelection::AddArray(const char* name)
   {
     return 0;
   }
-  this->Internal->Arrays.push_back(vtkDataArraySelectionInternals::ArraySettingPair(name, true));
+  this->Internal->Arrays.push_back(vtkDataArraySelectionInternals::ArraySettingPair(name, state));
   return 1;
 }
 

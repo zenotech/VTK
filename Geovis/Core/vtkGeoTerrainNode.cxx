@@ -32,6 +32,7 @@ vtkStandardNewMacro(vtkGeoTerrainNode);
 //----------------------------------------------------------------------------
 vtkGeoTerrainNode::vtkGeoTerrainNode()
 {
+  VTK_LEGACY_BODY(vtkGeoTerrainNode::vtkGeoTerrainNode, "VTK 8.2");
   this->Model = vtkSmartPointer<vtkPolyData>::New();
   this->BoundingSphereRadius = 0.0;
 
@@ -53,9 +54,7 @@ vtkGeoTerrainNode::vtkGeoTerrainNode()
 }
 
 //-----------------------------------------------------------------------------
-vtkGeoTerrainNode::~vtkGeoTerrainNode()
-{
-}
+vtkGeoTerrainNode::~vtkGeoTerrainNode() = default;
 
 //-----------------------------------------------------------------------------
 void vtkGeoTerrainNode::PrintSelf(ostream& os, vtkIndent indent)

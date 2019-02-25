@@ -37,9 +37,7 @@ typedef std::map<std::string, vtkOpenGLVertexBufferObject *>::iterator vboIter;
 typedef std::map<std::string, std::vector<vtkDataArray *> >::iterator arrayIter;
 
 // ----------------------------------------------------------------------------
-vtkOpenGLVertexBufferObjectGroup::vtkOpenGLVertexBufferObjectGroup()
-{
-}
+vtkOpenGLVertexBufferObjectGroup::vtkOpenGLVertexBufferObjectGroup() = default;
 
 // ----------------------------------------------------------------------------
 vtkOpenGLVertexBufferObjectGroup::~vtkOpenGLVertexBufferObjectGroup()
@@ -108,8 +106,18 @@ void vtkOpenGLVertexBufferObjectGroup::RemoveAttribute(
     }
     diter->second.clear();
     this->UsedDataArrays.erase(diter);
+
+    // rebuild the map for this attribute
+    this->UsedDataArrayMaps[attribute].clear();
+    std::vector<vtkDataArray *> &arrays = this->UsedDataArrays[attribute];
+    vtkIdType totalOffset = 0;
+    for (vtkDataArray* arr : arrays)
+    {
+      this->UsedDataArrayMaps[attribute][arr] = totalOffset;
+      totalOffset += arr->GetNumberOfTuples();
+    }
+    this->UsedDataArraySizes[attribute] = totalOffset;
   }
-  return;
 }
 
 void vtkOpenGLVertexBufferObjectGroup::CacheDataArray(
@@ -143,7 +151,7 @@ void vtkOpenGLVertexBufferObjectGroup::CacheDataArray(
   // if a different array is already setup for this attribute
   // clear it out. Remember that UsedArrays is cleared
   // after upload. So if there is another array here
-  // it means the same attrribute has been set twice.
+  // it means the same attribute has been set twice.
   // so we delete the prior setting, last one wins.
   if (diter != this->UsedDataArrays.end() &&
       (diter->second.size() != 1 || diter->second[0] != da))
@@ -156,12 +164,15 @@ void vtkOpenGLVertexBufferObjectGroup::CacheDataArray(
       }
     }
     diter->second.clear();
+    this->UsedDataArrayMaps[attribute].clear();
   }
 
   // make sure we add this DA to our list of arrays
   da->Register(this);
   std::vector<vtkDataArray *> &vec = this->UsedDataArrays[attribute];
   vec.push_back(da);
+  this->UsedDataArrayMaps[attribute][da] = 0;
+  this->UsedDataArraySizes[attribute] = da->GetNumberOfTuples();
 
   // get the VBO for this DA
   vtkOpenGLVertexBufferObject* vbo = cache->GetVBO(da, destType);
@@ -189,6 +200,52 @@ void vtkOpenGLVertexBufferObjectGroup::CacheDataArray(
   this->UsedVBOs[attribute] = vbo;
 }
 
+// On a composite poly data with N blocks this method
+// gets called N times. So it is import that it not
+// be order N itself because then the total time
+// becomes N*N.  So we maintain a map structure of
+// the used data arrays specifically to speed up this
+// method.
+//
+// With a 8196 block dataset this method was consuming
+// 75% of the CPU time as N*N. Using the map it now
+// consumes only 1.3% of the CPU time.
+//
+bool vtkOpenGLVertexBufferObjectGroup::ArrayExists(
+  const char *attribute,
+  vtkDataArray *da,
+  vtkIdType& offset,
+  vtkIdType& totalOffset)
+{
+  totalOffset = offset = 0;
+  if (!da)
+  {
+    return true;
+  }
+
+  // attribute does not exist
+  auto mi = this->UsedDataArrayMaps.find(attribute);
+  if (mi == this->UsedDataArrayMaps.end())
+  {
+    return false;
+  }
+
+  // attribute exists
+  totalOffset = this->UsedDataArraySizes[attribute];
+
+  // is the da already in it?
+  auto di = mi->second.find(da);
+  if (di == mi->second.end())
+  {
+    // no return false
+    return false;
+  }
+
+  // yes, set the offset and return
+  offset = di->second;
+  return true;
+}
+
 void vtkOpenGLVertexBufferObjectGroup::AppendDataArray(
   const char *attribute,
   vtkDataArray *da,
@@ -200,19 +257,18 @@ void vtkOpenGLVertexBufferObjectGroup::AppendDataArray(
   }
 
   std::vector<vtkDataArray *> &arrays = this->UsedDataArrays[attribute];
-  if (std::find(arrays.begin(), arrays.end(), da) == arrays.end())
-  {
-    da->Register(this);
-    arrays.push_back(da);
+  da->Register(this);
+  arrays.push_back(da);
+  this->UsedDataArrayMaps[attribute][da] = this->UsedDataArraySizes[attribute];
+  this->UsedDataArraySizes[attribute] += da->GetNumberOfTuples();
 
-    // make sure we have a VBO for this array
-    // we do not use the cache when appending
-    if (this->UsedVBOs.find(attribute) == this->UsedVBOs.end())
-    {
-      vtkOpenGLVertexBufferObject* vbo = vtkOpenGLVertexBufferObject::New();
-      vbo->SetDataType(destType);
-      this->UsedVBOs[attribute] = vbo;
-    }
+  // make sure we have a VBO for this array
+  // we do not use the cache when appending
+  if (this->UsedVBOs.find(attribute) == this->UsedVBOs.end())
+  {
+    vtkOpenGLVertexBufferObject* vbo = vtkOpenGLVertexBufferObject::New();
+    vbo->SetDataType(destType);
+    this->UsedVBOs[attribute] = vbo;
   }
 }
 
@@ -262,6 +318,8 @@ void vtkOpenGLVertexBufferObjectGroup::ClearAllDataArrays()
     i->second.clear();
   }
   this->UsedDataArrays.clear();
+  this->UsedDataArrayMaps.clear();
+  this->UsedDataArraySizes.clear();
 }
 
 void vtkOpenGLVertexBufferObjectGroup::ClearAllVBOs()

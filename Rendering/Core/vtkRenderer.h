@@ -504,6 +504,16 @@ public:
    */
   void WorldToView(double &wx, double &wy, double &wz) override;
 
+  //@{
+  /**
+   * Convert to from pose coordinates
+   */
+  void WorldToPose(double &wx, double &wy, double &wz) override;
+  void PoseToWorld(double &wx, double &wy, double &wz) override;
+  void ViewToPose(double &wx, double &wy, double &wz) override;
+  void PoseToView(double &wx, double &wy, double &wz) override;
+  //@}
+
   /**
    * Given a pixel location, return the Z value. The z value is
    * normalized (0,1) between the front and back clipping planes.
@@ -589,7 +599,7 @@ public:
   //@}
 
   /**
-   * This this flag is on and the GPU supports it, depth-peel volumes along with
+   * This flag is on and the GPU supports it, depth-peel volumes along with
    * the translucent geometry. Only supported on OpenGL2 with dual-depth
    * peeling. Default is false.
    */
@@ -726,10 +736,6 @@ protected:
   vtkRenderer();
   ~vtkRenderer() override;
 
-  // internal method for doing a render for picking purposes
-  virtual void PickRender(vtkPropCollection *props);
-  virtual void PickGeometry();
-
   // internal method to expand bounding box to consider model transform
   // matrix or model view transform matrix based on whether or not deering
   // frustum is used.
@@ -748,16 +754,16 @@ protected:
   vtkRenderWindow    *RenderWindow;
   double              AllocatedRenderTime;
   double              TimeFactor;
-  vtkTypeBool                TwoSidedLighting;
-  int                AutomaticLightCreation;
-  vtkTypeBool                BackingStore;
+  vtkTypeBool         TwoSidedLighting;
+  int                 AutomaticLightCreation;
+  vtkTypeBool         BackingStore;
   unsigned char      *BackingImage;
-  int                BackingStoreSize[2];
-  vtkTimeStamp       RenderTime;
+  int                 BackingStoreSize[2];
+  vtkTimeStamp        RenderTime;
 
   double              LastRenderTimeInSeconds;
 
-  vtkTypeBool                LightFollowCamera;
+  vtkTypeBool         LightFollowCamera;
 
   // Allocate the time for each prop
   void               AllocateTime();
@@ -770,10 +776,6 @@ protected:
   // of all props when rendering
   vtkProp            **PropArray;
   int                PropArrayCount;
-
-  // A temporary list used for picking
-  vtkAssemblyPath    **PathArray;
-  int                PathArrayCount;
 
   // Indicates if the renderer should receive events from an interactor.
   // Typically only used in conjunction with transparent renderers.
@@ -905,7 +907,7 @@ protected:
   vtkTypeBool UseDepthPeeling;
 
   /**
-   * This this flag is on and the GPU supports it, depth-peel volumes along with
+   * This flag is on and the GPU supports it, depth-peel volumes along with
    * the translucent geometry. Default is false;
    */
   bool UseDepthPeelingForVolumes;

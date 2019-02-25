@@ -31,13 +31,9 @@
 vtkStandardNewMacro(vtkRectilinearGridToPointSet);
 
 //-------------------------------------------------------------------------
-vtkRectilinearGridToPointSet::vtkRectilinearGridToPointSet()
-{
-}
+vtkRectilinearGridToPointSet::vtkRectilinearGridToPointSet() = default;
 
-vtkRectilinearGridToPointSet::~vtkRectilinearGridToPointSet()
-{
-}
+vtkRectilinearGridToPointSet::~vtkRectilinearGridToPointSet() = default;
 
 void vtkRectilinearGridToPointSet::PrintSelf(ostream &os, vtkIndent indent)
 {
@@ -94,7 +90,7 @@ int vtkRectilinearGridToPointSet::CopyStructure(vtkStructuredGrid *outData,
 
   if (pointId != points->GetNumberOfPoints())
   {
-    vtkErrorMacro(<< "Somehow misscounted points");
+    vtkErrorMacro(<< "Somehow miscounted points");
     return 0;
   }
 

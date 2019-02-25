@@ -65,7 +65,8 @@ int vtkWrap_IsVoidPointer(ValueInfo *val)
 int vtkWrap_IsCharPointer(ValueInfo *val)
 {
   unsigned int t = (val->Type & VTK_PARSE_BASE_TYPE);
-  return (t == VTK_PARSE_CHAR && vtkWrap_IsPointer(val));
+  return (t == VTK_PARSE_CHAR && vtkWrap_IsPointer(val) &&
+          (val->Type & VTK_PARSE_ZEROCOPY) == 0);
 }
 
 int vtkWrap_IsPODPointer(ValueInfo *val)
@@ -1021,15 +1022,11 @@ void vtkWrap_DeclareVariable(
       fprintf(fp,"const ");
     }
   }
-  /* do the same for "const char *" with initializer */
+  /* do the same for "const char *" arguments */
   else
   {
     if ((val->Type & VTK_PARSE_CONST) != 0 &&
-        aType == VTK_PARSE_CHAR_PTR &&
-        val->Value &&
-        strcmp(val->Value, "0") != 0 &&
-        strcmp(val->Value, "nullptr") != 0 &&
-        strcmp(val->Value, "NULL") != 0)
+        aType == VTK_PARSE_CHAR_PTR)
     {
       fprintf(fp,"const ");
     }
@@ -1152,7 +1149,7 @@ void vtkWrap_DeclareVariableSize(
   if (val->NumberOfDimensions > 1)
   {
     fprintf(fp,
-            "  static int %s%s[%d] = ",
+            "  static size_t %s%s[%d] = ",
             name, idx, val->NumberOfDimensions);
 
     for (j = 0; j < val->NumberOfDimensions; j++)
@@ -1165,14 +1162,14 @@ void vtkWrap_DeclareVariableSize(
   else if (val->Count != 0 || val->CountHint || vtkWrap_IsPODPointer(val))
   {
     fprintf(fp,
-            "  %sint %s%s = %d;\n",
+            "  %ssize_t %s%s = %d;\n",
             ((val->Count == 0 || val->Value != 0) ? "" : "const "),
             name, idx, (val->Count == 0 ? 0 : val->Count));
   }
   else if (val->NumberOfDimensions == 1)
   {
     fprintf(fp,
-            "  const int %s%s = %s;\n",
+            "  const size_t %s%s = %s;\n",
             name, idx, val->Dimensions[0]);
   }
 }

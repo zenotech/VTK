@@ -28,13 +28,17 @@ SET(Module_SRCS
   vtkInformationExecutivePortKey.cxx
   vtkInformationExecutivePortVectorKey.cxx
   vtkInformationIntegerRequestKey.cxx
+  vtkMoleculeAlgorithm.cxx
   vtkMultiBlockDataSetAlgorithm.cxx
   vtkMultiTimeStepAlgorithm.cxx
+  vtkParallelReader.cxx
   vtkPassInputTypeAlgorithm.cxx
   vtkPiecewiseFunctionAlgorithm.cxx
   vtkPiecewiseFunctionShiftScale.cxx
   vtkPointSetAlgorithm.cxx
   vtkPolyDataAlgorithm.cxx
+  vtkReaderAlgorithm.cxx
+  vtkReaderExecutive.cxx
   vtkRectilinearGridAlgorithm.cxx
   vtkScalarTree.cxx
   vtkSimpleImageToImageFilter.cxx

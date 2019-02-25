@@ -23,10 +23,6 @@
 #include <vector>
 
 static int TestPi();
-#if 0
-static int TestDoublePi();
-static int TestDoubleTwoPi();
-#endif
 static int TestDegreesFromRadians();
 static int TestRound();
 static int TestFloor();
@@ -97,11 +93,6 @@ int UnitTestMath(int,char *[])
   int status = 0;
 
   status += TestPi();
-
-#if 0
-  status += TestDoublePi(); // legacy
-  status += TestDoubleTwoPi(); // legacy
-#endif
 
   status += TestDegreesFromRadians();
   status += TestRound();
@@ -201,56 +192,6 @@ int TestPi()
   }
   return status;
 }
-
-#if 0
-// Validate by comparing to atan/4
-int TestDoublePi()
-{
-  int status = 0;
-  std::cout << "DoublePi..";
-
-  if (vtkMath::DoublePi() != std::atan(1.0) * 4.0)
-  {
-    std::cout << "Expected " << vtkMath::Pi()
-              << " but got " << std::atan(1.0) * 4.0;
-    ++status;
-  }
-
-  if (status)
-  {
-    std::cout << "..FAILED" << std::endl;
-  }
-  else
-  {
-    std::cout << ".PASSED" << std::endl;
-  }
-  return status;
-}
-
-// Validate by comparing to atan/4 * 2
-int TestDoubleTwoPi()
-{
-  int status = 0;
-  std::cout << "DoubleTwoPi..";
-
-  if (vtkMath::DoubleTwoPi() != std::atan(1.0) * 4.0 * 2.0)
-  {
-    std::cout << "Expected " << vtkMath::Pi() * 2.0
-              << " but got " << std::atan(1.0) * 4.0 * 2.0;
-    ++status;
-  }
-
-  if (status)
-  {
-    std::cout << "..FAILED" << std::endl;
-  }
-  else
-  {
-    std::cout << ".PASSED" << std::endl;
-  }
-  return status;
-}
-#endif
 
 // Validate against RadiansFromDegress
 int TestDegreesFromRadians()
@@ -896,7 +837,7 @@ int TestMultiplyScalar2D()
 class valueDouble3D
 {
 public:
-  valueDouble3D() {}
+  valueDouble3D() = default;
   valueDouble3D(double aa[3], double bb[3])
   {
     for (int i = 0; i < 3; ++i)
@@ -912,7 +853,7 @@ public:
 class valueFloat3D
 {
 public:
-  valueFloat3D() {}
+  valueFloat3D() = default;
   valueFloat3D(float aa[3], float bb[3])
   {
     for (int i = 0; i < 3; ++i)
@@ -3210,7 +3151,7 @@ int TestClampValues()
   }
 
   vtkMath::ClampValues( nullptr, 1000, nullptr);
-  vtkMath::ClampValues( nullptr, 1000, nullptr, nullptr);;
+  vtkMath::ClampValues( nullptr, 1000, nullptr, nullptr);
 
   if (status)
   {
@@ -3482,7 +3423,7 @@ int TestGetAdjustedScalarRange()
   if (range[0] != uc->GetDataTypeMin() ||
       range[1] != uc->GetDataTypeMax())
   {
-    std::cout << " GetAjustedScalarRange(unsigned char) expected "
+    std::cout << " GetAdjustedScalarRange(unsigned char) expected "
               << uc->GetDataTypeMin() << ", " << uc->GetDataTypeMax()
               << " but got " << range[0] << ", " << range[1]
               << std::endl;
@@ -3509,7 +3450,7 @@ int TestGetAdjustedScalarRange()
   if (range[0] != us->GetDataTypeMin() ||
       range[1] != us->GetDataTypeMax())
   {
-    std::cout << " GetAjustedScalarRange(unsigned short) expected "
+    std::cout << " GetAdjustedScalarRange(unsigned short) expected "
               << us->GetDataTypeMin() << ", " << us->GetDataTypeMax()
               << " but got " << range[0] << ", " << range[1]
               << std::endl;
@@ -3520,7 +3461,7 @@ int TestGetAdjustedScalarRange()
   if (range[0] != us->GetDataTypeMin() ||
       range[1] != 4095.0)
   {
-    std::cout << " GetAjustedScalarRange(unsigned short) expected "
+    std::cout << " GetAdjustedScalarRange(unsigned short) expected "
               << us->GetDataTypeMin() << ", " << 4095.0
               << " but got " << range[0] << ", " << range[1]
               << std::endl;
@@ -3531,7 +3472,7 @@ int TestGetAdjustedScalarRange()
   if (range[0] != us->GetDataTypeMin() ||
       range[1] >= uc->GetDataTypeMax())
   {
-    std::cout << " GetAjustedScalarRange(unsigned short) expected "
+    std::cout << " GetAdjustedScalarRange(unsigned short) expected "
               << us->GetDataTypeMin() << ", " << ">= " << uc->GetDataTypeMax()
               << " but got " << range[0] << ", " << range[1]
               << std::endl;
@@ -3541,7 +3482,7 @@ int TestGetAdjustedScalarRange()
   // Test nullptr array
   if (vtkMath::GetAdjustedScalarRange(nullptr, 1000, nullptr))
   {
-    std::cout << " GetAjustedScalarRange with a nullptr array expected "
+    std::cout << " GetAdjustedScalarRange with a nullptr array expected "
               << 0
               << " but got " << 1
               << std::endl;

@@ -23,7 +23,7 @@
  *
  *
  * vtkGeoProjectionSource is a vtkGeoSource suitable for use in vtkTerrain2D.
- * This source uses the libproj4 library to produce geometry patches at
+ * This source uses the libproj library to produce geometry patches at
  * multiple resolutions. Each patch covers a specific region in projected
  * space.
 */
@@ -38,6 +38,7 @@ class vtkAbstractTransform;
 class vtkGeoTerrainNode;
 class vtkMutexLock;
 
+#if !defined(VTK_LEGACY_REMOVE)
 class VTKGEOVISCORE_EXPORT vtkGeoProjectionSource : public vtkGeoSource
 {
 public:
@@ -91,4 +92,5 @@ private:
   void operator=(const vtkGeoProjectionSource&) = delete;
 };
 
+#endif //VTK_LEGACY_REMOVE
 #endif

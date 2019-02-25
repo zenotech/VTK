@@ -130,9 +130,7 @@ class vtkOpenGLGlyph3DMapper::vtkOpenGLGlyph3DMapperSubArray
 public:
   std::vector<vtkOpenGLGlyph3DMapper::vtkOpenGLGlyph3DMapperEntry *>  Entries;
   vtkTimeStamp BuildTime;
-  vtkOpenGLGlyph3DMapperSubArray()
-  {
-  };
+  vtkOpenGLGlyph3DMapperSubArray() = default;
   ~vtkOpenGLGlyph3DMapperSubArray()
   {
     this->ClearEntries();
@@ -201,6 +199,14 @@ void vtkOpenGLGlyph3DMapper::CopyInformationToSubMapper(
   mapper->SetResolveCoincidentTopology(this->GetResolveCoincidentTopology());
   mapper->SetResolveCoincidentTopologyZShift(
     this->GetResolveCoincidentTopologyZShift());
+
+  double f, u;
+  this->GetRelativeCoincidentTopologyPolygonOffsetParameters(f, u);
+  mapper->SetRelativeCoincidentTopologyPolygonOffsetParameters(f, u);
+  this->GetRelativeCoincidentTopologyLineOffsetParameters(f, u);
+  mapper->SetRelativeCoincidentTopologyLineOffsetParameters(f, u);
+  this->GetRelativeCoincidentTopologyPointOffsetParameter(u);
+  mapper->SetRelativeCoincidentTopologyPointOffsetParameter(u);
 
   // ResolveCoincidentTopologyPolygonOffsetParameters is static
   mapper->SetResolveCoincidentTopologyPolygonOffsetFaces(
@@ -451,7 +457,9 @@ void vtkOpenGLGlyph3DMapper::Render(
       ss = s->NewInstance();
       entry->DataObject = ss;
     }
-    if (numberOfSourcesChanged || s->GetMTime() > ss->GetMTime())
+    if (numberOfSourcesChanged ||
+      s->GetMTime() > ss->GetMTime() ||
+      this->GetMTime() > entry->BuildTime)
     {
       ss->ShallowCopy(s);
       entry->ClearMappers();

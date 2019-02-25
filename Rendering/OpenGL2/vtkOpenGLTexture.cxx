@@ -14,6 +14,7 @@
 =========================================================================*/
 #include "vtkOpenGLTexture.h"
 #include "vtkTextureObject.h"
+#include "vtkOpenGLState.h"
 
 #include "vtkOpenGLHelper.h"
 
@@ -128,6 +129,10 @@ void vtkOpenGLTexture::Render(vtkRenderer *ren)
 // Implement base class method.
 void vtkOpenGLTexture::Load(vtkRenderer *ren)
 {
+  vtkOpenGLRenderWindow* renWin =
+    static_cast<vtkOpenGLRenderWindow*>(ren->GetRenderWindow());
+  vtkOpenGLState *ostate = renWin->GetState();
+
   if (!this->ExternalTextureObject)
   {
     vtkImageData *input = this->GetInput();
@@ -163,15 +168,13 @@ void vtkOpenGLTexture::Load(vtkRenderer *ren)
     // to load when only the desired update rate changed).
     // If a better check is required, check something more specific,
     // like the graphics context.
-    vtkOpenGLRenderWindow* renWin =
-      static_cast<vtkOpenGLRenderWindow*>(ren->GetRenderWindow());
 
     // has something changed so that we need to rebuild the texture?
     if (this->GetMTime() > this->LoadTime.GetMTime() ||
         inputTime > this->LoadTime.GetMTime() ||
         (this->GetLookupTable() && this->GetLookupTable()->GetMTime () >
          this->LoadTime.GetMTime()) ||
-         renWin != this->RenderWindow.GetPointer() ||
+         renWin->GetGenericContext() != this->RenderWindow->GetGenericContext() ||
          renWin->GetContextCreationTime() > this->LoadTime)
     {
       int size[3];
@@ -262,7 +265,7 @@ void vtkOpenGLTexture::Load(vtkRenderer *ren)
 
         // -- decide whether the texture needs to be resampled --
         GLint maxDimGL;
-        glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxDimGL);
+        ostate->vtkglGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxDimGL);
         vtkOpenGLCheckErrorMacro("failed at glGetIntegerv");
         // if larger than permitted by the graphics library then must resample
         bool resampleNeeded = xsize > maxDimGL || ysize > maxDimGL;
@@ -275,7 +278,7 @@ void vtkOpenGLTexture::Load(vtkRenderer *ren)
         {
           vtkDebugMacro(<< "Resampling texture to power of two for OpenGL");
           resultData[i] = this->ResampleToPowerOfTwo(xsize, ysize, dataPtr[i],
-                                                  bytesPerPixel);
+                                                  bytesPerPixel, maxDimGL);
         }
         else
         {
@@ -366,12 +369,9 @@ void vtkOpenGLTexture::Load(vtkRenderer *ren)
   }
   else
   {
-    vtkOpenGLRenderWindow* renWin =
-      static_cast<vtkOpenGLRenderWindow*>(ren->GetRenderWindow());
-
       // has something changed so that we need to rebuild the texture?
       if (this->GetMTime() > this->LoadTime.GetMTime() ||
-         renWin != this->RenderWindow.GetPointer() ||
+         renWin->GetGenericContext() != this->RenderWindow->GetGenericContext() ||
          renWin->GetContextCreationTime() > this->LoadTime)
       {
         this->RenderWindow = renWin;
@@ -383,36 +383,34 @@ void vtkOpenGLTexture::Load(vtkRenderer *ren)
   this->TextureObject->Activate();
 
   if (this->PremultipliedAlpha)
-    {
-    // save off current state of src / dst blend functions
-    glGetIntegerv(GL_BLEND_SRC_RGB, &this->PrevBlendParams[0]);
-    glGetIntegerv(GL_BLEND_DST_RGB, &this->PrevBlendParams[1]);
-    glGetIntegerv(GL_BLEND_SRC_ALPHA, &this->PrevBlendParams[2]);
-    glGetIntegerv(GL_BLEND_DST_ALPHA, &this->PrevBlendParams[3]);
+  {
+    ostate->GetBlendFuncState(this->PrevBlendParams);
 
     // make the blend function correct for textures premultiplied by alpha.
-    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    }
+    ostate->vtkglBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+  }
 
   vtkOpenGLCheckErrorMacro("failed after Load");
 }
 
 // ----------------------------------------------------------------------------
-void vtkOpenGLTexture::PostRender(vtkRenderer *vtkNotUsed(ren))
+void vtkOpenGLTexture::PostRender(vtkRenderer *ren)
 {
   this->TextureObject->Deactivate();
 
   if (this->GetInput() && this->PremultipliedAlpha)
-    {
+  {
+    vtkOpenGLRenderWindow* renWin =
+      static_cast<vtkOpenGLRenderWindow*>(ren->GetRenderWindow());
     // restore the blend function
-    glBlendFuncSeparate(
+    renWin->GetState()->vtkglBlendFuncSeparate(
       this->PrevBlendParams[0], this->PrevBlendParams[1],
       this->PrevBlendParams[2], this->PrevBlendParams[3]);
-    }
+  }
 }
 
 // ----------------------------------------------------------------------------
-static int FindPowerOfTwo(int i)
+static int FindPowerOfTwo(int i, int maxDimGL)
 {
   int size = vtkMath::NearestPowerOfTwo(i);
 
@@ -420,8 +418,6 @@ static int FindPowerOfTwo(int i)
   // suggestions)]
   // limit the size of the texture to the maximum allowed by OpenGL
   // (slightly more graceful than texture failing but not ideal)
-  GLint maxDimGL;
-  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxDimGL);
   if (size < 0 || size > maxDimGL)
   {
     size = maxDimGL ;
@@ -437,7 +433,8 @@ static int FindPowerOfTwo(int i)
 unsigned char *vtkOpenGLTexture::ResampleToPowerOfTwo(int &xs,
                                                       int &ys,
                                                       unsigned char *dptr,
-                                                      int bpp)
+                                                      int bpp,
+                                                      int maxDimGL)
 {
   unsigned char *tptr, *p, *p1, *p2, *p3, *p4;
   vtkIdType jOffset, iIdx, jIdx;
@@ -445,8 +442,8 @@ unsigned char *vtkOpenGLTexture::ResampleToPowerOfTwo(int &xs,
   int yInIncr = xs;
   int xInIncr = 1;
 
-  int xsize = FindPowerOfTwo(xs);
-  int ysize = FindPowerOfTwo(ys);
+  int xsize = FindPowerOfTwo(xs, maxDimGL);
+  int ysize = FindPowerOfTwo(ys, maxDimGL);
   if (this->RestrictPowerOf2ImageSmaller)
   {
     if (xsize > xs)

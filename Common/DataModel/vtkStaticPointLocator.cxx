@@ -25,6 +25,7 @@
 #include "vtkBox.h"
 #include "vtkLine.h"
 #include "vtkSMPTools.h"
+#include "vtkSMPThreadLocalObject.h"
 
 #include <vector>
 
@@ -32,7 +33,7 @@ vtkStandardNewMacro(vtkStaticPointLocator);
 
 // There are stack-allocated bucket neighbor lists. This is the initial
 // value. Too small and heap allocation kicks in.
-static const int VTK_INITIAL_BUCKET_SIZE=10000;
+#define VTK_INITIAL_BUCKET_SIZE 10000
 
 //-----------------------------------------------------------------------------
 // The following code supports threaded point locator construction. The locator
@@ -51,14 +52,13 @@ static const int VTK_INITIAL_BUCKET_SIZE=10000;
 // Believe it or not I had to change the name because MS Visual Studio was
 // mistakenly linking the hidden, scoped classes (vtkNeighborBuckets) found
 // in vtkPointLocator and vtkStaticPointLocator and causing weird faults.
-class NeighborBuckets;
+struct NeighborBuckets;
 
 //-----------------------------------------------------------------------------
 // The bucketed points, including the sorted map. This is just a PIMPLd
 // wrapper around the classes that do the real work.
-class vtkBucketList
+struct vtkBucketList
 {
-public:
   vtkStaticPointLocator *Locator; //locater
   vtkIdType NumPts; //the number of points to bucket
   vtkIdType NumBuckets;
@@ -84,18 +84,22 @@ public:
     loc->GetDivisions(this->Divisions);
 
     // Setup internal data members for more efficient processing.
-    this->hX = this->H[0] = loc->H[0];
-    this->hY = this->H[1] = loc->H[1];
-    this->hZ = this->H[2] = loc->H[2];
-    this->fX = 1.0 / loc->H[0];
-    this->fY = 1.0 / loc->H[1];
-    this->fZ = 1.0 / loc->H[2];
-    this->bX = this->Bounds[0] = loc->Bounds[0];
-    this->Bounds[1] = loc->Bounds[1];
-    this->bY = this->Bounds[2] = loc->Bounds[2];
-    this->Bounds[3] = loc->Bounds[3];
-    this->bZ = this->Bounds[4] = loc->Bounds[4];
-    this->Bounds[5] = loc->Bounds[5];
+    double spacing[3], bounds[6];
+    loc->GetDivisions(this->Divisions);
+    loc->GetSpacing(spacing);
+    loc->GetBounds(bounds);
+    this->hX = this->H[0] = spacing[0];
+    this->hY = this->H[1] = spacing[1];
+    this->hZ = this->H[2] = spacing[2];
+    this->fX = 1.0 / spacing[0];
+    this->fY = 1.0 / spacing[1];
+    this->fZ = 1.0 / spacing[2];
+    this->bX = this->Bounds[0] = bounds[0];
+    this->Bounds[1] = bounds[1];
+    this->bY = this->Bounds[2] = bounds[2];
+    this->Bounds[3] = bounds[3];
+    this->bZ = this->Bounds[4] = bounds[4];
+    this->Bounds[5] = bounds[5];
     this->xD = this->Divisions[0];
     this->yD = this->Divisions[1];
     this->zD = this->Divisions[2];
@@ -103,7 +107,7 @@ public:
   }
 
   // Virtuals for templated subclasses
-  virtual ~vtkBucketList() {}
+  virtual ~vtkBucketList() = default;
   virtual void BuildLocator() = 0;
 
   // place points in appropriate buckets
@@ -140,19 +144,18 @@ public:
 
 //-----------------------------------------------------------------------------
 // Utility class to store an array of ijk values
-class NeighborBuckets
+struct NeighborBuckets
 {
-public:
   NeighborBuckets()
   {
     this->Count = 0;
-    this->P = &(this->InitialBuffer[0]);
+    this->P = this->InitialBuffer;
     this->MaxSize = VTK_INITIAL_BUCKET_SIZE;
   }
   ~NeighborBuckets()
   {
     this->Count = 0;
-    if ( this->P != &(this->InitialBuffer[0]) )
+    if ( this->P != this->InitialBuffer )
     {
       delete[] this->P;
     }
@@ -411,15 +414,24 @@ Distance2ToBounds(const double x[3], const double bounds[6])
 // integral types, plus it takes a heck less memory (when vtkIdType is 64-bit
 // and int is 32-bit).
 template <typename TTuple>
-class LocatorTuple
+struct LocatorTuple
 {
-public:
   TTuple PtId; //originating point id
   TTuple Bucket; //i-j-k index into bucket space
 
-  //Operator< used to support the subsequent sort operation.
+  //  Operator< used to support the subsequent sort operation. There are two
+  //  implementations, one gives a stable sort (points ordered by id within
+  //  each bucket) and the other a little faster but less stable (in parallel
+  //  sorting the order of sorted points in a bucket may vary).
+  //  bool operator< (const LocatorTuple& tuple) const
+  //  {return Bucket < tuple.Bucket;}
   bool operator< (const LocatorTuple& tuple) const
-    {return Bucket < tuple.Bucket;}
+  {
+    if ( Bucket < tuple.Bucket ) return true;
+    if ( tuple.Bucket < Bucket ) return false;
+    if ( PtId < tuple.PtId ) return true;
+    return false;
+  }
 };
 
 
@@ -428,9 +440,8 @@ public:
 // structures. It also implements the operator() functors which are supplied
 // to vtkSMPTools for threaded processesing.
 template <typename TIds>
-class BucketList : public vtkBucketList
+struct BucketList : public vtkBucketList
 {
-public:
   // Okay the various ivars
   LocatorTuple<TIds> *Map; //the map to be sorted
   TIds               *Offsets; //offsets for each bucket into the map
@@ -486,6 +497,7 @@ public:
   void FindPointsWithinRadius(double R, const double x[3], vtkIdList *result);
   int IntersectWithLine(double a0[3], double a1[3], double tol, double& t,
                         double lineX[3], double ptX[3], vtkIdType &ptId);
+  void MergePoints(double tol, vtkIdType *pointMap);
   void GenerateRepresentation(int vtkNotUsed(level), vtkPolyData *pd);
 
   // Internal methods
@@ -496,57 +508,55 @@ public:
 
   // Implicit point representation, slower path
   template <typename T>
-  class MapDataSet
+  struct MapDataSet
   {
-    public:
-      BucketList<T> *BList;
-      vtkDataSet *DataSet;
+    BucketList<T> *BList;
+    vtkDataSet *DataSet;
 
-      MapDataSet(BucketList<T> *blist, vtkDataSet *ds) :
-        BList(blist), DataSet(ds)
-      {
-      }
+    MapDataSet(BucketList<T> *blist, vtkDataSet *ds) :
+      BList(blist), DataSet(ds)
+    {
+    }
 
-      void  operator()(vtkIdType ptId, vtkIdType end)
+    void  operator()(vtkIdType ptId, vtkIdType end)
+    {
+      double p[3];
+      LocatorTuple<T> *t = this->BList->Map + ptId;
+      for ( ; ptId < end; ++ptId, ++t )
       {
-        double p[3];
-        LocatorTuple<T> *t = this->BList->Map + ptId;
-        for ( ; ptId < end; ++ptId, ++t )
-        {
-          this->DataSet->GetPoint(ptId,p);
-          t->PtId = ptId;
-          t->Bucket = this->BList->GetBucketIndex(p);
-        }//for all points in this batch
-      }
+        this->DataSet->GetPoint(ptId,p);
+        t->PtId = ptId;
+        t->Bucket = this->BList->GetBucketIndex(p);
+      }//for all points in this batch
+    }
   };
 
   // Explicit point representation (e.g., vtkPointSet), faster path
   template <typename T, typename TPts>
-  class MapPointsArray
+  struct MapPointsArray
   {
-    public:
-      BucketList<T> *BList;
-      const TPts *Points;
+    BucketList<T> *BList;
+    const TPts *Points;
 
-      MapPointsArray(BucketList<T> *blist, const TPts *pts) :
-        BList(blist), Points(pts)
-      {
-      }
+    MapPointsArray(BucketList<T> *blist, const TPts *pts) :
+      BList(blist), Points(pts)
+    {
+    }
 
-      void  operator()(vtkIdType ptId, vtkIdType end)
+    void  operator()(vtkIdType ptId, vtkIdType end)
+    {
+      double p[3];
+      const TPts *x = this->Points + 3*ptId;
+      LocatorTuple<T> *t = this->BList->Map + ptId;
+      for ( ; ptId < end; ++ptId, x+=3, ++t )
       {
-        double p[3];
-        const TPts *x = this->Points + 3*ptId;
-        LocatorTuple<T> *t = this->BList->Map + ptId;
-        for ( ; ptId < end; ++ptId, x+=3, ++t )
-        {
-          p[0] = static_cast<double>(x[0]);
-          p[1] = static_cast<double>(x[1]);
-          p[2] = static_cast<double>(x[2]);
-          t->PtId = ptId;
-          t->Bucket = this->BList->GetBucketIndex(p);
-        }//for all points in this batch
-      }
+        p[0] = static_cast<double>(x[0]);
+        p[1] = static_cast<double>(x[1]);
+        p[2] = static_cast<double>(x[2]);
+        t->PtId = ptId;
+        t->Bucket = this->BList->GetBucketIndex(p);
+      }//for all points in this batch
+    }
   };
 
   // A clever way to build offsets in parallel. Basically each thread builds
@@ -554,67 +564,184 @@ public:
   // integral value referring to the locations of the sorted points that
   // reside in each bucket.
   template <typename T>
-  class MapOffsets
+  struct MapOffsets
   {
-    public:
-      BucketList<T> *BList;
-      vtkIdType NumPts;
-      int NumBuckets;
+    BucketList<T> *BList;
+    vtkIdType NumPts;
+    int NumBuckets;
 
-      MapOffsets(BucketList<T> *blist) : BList(blist)
+    MapOffsets(BucketList<T> *blist) : BList(blist)
+    {
+        this->NumPts = this->BList->NumPts;
+        this->NumBuckets = this->BList->NumBuckets;
+    }
+
+    // Traverse sorted points (i.e., tuples) and update bucket offsets.
+    void  operator()(vtkIdType batch, vtkIdType batchEnd)
+    {
+      T *offsets = this->BList->Offsets;
+      const LocatorTuple<T> *curPt =
+        this->BList->Map + batch*this->BList->BatchSize;
+      const LocatorTuple<T> *endBatchPt =
+        this->BList->Map + batchEnd*this->BList->BatchSize;
+      const LocatorTuple<T> *endPt =
+        this->BList->Map + this->NumPts;
+      const LocatorTuple<T> *prevPt;
+      endBatchPt = ( endBatchPt > endPt ? endPt : endBatchPt );
+
+      // Special case at the very beginning of the mapped points array.  If
+      // the first point is in bucket# N, then all buckets up and including
+      // N must refer to the first point.
+      if ( curPt == this->BList->Map )
       {
-          this->NumPts = this->BList->NumPts;
-          this->NumBuckets = this->BList->NumBuckets;
-      }
+        prevPt = this->BList->Map;
+        std::fill_n(offsets, curPt->Bucket+1, 0); //point to the first points
+      }//at the very beginning of the map (sorted points array)
 
-      // Traverse sorted points (i.e., tuples) and update bucket offsets.
-      void  operator()(vtkIdType batch, vtkIdType batchEnd)
+      // We are entering this functor somewhere in the interior of the
+      // mapped points array. All we need to do is point to the entry
+      // position because we are interested only in prevPt->Bucket.
+      else
       {
-        T *offsets = this->BList->Offsets;
-        const LocatorTuple<T> *curPt =
-          this->BList->Map + batch*this->BList->BatchSize;
-        const LocatorTuple<T> *endBatchPt =
-          this->BList->Map + batchEnd*this->BList->BatchSize;
-        const LocatorTuple<T> *endPt =
-          this->BList->Map + this->NumPts;
-        const LocatorTuple<T> *prevPt;
-        endBatchPt = ( endBatchPt > endPt ? endPt : endBatchPt );
+        prevPt = curPt;
+      }//else in the middle of a batch
 
-        // Special case at the very beginning of the mapped points array.  If
-        // the first point is in bucket# N, then all buckets up and including
-        // N must refer to the first point.
-        if ( curPt == this->BList->Map )
+      // Okay we have a starting point for a bucket run. Now we can begin
+      // filling in the offsets in this batch. A previous thread should
+      // have/will have completed the previous and subsequent runs outside
+      // of the [batch,batchEnd) range
+      for ( curPt=prevPt; curPt < endBatchPt; )
+      {
+        for ( ; curPt->Bucket == prevPt->Bucket && curPt <= endBatchPt;
+              ++curPt )
         {
-          prevPt = this->BList->Map;
-          std::fill_n(offsets, curPt->Bucket+1, 0); //point to the first points
-        }//at the very beginning of the map (sorted points array)
+          ; //advance
+        }
+        // Fill in any gaps in the offset array
+        std::fill_n(offsets + prevPt->Bucket + 1,
+                    curPt->Bucket - prevPt->Bucket,
+                    curPt - this->BList->Map);
+        prevPt = curPt;
+      }//for all batches in this range
+    }//operator()
+  };
 
-        // We are entering this functor somewhere in the interior of the
-        // mapped points array. All we need to do is point to the entry
-        // position because we are interested only in prevPt->Bucket.
-        else
-        {
-          prevPt = curPt;
-        }//else in the middle of a batch
+  // Merge points that are pecisely coincident. Operates in parallel on
+  // locator buckets. Does not need to check neighbor buckets.
+  template <typename T>
+  struct MergePrecise
+  {
+    BucketList<T> *BList;
+    vtkDataSet *DataSet;
+    vtkIdType *MergeMap;
 
-        // Okay we have a starting point for a bucket run. Now we can begin
-        // filling in the offsets in this batch. A previous thread should
-        // have/will have completed the previous and subsequent runs outside
-        // of the [batch,batchEnd) range
-        for ( curPt=prevPt; curPt < endBatchPt; )
+    MergePrecise(BucketList<T> *blist, vtkIdType *mergeMap) :
+      BList(blist), MergeMap(mergeMap)
+    {
+      this->DataSet = blist->DataSet;
+    }
+
+    void  operator()(vtkIdType bucket, vtkIdType endBucket)
+    {
+      BucketList<T> *bList=this->BList;
+      vtkIdType *mergeMap=this->MergeMap;
+      int i, j;
+      const LocatorTuple<TIds> *ids;
+      double p[3], p2[3];
+      vtkIdType ptId, ptId2, numIds;
+
+      for ( ; bucket < endBucket; ++bucket )
+      {
+        if ( (numIds = bList->GetNumberOfIds(bucket)) > 0 )
         {
-          for ( ; curPt->Bucket == prevPt->Bucket && curPt <= endBatchPt;
-                ++curPt )
+          ids = bList->GetIds(bucket);
+          for (i=0; i < numIds; i++)
           {
-            ; //advance
+            ptId = ids[i].PtId;
+            if ( mergeMap[ptId] < 0 )
+            {
+              mergeMap[ptId] = ptId;
+              this->DataSet->GetPoint(ptId, p);
+              for (j=i+1; j < numIds; j++)
+              {
+                ptId2 = ids[j].PtId;
+                if ( mergeMap[ptId2] < 0 )
+                {
+                  this->DataSet->GetPoint(ptId2, p2);
+                  if ( p[0] == p2[0] && p[1] == p2[1] && p[2] == p2[2] )
+                  {
+                    mergeMap[ptId2] = ptId;
+                  }
+                }
+              }
+            } //if point not yet visited
           }
-          // Fill in any gaps in the offset array
-          std::fill_n(offsets + prevPt->Bucket + 1,
-                      curPt->Bucket - prevPt->Bucket,
-                      curPt - this->BList->Map);
-          prevPt = curPt;
-        }//for all batches in this range
-      }//operator()
+        }
+      }
+    }
+  };
+
+  // Merge points that are coincident within a tolerance. Operates in
+  // parallel on points. Needs to check neighbor buckets which slows it down
+  // considerably. Note that merging is one direction: larger ids are merged
+  // to lower.
+  template <typename T>
+  struct MergeClose
+  {
+    BucketList<T> *BList;
+    vtkDataSet *DataSet;
+    vtkIdType *MergeMap;
+    double Tol;
+
+    vtkSMPThreadLocalObject<vtkIdList> PIds;
+
+    MergeClose(BucketList<T> *blist, double tol, vtkIdType *mergeMap) :
+      BList(blist), MergeMap(mergeMap), Tol(tol)
+    {
+      this->DataSet = blist->DataSet;
+    }
+
+    // Just allocate a little bit of memory to get started.
+    void Initialize()
+    {
+      vtkIdList*& pIds = this->PIds.Local();
+      pIds->Allocate(128); //allocate some memory
+    }
+
+    void  operator()(vtkIdType ptId, vtkIdType endPtId)
+    {
+      BucketList<T> *bList=this->BList;
+      vtkIdType *mergeMap=this->MergeMap;
+      int i;
+      double p[3];
+      vtkIdType nearId, numIds;
+      vtkIdList*& nearby = this->PIds.Local();
+
+      for ( ; ptId < endPtId; ++ptId )
+      {
+        if ( mergeMap[ptId] < 0 )
+        {
+          mergeMap[ptId] = ptId;
+          this->DataSet->GetPoint(ptId, p);
+          bList->FindPointsWithinRadius(this->Tol, p, nearby);
+          if ( (numIds = nearby->GetNumberOfIds()) > 0 )
+          {
+            for (i=0; i < numIds; i++)
+            {
+              nearId = nearby->GetId(i);
+              if ( ptId < nearId &&
+                   (mergeMap[nearId] < 0 || ptId < mergeMap[nearId]) )
+              {
+                mergeMap[nearId] = ptId;
+              }
+            }
+          }
+        }//if point not yet processed
+      }//for all points in this batch
+    }
+
+    void Reduce()
+    {}
   };
 
   // Build the map and other structures to support locator operations
@@ -913,9 +1040,8 @@ FindClosestPointWithinRadius(double radius, const double x[3],
 namespace {
 //-----------------------------------------------------------------------------
 // Obtaining closest points requires sorting nearby points
-class IdTuple
+struct IdTuple
 {
-public:
   vtkIdType PtId;
   double    Dist2;
 
@@ -1285,6 +1411,35 @@ IntersectWithLine(double a0[3], double a1[3], double tol, double& t,
 }
 
 //-----------------------------------------------------------------------------
+// Merge points based on tolerance. Return a point map. There are two
+// separate paths: when the tolerance is precisely 0.0, and when tol >
+// 0.0. Both are executed in parallel, although the second uses a
+// checkerboard approach to avoid write collisions.
+template <typename TIds> void BucketList<TIds>::
+MergePoints(double tol, vtkIdType *mergeMap)
+{
+  // First mark all points as uninitialized
+  std::fill_n(mergeMap,this->NumPts,(-1));
+
+  // If tol=0, then just process points bucket by bucket. Don't have to worry
+  // about points in other buckets.
+  if ( tol <= 0.0 )
+  {
+    MergePrecise<TIds> merge(this, mergeMap);
+    vtkSMPTools::For(0,this->NumBuckets, merge);
+  }
+
+  // Merge within a tolerance. This is a greedy algorithm that can give
+  // weird results since exactly which points to merge with is not an
+  // obvious answer (without doing fancy clustering etc).
+  else
+  {
+    MergeClose<TIds> merge(this, tol, mergeMap);
+    vtkSMPTools::For(0,this->NumPts, merge);
+  }
+}
+
+//-----------------------------------------------------------------------------
 // Internal method to find those buckets that are within distance specified
 // only those buckets outside of level radiuses of ijk are returned
 template <typename TIds> void BucketList<TIds>::
@@ -1612,7 +1767,7 @@ void vtkStaticPointLocator::BuildLocator()
     this->H[i] = (this->Bounds[2*i+1] - this->Bounds[2*i]) / static_cast<double>(ndivs[i]);
   }
 
-  // Instantiate the locator. The type is related to the maximun point id.
+  // Instantiate the locator. The type is related to the maximum point id.
   // This is done for performance (e.g., the sort is faster) and significant
   // memory savings.
   //
@@ -1768,6 +1923,7 @@ IntersectWithLine(double a0[3], double a1[3], double tol, double& t,
 }
 
 //-----------------------------------------------------------------------------
+// Build a representation for the locator.
 void vtkStaticPointLocator::
 GenerateRepresentation(int level, vtkPolyData *pd)
 {
@@ -1790,7 +1946,7 @@ GenerateRepresentation(int level, vtkPolyData *pd)
 }
 
 //-----------------------------------------------------------------------------
-// Given a position x, return the id of the point closest to it.
+// Given a bucket, return the number of points inside of it.
 vtkIdType vtkStaticPointLocator::
 GetNumberOfPointsInBucket(vtkIdType bNum)
 {
@@ -1813,7 +1969,7 @@ GetNumberOfPointsInBucket(vtkIdType bNum)
 }
 
 //-----------------------------------------------------------------------------
-// Given a position x, return the id of the point closest to it.
+// Given a bucket, return the ids in the bucket.
 void vtkStaticPointLocator::
 GetBucketIds(vtkIdType bNum, vtkIdList *bList)
 {
@@ -1831,6 +1987,27 @@ GetBucketIds(vtkIdType bNum, vtkIdList *bList)
   else
   {
     return static_cast<BucketList<int>*>(this->Buckets)->GetIds(bNum,bList);
+  }
+}
+
+//-----------------------------------------------------------------------------
+// Given a bucket, return the ids in the bucket.
+void vtkStaticPointLocator::
+MergePoints(double tol, vtkIdType *pointMap)
+{
+  this->BuildLocator(); // will subdivide if modified; otherwise returns
+  if ( !this->Buckets )
+  {
+    return;
+  }
+
+  if ( this->LargeIds )
+  {
+    return static_cast<BucketList<vtkIdType>*>(this->Buckets)->MergePoints(tol,pointMap);
+  }
+  else
+  {
+    return static_cast<BucketList<int>*>(this->Buckets)->MergePoints(tol,pointMap);
   }
 }
 

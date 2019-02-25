@@ -1,6 +1,7 @@
 vtk_add_test_cxx(vtkFiltersCoreCxxTests tests
   TestAppendArcLength.cxx,NO_VALID
   TestAppendFilter.cxx,NO_VALID
+  TestAppendMolecule.cxx,NO_VALID
   TestAppendPolyData.cxx,NO_VALID
   TestAppendSelection.cxx,NO_VALID
   TestArrayCalculator.cxx,NO_VALID
@@ -33,6 +34,7 @@ vtk_add_test_cxx(vtkFiltersCoreCxxTests tests
   TestProbeFilterImageInput.cxx
   TestProbeFilterOutputAttributes.cxx,NO_VALID
   TestResampleToImage.cxx,NO_VALID
+  TestResampleToImage2D.cxx,NO_VALID
   TestResampleWithDataSet.cxx,
   TestResampleWithDataSet2.cxx
   TestResampleWithDataSet3.cxx

@@ -30,14 +30,13 @@ vtkStandardNewMacro(vtkGeoImageNode);
 //----------------------------------------------------------------------------
 vtkGeoImageNode::vtkGeoImageNode()
 {
+  VTK_LEGACY_BODY(vtkGeoImageNode::vtkGeoImageNode, "VTK 8.2");
   this->Image = vtkSmartPointer<vtkImageData>::New();
   this->Texture = vtkSmartPointer<vtkTexture>::New();
 }
 
 //-----------------------------------------------------------------------------
-vtkGeoImageNode::~vtkGeoImageNode()
-{
-}
+vtkGeoImageNode::~vtkGeoImageNode() = default;
 
 //-----------------------------------------------------------------------------
 void vtkGeoImageNode::PrintSelf(ostream& os, vtkIndent indent)
@@ -98,7 +97,7 @@ vtkGeoImageNode* vtkGeoImageNode::GetParent()
 //   Tile images do not overlap.
 //   Difficult:
 //   Texture mapping is point data.  TCoords have to be extended half a pixel.
-//   vtkImageData is point data.  Have to handle meta data extenal to object.
+//   vtkImageData is point data.  Have to handle meta data external to object.
 //   Interpolated texture map will have seams between tiles.
 // 2: Treat pixels like point data.
 //   We would need a new shrink filter that uses a 3x3 kernel.

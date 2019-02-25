@@ -43,9 +43,9 @@ class vtkTDxDevice;
  *
  * QVTKWidget2 provides a way to display VTK data in a Qt QGLWidget. Since
  * QGLWidget is flagged as obsolete by Qt, it is recommended to use
- * QVTKOpenGLWidget instead.
+ * QVTKOpenGLNativeWidget instead.
  *
- * @deprecated Please use QVTKOpenGLWidget instead.
+ * @deprecated Please use QVTKOpenGLNativeWidget instead.
  */
 class VTKGUISUPPORTQTOPENGL_EXPORT QVTKWidget2 : public QGLWidget
 {

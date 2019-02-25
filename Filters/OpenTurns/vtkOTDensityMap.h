@@ -32,10 +32,8 @@
 
 #include <map> // For map
 
-class DistributionImplementationType;
 class vtkIdList;
 class vtkInformationDoubleKey;
-class vtkOTDistributionImplementationWrapper;
 class vtkPolyData;
 class vtkTable;
 
@@ -120,9 +118,9 @@ public:
   virtual void SetContourApproximationNumberOfPoints(int val);
   //@}
 
-  virtual int FillInputPortInformation(int port, vtkInformation* info) override;
-
-  virtual int RequestData(vtkInformation* request,
+  int FillInputPortInformation(int port, vtkInformation* info) override;
+  int FillOutputPortInformation(int port, vtkInformation* info) override;
+  int RequestData(vtkInformation* request,
     vtkInformationVector** inputVector,
     vtkInformationVector* outputVector) override;
 
@@ -168,10 +166,11 @@ protected:
 
   // Cache
   class OTDensityCache;
+  class OTDistributionCache;
   OTDensityCache* DensityPDFCache;
   OTDensityCache* DensityLogPDFSampleCache;
+  OTDistributionCache* DistributionCache;
 
-  vtkOTDistributionImplementationWrapper* DensityDistribution;
   vtkTimeStamp BuildTime;                // Keep track of last build time
   vtkTimeStamp DensityLogPDFSampleMTime; // Keep track of DensityLogPDFSample Parameters mtime
   vtkTimeStamp DensityPDFMTime;          // Keep track of DensityPDF Parameters modification time

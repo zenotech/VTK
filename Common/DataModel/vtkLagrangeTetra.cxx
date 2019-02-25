@@ -461,7 +461,7 @@ void vtkLagrangeTetra::TetraFromOctahedron(
 }
 
 //----------------------------------------------------------------------------
-int vtkLagrangeTetra::CellBoundary(int vtkNotUsed(subId), double pcoords[3],
+int vtkLagrangeTetra::CellBoundary(int vtkNotUsed(subId), const double pcoords[3],
                                    vtkIdList *pts)
 {
   const double ijk = 1.0 - pcoords[0] - pcoords[1] - pcoords[2];
@@ -498,9 +498,9 @@ int vtkLagrangeTetra::CellBoundary(int vtkNotUsed(subId), double pcoords[3],
 }
 
 //----------------------------------------------------------------------------
-int vtkLagrangeTetra::EvaluatePosition(double* x, double* closestPoint,
+int vtkLagrangeTetra::EvaluatePosition(const double x[3], double closestPoint[3],
                                        int& subId, double pcoords[3],
-                                       double& minDist2, double *weights)
+                                       double& minDist2, double weights[])
 {
   double pc[3], dist2, tempWeights[3], closest[3];
   double pcoordsMin[3] = {0., 0., 0.};
@@ -570,7 +570,7 @@ int vtkLagrangeTetra::EvaluatePosition(double* x, double* closestPoint,
 
 //----------------------------------------------------------------------------
 void vtkLagrangeTetra::EvaluateLocation(int& vtkNotUsed(subId),
-                                        double pcoords[3], double x[3],
+                                        const double pcoords[3], double x[3],
                                         double *weights)
 {
   x[0] = x[1] = x[2] = 0.;
@@ -662,8 +662,8 @@ void vtkLagrangeTetra::Clip(double value,
 }
 
 //----------------------------------------------------------------------------
-int vtkLagrangeTetra::IntersectWithLine(double* p1,
-                                        double* p2,
+int vtkLagrangeTetra::IntersectWithLine(const double* p1,
+                                        const double* p2,
                                         double tol,
                                         double& t,
                                         double* x,
@@ -727,7 +727,7 @@ int vtkLagrangeTetra::Triangulate(int vtkNotUsed(index), vtkIdList *ptIds,
 }
 
 //----------------------------------------------------------------------------
-void vtkLagrangeTetra::JacobianInverse(double pcoords[3], double**inverse,
+void vtkLagrangeTetra::JacobianInverse(const double pcoords[3], double**inverse,
                                        double* derivs)
 {
   // Given parametric coordinates compute inverse Jacobian transformation
@@ -755,21 +755,14 @@ void vtkLagrangeTetra::JacobianInverse(double pcoords[3], double**inverse,
     this->Points->GetPoint(j, x);
     for (i=0; i < 3; i++)
       {
-      for (k=0; k < this->GetCellDimension(); k++)
+      for (k=0; k < 3; k++)
         {
         m[k][i] += x[i] * derivs[numberOfPoints*k + j];
         }
       }
     }
 
-  // Compute third row vector in transposed Jacobian and normalize it, so that
-  // Jacobian determinant stays the same.
-  if (this->GetCellDimension() == 2)
-    {
-    vtkMath::Cross(m0,m1,m2);
-    }
-
-  if ( vtkMath::Normalize(m2) == 0.0 || !vtkMath::InvertMatrix(m,inverse,3))
+  if (!vtkMath::InvertMatrix(m,inverse,3))
     {
     vtkErrorMacro(<<"Jacobian inverse not found");
     return;
@@ -778,8 +771,8 @@ void vtkLagrangeTetra::JacobianInverse(double pcoords[3], double**inverse,
 
 //----------------------------------------------------------------------------
 void vtkLagrangeTetra::Derivatives(int vtkNotUsed(subId),
-                                   double pcoords[3],
-                                   double* values,
+                                   const double pcoords[3],
+                                   const double* values,
                                    int dim,
                                    double *derivs)
 {
@@ -795,7 +788,7 @@ void vtkLagrangeTetra::Derivatives(int vtkNotUsed(subId),
   jI[0] = j0; jI[1] = j1; jI[2] = j2;
   this->JacobianInverse(pcoords, jI, fDs);
 
-  // now compute derivates of values provided
+  // now compute derivatives of values provided
   for (k=0; k < dim; k++) //loop over values per vertex
     {
     sum[0] = sum[1] = sum[2] = 0.0;
@@ -803,11 +796,12 @@ void vtkLagrangeTetra::Derivatives(int vtkNotUsed(subId),
       {
       sum[0] += fDs[i] * values[dim*i + k];
       sum[1] += fDs[numberOfPoints + i] * values[dim*i + k];
+      sum[2] += fDs[numberOfPoints*2 + i] * values[dim*i + k];
       }
     for (j=0; j < 3; j++) //loop over derivative directions
       {
       derivs[3*k + j] = 0.;
-      for (i=0; i < this->GetCellDimension(); i++)
+      for (i=0; i < 3; i++)
         {
         derivs[3*k + j] += sum[i]*jI[j][i];
         }
@@ -857,7 +851,7 @@ int vtkLagrangeTetra::GetParametricCenter(double pcoords[3])
 }
 
 //----------------------------------------------------------------------------
-double vtkLagrangeTetra::GetParametricDistance(double pcoords[3])
+double vtkLagrangeTetra::GetParametricDistance(const double pcoords[3])
 {
   int i;
   double pDist, pDistMax=0.0;
@@ -892,7 +886,7 @@ double vtkLagrangeTetra::GetParametricDistance(double pcoords[3])
 }
 
 //----------------------------------------------------------------------------
-void vtkLagrangeTetra::InterpolateFunctions(double pcoords[3], double* weights)
+void vtkLagrangeTetra::InterpolateFunctions(const double pcoords[3], double* weights)
 {
   // Adapted from P. Silvester, "High-Order Polynomial Triangular Finite
   // Elements for Potential Problems". Int. J. Engng Sci. Vol. 7, pp. 849-861.
@@ -969,7 +963,7 @@ void vtkLagrangeTetra::InterpolateFunctions(double pcoords[3], double* weights)
 }
 
 //----------------------------------------------------------------------------
-void vtkLagrangeTetra::InterpolateDerivs(double pcoords[3], double* derivs)
+void vtkLagrangeTetra::InterpolateDerivs(const double pcoords[3], double* derivs)
 {
   // Analytic differentiation of the tetra shape functions, as adapted from
   // P. Silvester, "High-Order Polynomial Triangular Finite Elements for

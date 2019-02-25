@@ -141,12 +141,23 @@ def initializeSerializers():
   registerInstanceSerializer('vtkCocoaRenderWindow', renderWindowSerializer)
   registerInstanceSerializer('vtkXOpenGLRenderWindow', renderWindowSerializer)
   registerInstanceSerializer('vtkWin32OpenGLRenderWindow', renderWindowSerializer)
+  registerInstanceSerializer('vtkEGLRenderWindow', renderWindowSerializer)
+  registerInstanceSerializer('vtkOpenVRRenderWindow', renderWindowSerializer)
+  registerInstanceSerializer('vtkGenericOpenGLRenderWindow', renderWindowSerializer)
+  registerInstanceSerializer('vtkOSOpenGLRenderWindow', renderWindowSerializer)
+  registerInstanceSerializer('vtkOpenGLRenderWindow', renderWindowSerializer)
+  registerInstanceSerializer('vtkIOSRenderWindow', renderWindowSerializer)
+  registerInstanceSerializer('vtkExternalOpenGLRenderWindow', renderWindowSerializer)
 
   # Renderers
   registerInstanceSerializer('vtkOpenGLRenderer', rendererSerializer)
 
   # Cameras
   registerInstanceSerializer('vtkOpenGLCamera', cameraSerializer)
+
+  # Lights
+  registerInstanceSerializer('vtkPVLight', lightSerializer)
+  registerInstanceSerializer('vtkOpenGLLight', lightSerializer)
 
 # -----------------------------------------------------------------------------
 # Helper functions
@@ -574,6 +585,7 @@ def colorTransferFunctionSerializer(parent, instance, objId, context, depth):
 def rendererSerializer(parent, instance, objId, context, depth):
   dependencies = []
   viewPropIds = []
+  lightsIds = []
   calls = []
 
   # Camera
@@ -596,7 +608,20 @@ def rendererSerializer(parent, instance, objId, context, depth):
       dependencies.append(viewPropInstance)
       viewPropIds.append(viewPropId)
 
-  calls += context.buildDependencyCallList(objId, viewPropIds, 'addViewProp', 'removeViewProp')
+  calls += context.buildDependencyCallList('%s-props' % objId, viewPropIds, 'addViewProp', 'removeViewProp')
+
+  # Lights
+  lightCollection = instance.GetLights()
+  for lightIdx in range(lightCollection.GetNumberOfItems()):
+    light = lightCollection.GetItemAsObject(lightIdx)
+    lightId = getReferenceId(light)
+
+    lightInstance = serializeInstance(instance, light, lightId, context, depth + 1)
+    if lightInstance:
+      dependencies.append(lightInstance)
+      lightsIds.append(lightId)
+
+  calls += context.buildDependencyCallList('%s-lights' % objId, lightsIds, 'addLight', 'removeLight')
 
   if len(dependencies) > 1:
     return {
@@ -641,6 +666,47 @@ def cameraSerializer(parent, instance, objId, context, depth):
       'focalPoint': instance.GetFocalPoint(),
       'position': instance.GetPosition(),
       'viewUp': instance.GetViewUp(),
+    }
+  }
+
+# -----------------------------------------------------------------------------
+
+def lightTypeToString(value):
+  """
+  #define VTK_LIGHT_TYPE_HEADLIGHT    1
+  #define VTK_LIGHT_TYPE_CAMERA_LIGHT 2
+  #define VTK_LIGHT_TYPE_SCENE_LIGHT  3
+
+  'HeadLight';
+  'SceneLight';
+  'CameraLight'
+  """
+  if value == 1:
+    return 'HeadLight'
+  elif value == 2:
+    return 'CameraLight'
+
+  return 'SceneLight'
+
+def lightSerializer(parent, instance, objId, context, depth):
+  return {
+    'parent': getReferenceId(parent),
+    'id': objId,
+    'type': instance.GetClassName(),
+    'properties': {
+      # 'specularColor': instance.GetSpecularColor(),
+      # 'ambientColor': instance.GetAmbientColor(),
+      'switch': instance.GetSwitch(),
+      'intensity': instance.GetIntensity(),
+      'color': instance.GetDiffuseColor(),
+      'position': instance.GetPosition(),
+      'focalPoint': instance.GetFocalPoint(),
+      'positional': instance.GetPositional(),
+      'exponent': instance.GetExponent(),
+      'coneAngle': instance.GetConeAngle(),
+      'attenuationValues': instance.GetAttenuationValues(),
+      'lightType': lightTypeToString(instance.GetLightType()),
+      'shadowAttenuation': instance.GetShadowAttenuation()
     }
   }
 

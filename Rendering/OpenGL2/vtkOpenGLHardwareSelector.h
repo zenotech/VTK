@@ -51,11 +51,6 @@ public:
   void RenderCompositeIndex(unsigned int index) override;
 
   /**
-   * Called by any vtkMapper or vtkProp subclass to render an attribute's id.
-   */
-  void RenderAttributeId(vtkIdType attribid) override;
-
-  /**
    * Called by any vtkMapper or subclass to render process id. This has any
    * effect when this->UseProcessIdFromData is true.
    */
@@ -79,9 +74,8 @@ protected:
 
   void SavePixelBuffer(int passNo) override;
 
-  // for internal state
-  class vtkInternals;
-  vtkInternals* Internals;
+  bool OriginalMultisample;
+  bool OriginalBlending;
 
 private:
   vtkOpenGLHardwareSelector(const vtkOpenGLHardwareSelector&) = delete;

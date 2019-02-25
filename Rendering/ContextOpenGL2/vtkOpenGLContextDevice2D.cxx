@@ -31,6 +31,7 @@
 #include "vtkOpenGLRenderWindow.h"
 #include "vtkOpenGLRenderer.h"
 #include "vtkOpenGLShaderCache.h"
+#include "vtkOpenGLState.h"
 #include "vtkOpenGLTexture.h"
 #include "vtkOpenGLVertexArrayObject.h"
 #include "vtkOpenGLVertexBufferObject.h"
@@ -74,20 +75,20 @@ namespace
   }
 
   const char *myVertShader =
-    "attribute vec2 vertexMC;\n"
+    "in vec2 vertexMC;\n"
     "uniform mat4 WCDCMatrix;\n"
     "uniform mat4 MCWCMatrix;\n"
     "#ifdef haveColors\n"
-    "attribute vec4 vertexScalar;\n"
-    "varying vec4 vertexColor;\n"
+    "in vec4 vertexScalar;\n"
+    "out vec4 vertexColor;\n"
     "#endif\n"
     "#ifdef haveTCoords\n"
-    "attribute vec2 tcoordMC;\n"
-    "varying vec2 tcoord;\n"
+    "in vec2 tcoordMC;\n"
+    "out vec2 tcoord;\n"
     "#endif\n"
     "#ifdef haveLines\n"
-    "attribute vec2 tcoordMC;\n"
-    "varying float ldistance;\n"
+    "in vec2 tcoordMC;\n"
+    "out float ldistance;\n"
     "#endif\n"
     "void main() {\n"
     "#ifdef haveColors\n"
@@ -105,16 +106,16 @@ namespace
   const char *myFragShader =
     "//VTK::Output::Dec\n"
     "#ifdef haveColors\n"
-    "varying vec4 vertexColor;\n"
+    "in vec4 vertexColor;\n"
     "#else\n"
     "uniform vec4 vertexColor;\n"
     "#endif\n"
     "#ifdef haveTCoords\n"
-    "varying vec2 tcoord;\n"
+    "in vec2 tcoord;\n"
     "uniform sampler2D texture1;\n"
     "#endif\n"
     "#ifdef haveLines\n"
-    "varying float ldistance;\n"
+    "in float ldistance;\n"
     "uniform int stipple;\n"
     "#endif\n"
     "void main() {\n"
@@ -324,13 +325,14 @@ void vtkOpenGLContextDevice2D::Begin(vtkViewport* viewport)
   this->ProjectionMatrix->SetMatrix(*matrix);
 
   // Store the previous state before changing it
-  this->Storage->SaveGLState();
-  glDisable(GL_DEPTH_TEST);
-  glEnable(GL_BLEND);
-
   this->Renderer = vtkRenderer::SafeDownCast(viewport);
-
   this->RenderWindow = vtkOpenGLRenderWindow::SafeDownCast(this->Renderer->GetRenderWindow());
+  vtkOpenGLState *ostate = this->RenderWindow->GetState();
+
+  this->Storage->SaveGLState(ostate);
+  ostate->vtkglDisable(GL_DEPTH_TEST);
+  ostate->vtkglEnable(GL_BLEND);
+
   this->RenderWindow->GetShaderCache()->ReleaseCurrentShader();
 
   // Enable simple line smoothing if multisampling is on.
@@ -357,7 +359,8 @@ void vtkOpenGLContextDevice2D::End()
   vtkOpenGLClearErrorMacro();
 
   // Restore the GL state that we changed
-  this->Storage->RestoreGLState();
+  vtkOpenGLState *ostate = this->RenderWindow->GetState();
+  this->Storage->RestoreGLState(ostate);
 
   // Disable simple line smoothing if multisampling is on.
   if (this->Renderer->GetRenderWindow()->GetMultiSamples())
@@ -383,7 +386,8 @@ void vtkOpenGLContextDevice2D::BufferIdModeBegin(
   this->BufferId=bufferId;
 
   // Save OpenGL state.
-  this->Storage->SaveGLState(true);
+  vtkOpenGLState *ostate = this->RenderWindow->GetState();
+  this->Storage->SaveGLState(ostate, true);
 
   int lowerLeft[2];
   int usize, vsize;
@@ -416,12 +420,11 @@ void vtkOpenGLContextDevice2D::BufferIdModeBegin(
   this->ProjectionMatrix->SetMatrix(*matrix);
 
   glDrawBuffer(GL_BACK_LEFT);
-  glClearColor(0.0,0.0,0.0,0.0); // id=0 means no hit, just background
-  glClear(GL_COLOR_BUFFER_BIT);
-  glDisable(GL_ALPHA_TEST);
-  glDisable(GL_STENCIL_TEST);
-  glDisable(GL_DEPTH_TEST);
-  glDisable(GL_BLEND);
+  ostate->vtkglClearColor(0.0,0.0,0.0,0.0); // id=0 means no hit, just background
+  ostate->vtkglClear(GL_COLOR_BUFFER_BIT);
+  ostate->vtkglDisable(GL_STENCIL_TEST);
+  ostate->vtkglDisable(GL_DEPTH_TEST);
+  ostate->vtkglDisable(GL_BLEND);
 
   vtkOpenGLCheckErrorMacro("failed after BufferIdModeBegin");
 
@@ -444,7 +447,7 @@ void vtkOpenGLContextDevice2D::BufferIdModeEnd()
   this->ProjectionMatrix->Pop();
   this->PopMatrix();
 
-  this->Storage->RestoreGLState(true);
+  this->Storage->RestoreGLState(this->RenderWindow->GetState(), true);
 
   this->BufferId=nullptr;
 
@@ -709,7 +712,7 @@ void vtkOpenGLContextDevice2D::ReadySBOProgram()
       this->RenderWindow->GetShaderCache()->ReadyShaderProgram(
       // vertex shader
       "//VTK::System::Dec\n"
-      "attribute vec2 vertexMC;\n"
+      "in vec2 vertexMC;\n"
       "uniform mat4 WCDCMatrix;\n"
       "uniform mat4 MCWCMatrix;\n"
       "void main() {\n"
@@ -738,11 +741,11 @@ void vtkOpenGLContextDevice2D::ReadySCBOProgram()
         this->RenderWindow->GetShaderCache()->ReadyShaderProgram(
         // vertex shader
         "//VTK::System::Dec\n"
-        "attribute vec2 vertexMC;\n"
-        "attribute vec4 vertexScalar;\n"
+        "in vec2 vertexMC;\n"
+        "in vec4 vertexScalar;\n"
         "uniform mat4 WCDCMatrix;\n"
         "uniform mat4 MCWCMatrix;\n"
-        "varying vec4 vertexColor;\n"
+        "out vec4 vertexColor;\n"
         "void main() {\n"
         "vec4 vertex = vec4(vertexMC.xy, 0.0, 1.0);\n"
         "vertexColor = vertexScalar;\n"
@@ -750,7 +753,7 @@ void vtkOpenGLContextDevice2D::ReadySCBOProgram()
         // fragment shader
         "//VTK::System::Dec\n"
         "//VTK::Output::Dec\n"
-        "varying vec4 vertexColor;\n"
+        "in vec4 vertexColor;\n"
         "uniform sampler2D texture1;\n"
         "void main() { gl_FragData[0] = vertexColor*texture2D(texture1, gl_PointCoord); }",
         // geometry shader
@@ -1163,8 +1166,7 @@ void vtkOpenGLContextDevice2D::DrawPointSprites(vtkImageData *sprite,
     }
 
     // We can actually use point sprites here
-    if (!vtkOpenGLRenderWindow::GetContextSupportsOpenGL32() ||
-        this->RenderWindow->IsPointSpriteBugPresent())
+    if (this->RenderWindow->IsPointSpriteBugPresent())
     {
       glEnable(GL_POINT_SPRITE);
       glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
@@ -1175,8 +1177,7 @@ void vtkOpenGLContextDevice2D::DrawPointSprites(vtkImageData *sprite,
 
     // free everything
     cbo->ReleaseGraphicsResources(this->RenderWindow);
-    if (!vtkOpenGLRenderWindow::GetContextSupportsOpenGL32() ||
-        this->RenderWindow->IsPointSpriteBugPresent())
+    if (this->RenderWindow->IsPointSpriteBugPresent())
     {
       glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_FALSE);
       glDisable(GL_POINT_SPRITE);
@@ -2151,20 +2152,13 @@ void vtkOpenGLContextDevice2D::SetClipping(int *dim)
     vp[3] = dim[3];
   }
 
-  glScissor(vp[0], vp[1], vp[2], vp[3]);
+  this->RenderWindow->GetState()->vtkglScissor(vp[0], vp[1], vp[2], vp[3]);
 }
 
 //-----------------------------------------------------------------------------
 void vtkOpenGLContextDevice2D::EnableClipping(bool enable)
 {
-  if (enable)
-  {
-    glEnable(GL_SCISSOR_TEST);
-  }
-  else
-  {
-    glDisable(GL_SCISSOR_TEST);
-  }
+  this->RenderWindow->GetState()->SetEnumState(GL_SCISSOR_TEST, enable);
 }
 
 //-----------------------------------------------------------------------------

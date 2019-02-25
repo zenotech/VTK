@@ -29,12 +29,13 @@
 #include "vtkOpenGLFramebufferObject.h"
 #include "vtkOpenGLPolyDataMapper.h"
 #include "vtkOpenGLRenderWindow.h"
+#include "vtkOpenGLState.h"
 #include "vtkOpenGLVertexArrayObject.h"
 #include "vtkPolyData.h"
 #include "vtkProp.h"
 #include "vtkProperty.h"
 #include "vtkRenderbuffer.h"
-#include "vtkRenderer.h"
+#include "vtkOpenGLRenderer.h"
 #include "vtkRenderState.h"
 #include "vtkRenderWindow.h"
 #include "vtkShaderProgram.h"
@@ -523,7 +524,7 @@ void vtkValuePass::RenderOpaqueGeometry(const vtkRenderState *s)
     vtkDataArray* dataArray = this->GetCurrentArray(mapper, this->PassState);
     if (!dataArray)
     {
-      vtkErrorMacro("Invalid data array from GetScalars()!");
+      // this is OK, happens on internal nodes of multiblock for example
       continue;
     }
 
@@ -572,22 +573,21 @@ void vtkValuePass::BeginPass(vtkRenderer* ren)
     break;
   }
 
-  // Clear buffers
-#if GL_ES_VERSION_3_0 != 1
-  glClearDepth(1.0);
-#else
-  glClearDepthf(1.0f);
-#endif
-  if (this->RenderingMode == vtkValuePass::FLOATING_POINT)
-    {
-    glClearColor(vtkMath::Nan(),vtkMath::Nan(),vtkMath::Nan(),0.0);
-    }
-  else
-    {
-    glClearColor(0.0, 0.0, 0.0, 0.0);
-    }
+  vtkOpenGLState *ostate =
+    static_cast<vtkOpenGLRenderer*>(ren)->GetState();
 
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  // Clear buffers
+  ostate->vtkglClearDepth(1.0);
+  if (this->RenderingMode == vtkValuePass::FLOATING_POINT)
+  {
+    ostate->vtkglClearColor(vtkMath::Nan(),vtkMath::Nan(),vtkMath::Nan(),0.0);
+  }
+  else
+  {
+    ostate->vtkglClearColor(0.0, 0.0, 0.0, 0.0);
+  }
+
+  ostate->vtkglClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 //------------------------------------------------------------------------------
@@ -707,28 +707,7 @@ bool vtkValuePass::IsFloatingPointModeSupported()
 #if GL_ES_VERSION_3_0 == 1
   return true;
 #else
-  if (vtkOpenGLRenderWindow::GetContextSupportsOpenGL32())
-  {
-    return true;
-  }
-  vtkWarningMacro(<< "Context does not support OpenGL core profile 3.2. "
-    << " Will check extension support.");
-
-  bool texFloatSupport = glewIsSupported("GL_ARB_texture_float") != 0;
-  if (!texFloatSupport)
-  {
-    vtkWarningMacro(<< "ARB_texture_float not supported.");
-  }
-
-  bool fboSupport = glewIsSupported("GL_ARB_framebuffer_object") != 0 ||
-    glewIsSupported("GL_EXT_framebuffer_object") != 0;
-  if (!fboSupport)
-  {
-    vtkWarningMacro(<< "ARB_framebuffer_object or EXT_framebuffer_object not"
-      << " supported.");
-  }
-
-  return texFloatSupport && fboSupport;
+  return true;
 #endif
 }
 
@@ -997,8 +976,8 @@ void vtkValuePass::InitializeBuffers(vtkRenderer* ren)
 bool vtkValuePass::UpdateShaders(std::string & VSSource, std::string & FSSource)
 {
   vtkShaderProgram::Substitute(VSSource, "//VTK::ValuePass::Dec",
-    "attribute float dataAttribute;\n"
-    "varying float dataValue;\n"
+    "in float dataAttribute;\n"
+    "out float dataValue;\n"
     "uniform samplerBuffer textureF;\n"
     );
 
@@ -1007,7 +986,7 @@ bool vtkValuePass::UpdateShaders(std::string & VSSource, std::string & FSSource)
     "  dataValue = dataAttribute;\n");
 
   vtkShaderProgram::Substitute(FSSource, "//VTK::ValuePass::Dec",
-    "varying float dataValue;\n"
+    "in float dataValue;\n"
     "uniform samplerBuffer textureF;\n");
 
   std::string fragImpl;
@@ -1092,12 +1071,6 @@ vtkDataArray* vtkValuePass::GetCurrentArray(vtkMapper* mapper,
     {
       abstractArray->Delete();
     }
-  }
-
-  if (!abstractArray)
-  {
-    vtkErrorMacro("Scalar array " << arrayPar->ArrayName << " with Id = "
-      << arrayPar->ArrayId << " not found.");
   }
 
   vtkDataArray* dataArray = vtkArrayDownCast<vtkDataArray>(abstractArray);

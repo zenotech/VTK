@@ -37,9 +37,7 @@ vtkLightingMapPass::vtkLightingMapPass()
 }
 
 // ----------------------------------------------------------------------------
-vtkLightingMapPass::~vtkLightingMapPass()
-{
-}
+vtkLightingMapPass::~vtkLightingMapPass() = default;
 
 // ----------------------------------------------------------------------------
 void vtkLightingMapPass::PrintSelf(ostream& os, vtkIndent indent)
@@ -57,6 +55,11 @@ void vtkLightingMapPass::Render(const vtkRenderState *s)
 
   // Render filtered geometry according to our keys
   this->NumberOfRenderedProps = 0;
+
+  this->ClearLights(s->GetRenderer());
+  this->UpdateLightGeometry(s->GetRenderer());
+  this->UpdateLights(s->GetRenderer());
+
   this->RenderOpaqueGeometry(s);
 }
 

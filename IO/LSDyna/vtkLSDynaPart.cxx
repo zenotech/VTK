@@ -230,7 +230,7 @@ public:
                      const vtkIdType& max):
     MinId(min),MaxId(max+1){} //maxId is meant to be exclusive
 
-  virtual ~InternalPointsUsed(){};
+  virtual ~InternalPointsUsed() = default;
 
   virtual bool isUsed(const vtkIdType &index) const = 0;
 
@@ -906,7 +906,7 @@ void vtkLSDynaPart::BuildCells()
   vtkIdTypeArray *cellArray = vtkIdTypeArray::New();
   cellArray->SetVoidArray(&this->Cells->data[0],cellDataSize,1);
 
-  //set the idtype aray as the cellarray
+  //set the idtype array as the cellarray
   vtkCellArray *cells = vtkCellArray::New();
   cells->SetCells(this->NumberOfCells,cellArray);
   cellArray->FastDelete();

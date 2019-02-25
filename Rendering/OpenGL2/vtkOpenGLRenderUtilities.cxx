@@ -18,19 +18,16 @@
 #include "vtkNew.h"
 #include "vtkOpenGLBufferObject.h"
 #include "vtkOpenGLError.h"
+#include "vtkOpenGLRenderWindow.h"
 #include "vtkOpenGLVertexArrayObject.h"
 #include "vtkRenderingOpenGLConfigure.h"
 #include "vtkShaderProgram.h"
 
 // ----------------------------------------------------------------------------
-vtkOpenGLRenderUtilities::vtkOpenGLRenderUtilities()
-{
-}
+vtkOpenGLRenderUtilities::vtkOpenGLRenderUtilities() = default;
 
 // ----------------------------------------------------------------------------
-vtkOpenGLRenderUtilities::~vtkOpenGLRenderUtilities()
-{
-}
+vtkOpenGLRenderUtilities::~vtkOpenGLRenderUtilities() = default;
 
 void vtkOpenGLRenderUtilities::PrintSelf(ostream& os, vtkIndent indent)
 {
@@ -115,9 +112,9 @@ std::string vtkOpenGLRenderUtilities::GetFullScreenQuadVertexShader()
 {
   // Pass through:
   return "//VTK::System::Dec\n"
-         "attribute vec4 ndCoordIn;\n"
-         "attribute vec2 texCoordIn;\n"
-         "varying vec2 texCoord;\n"
+         "in vec4 ndCoordIn;\n"
+         "in vec2 texCoordIn;\n"
+         "out vec2 texCoord;\n"
          "void main()\n"
          "{\n"
          "  gl_Position = ndCoordIn;\n"
@@ -167,6 +164,38 @@ bool vtkOpenGLRenderUtilities::PrepFullScreenVAO(vtkOpenGLBufferObject *vertBuf,
 
   vao->Bind();
 
+  res = vao->AddAttributeArray(prog, vertBuf, "ndCoordIn", 0, 4 * sizeof(float),
+                               VTK_FLOAT, 2, false);
+  if (!res)
+  {
+    vao->Release();
+    vtkGenericWarningMacro("Error binding ndCoords to VAO.");
+    return false;
+  }
+
+  res = vao->AddAttributeArray(prog, vertBuf, "texCoordIn", 2 * sizeof(float),
+                               4 * sizeof(float), VTK_FLOAT, 2, false);
+  if (!res)
+  {
+    vao->Release();
+    vtkGenericWarningMacro("Error binding texCoords to VAO.");
+    return false;
+  }
+
+  vao->Release();
+  return true;
+}
+
+bool vtkOpenGLRenderUtilities::PrepFullScreenVAO(
+  vtkOpenGLRenderWindow *renWin,
+  vtkOpenGLVertexArrayObject *vao,
+  vtkShaderProgram *prog)
+{
+  bool res;
+
+  vao->Bind();
+
+  vtkOpenGLBufferObject *vertBuf = renWin->GetTQuad2DVBO();
   res = vao->AddAttributeArray(prog, vertBuf, "ndCoordIn", 0, 4 * sizeof(float),
                                VTK_FLOAT, 2, false);
   if (!res)

@@ -303,15 +303,13 @@ int vtkSocket::SelectSocket(int socketdescriptor, unsigned long msec)
     // time out
     return 0;
   }
-  else
-  if (res == vtkSocketErrorReturnMacro)
+  else if (res == vtkSocketErrorReturnMacro)
   {
     // error in the call
     vtkSocketErrorMacro(vtkErrnoMacro, "Socket error in call to select.");
     return -1;
   }
-  else
-  if (!FD_ISSET(socketdescriptor, &rset))
+  else if (!FD_ISSET(socketdescriptor, &rset))
   {
      vtkErrorMacro("Socket error in select. Descriptor not selected.");
      return -1;
@@ -352,7 +350,7 @@ int vtkSocket::SelectSockets(const int* sockets_to_select, int size,
     if (msec>0)
     {
       tval.tv_sec = msec / 1000;
-      tval.tv_usec = msec % 1000;
+      tval.tv_usec = (msec % 1000)*1000;
       tvalptr = &tval;
     }
 
@@ -375,8 +373,7 @@ int vtkSocket::SelectSockets(const int* sockets_to_select, int size,
     // time out
     return 0;
   }
-  else
-  if (res == vtkSocketErrorReturnMacro)
+  else if (res == vtkSocketErrorReturnMacro)
   {
     // error in the call
     vtkSocketGenericErrorMacro("Socket error in call to select.");
@@ -465,8 +462,7 @@ int vtkSocket::Connect(int socketdescriptor, const char* hostName, int port)
           vtkErrnoMacro, "Socket error in call to getsockopt.");
         return -1;
       }
-      else
-      if (pendingErr)
+      else if (pendingErr)
       {
         vtkSocketErrorMacro(
           pendingErr, "Socket error pending from call to connect.");
@@ -474,8 +470,7 @@ int vtkSocket::Connect(int socketdescriptor, const char* hostName, int port)
       }
     }
   }
-  else
-  if (iErr == vtkSocketErrorReturnMacro)
+  else if (iErr == vtkSocketErrorReturnMacro)
   {
     vtkSocketErrorMacro(
       vtkErrnoMacro, "Socket error in call to connect.");
@@ -594,7 +589,7 @@ int vtkSocket::Receive(void* data, int length, int readFully/*=1*/)
   }
 
 #if defined(_WIN32) && !defined(__CYGWIN__)
-  int trys = 0;
+  int tries = 0;
 #endif
 
   char* buffer = reinterpret_cast<char*>(data);
@@ -618,7 +613,7 @@ int vtkSocket::Receive(void* data, int length, int readFully/*=1*/)
     {
       // On long messages, Windows recv sometimes fails with WSAENOBUFS, but
       // will work if you try again.
-      if ((trys++ < 1000))
+      if ((tries++ < 1000))
       {
         Sleep(1);
         continue;

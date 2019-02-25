@@ -22,8 +22,8 @@
 //////////////////////////////////////////////////////////////////////////////
 
 /// 3D texture coordinates form vertex shader
-varying vec3 ip_textureCoords;
-varying vec3 ip_vertexPos;
+in vec3 ip_textureCoords;
+in vec3 ip_vertexPos;
 
 //////////////////////////////////////////////////////////////////////////////
 ///
@@ -39,6 +39,7 @@ vec4 g_fragColor = vec4(0.0);
 ///
 //////////////////////////////////////////////////////////////////////////////
 vec3 g_dataPos;
+vec3 g_terminatePos;
 vec3 g_dirStep;
 vec4 g_srcColor;
 vec4 g_eyePosObj;
@@ -54,8 +55,6 @@ float g_terminatePointMax;
 //VTK::Termination::Dec
 
 //VTK::Cropping::Dec
-
-//VTK::Clipping::Dec
 
 //VTK::Shading::Dec
 
@@ -85,12 +84,10 @@ float g_terminatePointMax;
 
 //VTK::DepthPeeling::Dec
 
-/// We support only 8 clipping planes for now
-/// The first value is the size of the data array for clipping
-/// planes (origin, normal)
-uniform float in_clippingPlanes[49];
 uniform float in_scale;
 uniform float in_bias;
+
+//VTK::Clipping::Dec
 
 //////////////////////////////////////////////////////////////////////////////
 ///
@@ -130,6 +127,50 @@ vec4 NDCToWindow(const float xNDC, const float yNDC, const float zNDC)
     (gl_DepthRange.near + gl_DepthRange.far)) / 2.f;
 
   return WinCoord;
+}
+
+/**
+ * Clamps the texture coordinate vector @a pos to a new position in the set
+ * { start + i * step }, where i is an integer. If @a ceiling
+ * is true, the sample located further in the direction of @a step is used,
+ * otherwise the sample location closer to the eye is used.
+ */
+vec3 ClampToSampleLocation(vec3 start, vec3 step, vec3 pos, bool ceiling)
+{
+  pos -= g_rayJitter;
+
+  vec3 offset = pos - start;
+  float stepLength = length(step);
+
+  // Scalar projection of offset on step:
+  float dist = dot(offset, step / stepLength);
+  if (dist < 0.) // Don't move before the start position:
+  {
+    return start + g_rayJitter;
+  }
+
+  // Number of steps
+  float steps = dist / stepLength;
+
+  // If we're reeaaaaallly close, just round -- it's likely just numerical noise
+  // and the value should be considered exact.
+  if (abs(mod(steps, 1.)) > 1e-5)
+  {
+    if (ceiling)
+    {
+      steps = ceil(steps);
+    }
+    else
+    {
+      steps = floor(steps);
+    }
+  }
+  else
+  {
+    steps = floor(steps + 0.5);
+  }
+
+  return start + steps * step + g_rayJitter;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -176,6 +217,8 @@ vec4 castRay(const float zStart, const float zEnd)
 {
   //VTK::DepthPeeling::Ray::Init
 
+  //VTK::Clipping::Impl
+
   //VTK::DepthPeeling::Ray::PathCheck
 
   //VTK::Shading::Init
@@ -186,8 +229,6 @@ vec4 castRay(const float zStart, const float zEnd)
     //VTK::Base::Impl
 
     //VTK::Cropping::Impl
-
-    //VTK::Clipping::Impl
 
     //VTK::BinaryMask::Impl
 

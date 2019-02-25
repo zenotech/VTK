@@ -51,6 +51,7 @@ typedef ptrdiff_t GLsizeiptr;
 #include "vtkNew.h"
 #include "vtkObjectFactory.h"
 #include "vtkOpenGLShaderCache.h"
+#include "vtkOpenGLVertexBufferObjectCache.h"
 #include "vtkRendererCollection.h"
 #include "vtkRenderTimerLog.h"
 #include "vtkRenderWindowInteractor.h"
@@ -403,10 +404,12 @@ extern "C"
   }
 }
 
+static bool ctxErrorOccurred = false;
 extern "C"
 {
   int vtkXOGLContextCreationErrorHandler(Display*, XErrorEvent*)
   {
+    ctxErrorOccurred = true;
     return 1;
   }
 }
@@ -570,26 +573,64 @@ void vtkXOpenGLRenderWindow::CreateAWindow()
 
     if (glXCreateContextAttribsARB)
     {
+      // do we have a shared render window?
+      GLXContext sharedContext = nullptr;
+      vtkXOpenGLRenderWindow *renWin = nullptr;
+      if (this->SharedRenderWindow)
+      {
+        renWin =
+          vtkXOpenGLRenderWindow::SafeDownCast(this->SharedRenderWindow);
+        if (renWin && renWin->Internal->ContextId)
+        {
+          sharedContext = renWin->Internal->ContextId;
+        }
+      }
+
       XErrorHandler previousHandler = XSetErrorHandler(vtkXOGLContextCreationErrorHandler);
       this->Internal->ContextId = nullptr;
+
       // we believe that these later versions are all compatible with
       // OpenGL 3.2 so get a more recent context if we can.
       int attemptedVersions[] = {4,5, 4,4, 4,3, 4,2, 4,1, 4,0, 3,3, 3,2};
-      for (int i = 0; i < 8 && !this->Internal->ContextId; i++)
+
+      // try shared context first, the fallback to not shared
+      bool done = false;
+      while (!done)
       {
-        context_attribs[1] = attemptedVersions[i*2];
-        context_attribs[3] = attemptedVersions[i*2+1];
-        this->Internal->ContextId =
-          glXCreateContextAttribsARB( this->DisplayId,
-            this->Internal->FBConfig, nullptr,
-            GL_TRUE, context_attribs );
-        // Sync to ensure any errors generated are processed.
-        XSync( this->DisplayId, False );
+        for (int i = 0; i < 8 && !this->Internal->ContextId; i++)
+        {
+          context_attribs[1] = attemptedVersions[i*2];
+          context_attribs[3] = attemptedVersions[i*2+1];
+          this->Internal->ContextId =
+            glXCreateContextAttribsARB( this->DisplayId,
+              this->Internal->FBConfig, sharedContext,
+              GL_TRUE, context_attribs );
+          // Sync to ensure any errors generated are processed.
+          XSync( this->DisplayId, False );
+          if(ctxErrorOccurred)
+          {
+            this->Internal->ContextId = nullptr;
+            ctxErrorOccurred = false;
+          }
+        }
+        if ( !this->Internal->ContextId  && sharedContext)
+        {
+          sharedContext = nullptr;
+        }
+        else
+        {
+          done = true;
+        }
       }
       XSetErrorHandler(previousHandler);
       if ( this->Internal->ContextId )
       {
-        this->SetContextSupportsOpenGL32(true);
+        if (sharedContext)
+        {
+          this->VBOCache->Delete();
+          this->VBOCache = renWin->VBOCache;
+          this->VBOCache->Register(this);
+        }
       }
     }
   }
@@ -597,6 +638,8 @@ void vtkXOpenGLRenderWindow::CreateAWindow()
   // old failsafe
   if (this->Internal->ContextId == nullptr)
   {
+    // I suspect this will always return an unusable context
+    // but leaving it in to be safe
     this->Internal->ContextId =
       glXCreateContext(this->DisplayId, v, nullptr, GL_TRUE);
   }
@@ -880,7 +923,7 @@ void vtkXOpenGLRenderWindow::SetFullScreen(int arg)
                            this->WindowId, &attribs);
 
       this->OldScreen[2] = attribs.width;
-      this->OldScreen[3] = attribs.height;;
+      this->OldScreen[3] = attribs.height;
 
       temp = this->GetPosition();
       this->OldScreen[0] = temp[0];
@@ -949,7 +992,6 @@ void vtkXOpenGLRenderWindow::Start(void)
   // set the current window
   this->MakeCurrent();
 }
-
 
 // Specify the size of the rendering window.
 void vtkXOpenGLRenderWindow::SetSize(int width,int height)
@@ -1151,7 +1193,7 @@ void vtkXOpenGLRenderWindow::PopContext()
   GLXContext current = glXGetCurrentContext();
   GLXContext target = static_cast<GLXContext>(this->ContextStack.top());
   this->ContextStack.pop();
-  if (target != current)
+  if (target && target != current)
   {
     glXMakeCurrent(this->DisplayStack.top(),
       this->DrawableStack.top(),
@@ -1333,7 +1375,7 @@ void vtkXOpenGLRenderWindow::SetWindowId(Window arg)
 }
 
 // Set this RenderWindow's X window id to a pre-existing window.
-void vtkXOpenGLRenderWindow::SetWindowInfo(char *info)
+void vtkXOpenGLRenderWindow::SetWindowInfo(const char *info)
 {
   int tmp;
 
@@ -1359,7 +1401,7 @@ void vtkXOpenGLRenderWindow::SetWindowInfo(char *info)
 }
 
 // Set this RenderWindow's X window id to a pre-existing window.
-void vtkXOpenGLRenderWindow::SetNextWindowInfo(char *info)
+void vtkXOpenGLRenderWindow::SetNextWindowInfo(const char *info)
 {
   int tmp;
   sscanf(info,"%i",&tmp);
@@ -1368,7 +1410,7 @@ void vtkXOpenGLRenderWindow::SetNextWindowInfo(char *info)
 }
 
 // Sets the X window id of the window that WILL BE created.
-void vtkXOpenGLRenderWindow::SetParentInfo(char *info)
+void vtkXOpenGLRenderWindow::SetParentInfo(const char *info)
 {
   int tmp;
 

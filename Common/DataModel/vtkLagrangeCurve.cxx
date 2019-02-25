@@ -44,9 +44,7 @@ vtkLagrangeCurve::vtkLagrangeCurve()
     }
 }
 
-vtkLagrangeCurve::~vtkLagrangeCurve()
-{
-}
+vtkLagrangeCurve::~vtkLagrangeCurve() = default;
 
 void vtkLagrangeCurve::PrintSelf(ostream& os, vtkIndent indent)
 {
@@ -67,7 +65,7 @@ void vtkLagrangeCurve::Initialize()
 }
 
 int vtkLagrangeCurve::CellBoundary(
-  int vtkNotUsed(subId), double pcoords[3], vtkIdList* pts)
+  int vtkNotUsed(subId), const double pcoords[3], vtkIdList* pts)
 {
   pts->SetNumberOfIds(1);
   if (pcoords[0] <= 0.5)
@@ -82,12 +80,12 @@ int vtkLagrangeCurve::CellBoundary(
 }
 
 int vtkLagrangeCurve::EvaluatePosition(
-  double* x,
-  double* closestPoint,
+  const double x[3],
+  double closestPoint[3],
   int& subId,
   double pcoords[3],
   double& minDist2,
-  double* weights)
+  double weights[])
 {
   int result = 0;
 
@@ -137,7 +135,7 @@ int vtkLagrangeCurve::EvaluatePosition(
 
 void vtkLagrangeCurve::EvaluateLocation(
   int& subId,
-  double pcoords[3],
+  const double pcoords[3],
   double x[3], double* weights)
 {
   subId = 0; // TODO: Should this be -1?
@@ -205,8 +203,8 @@ void vtkLagrangeCurve::Clip(
 }
 
 int vtkLagrangeCurve::IntersectWithLine(
-  double* p1,
-  double* p2,
+  const double* p1,
+  const double* p2,
   double tol,
   double& t,
   double* x,
@@ -288,13 +286,12 @@ int vtkLagrangeCurve::Triangulate(
 
 void vtkLagrangeCurve::Derivatives(
   int vtkNotUsed(subId),
-  double vtkNotUsed(pcoords)[3],
-  double* vtkNotUsed(values),
+  const double vtkNotUsed(pcoords)[3],
+  const double* vtkNotUsed(values),
   int vtkNotUsed(dim),
   double* vtkNotUsed(derivs))
 {
   // TODO: Fill me in?
-  return;
 }
 
 double* vtkLagrangeCurve::GetParametricCoords()
@@ -318,7 +315,7 @@ double* vtkLagrangeCurve::GetParametricCoords()
       this->PointParametricCoordinates->GetData())->GetPointer(0);
 }
 
-double vtkLagrangeCurve::GetParametricDistance(double pcoords[3])
+double vtkLagrangeCurve::GetParametricDistance(const double pcoords[3])
 {
   double pDist, pDistMax;
 
@@ -353,13 +350,13 @@ const int* vtkLagrangeCurve::GetOrder()
 }
 
 void vtkLagrangeCurve::InterpolateFunctions(
-  double pcoords[3], double* weights)
+  const double pcoords[3], double* weights)
 {
   vtkLagrangeInterpolation::Tensor1ShapeFunctions(this->GetOrder(), pcoords, weights);
 }
 
 void vtkLagrangeCurve::InterpolateDerivs(
-  double pcoords[3], double* derivs)
+  const double pcoords[3], double* derivs)
 {
   vtkLagrangeInterpolation::Tensor1ShapeDerivatives(this->GetOrder(), pcoords, derivs);
 }

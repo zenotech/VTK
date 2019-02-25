@@ -20,6 +20,7 @@
 #include "vtkDataObject.h"
 #include "vtkDoubleArray.h"
 #include "vtkImageData.h"
+#include "vtkImagePermute.h"
 #include "vtkInformation.h"
 #include "vtkInformationDoubleKey.h"
 #include "vtkInformationVector.h"
@@ -29,8 +30,6 @@
 #include "vtkPointData.h"
 #include "vtkTable.h"
 
-#include "vtkOTConfig.h"
-#include "vtkOTDistributionImplementationWrapper.h"
 #include "vtkOTIncludes.h"
 #include "vtkOTUtilities.h"
 
@@ -43,9 +42,11 @@ vtkStandardNewMacro(vtkOTDensityMap);
 
 using namespace OT;
 
-#if (OPENTURNS_VERSION_MAJOR == 1 && OPENTURNS_VERSION_MINOR == 8)
-typedef NumericalPoint Point;
-#endif
+class vtkOTDensityMap::OTDistributionCache
+{
+public:
+  Distribution Cache;
+};
 
 class vtkOTDensityMap::OTDensityCache
 {
@@ -61,12 +62,13 @@ public:
 //-----------------------------------------------------------------------------
 vtkOTDensityMap::vtkOTDensityMap()
 {
+  this->SetNumberOfOutputPorts(2);
   this->ContourValues = vtkContourValues::New();
   this->GridSubdivisions = 50;
   this->ContourApproximationNumberOfPoints = 600;
   this->DensityLogPDFSampleCache = new vtkOTDensityMap::OTDensityCache(nullptr);
   this->DensityPDFCache = new vtkOTDensityMap::OTDensityCache(nullptr);
-  this->DensityDistribution = nullptr;
+  this->DistributionCache = new vtkOTDensityMap::OTDistributionCache();
 }
 
 //-----------------------------------------------------------------------------
@@ -76,6 +78,7 @@ vtkOTDensityMap::~vtkOTDensityMap()
   this->ClearCache();
   delete this->DensityLogPDFSampleCache;
   delete this->DensityPDFCache;
+  delete this->DistributionCache;
 }
 
 //-----------------------------------------------------------------------------
@@ -90,11 +93,6 @@ void vtkOTDensityMap::ClearCache()
   {
     delete this->DensityPDFCache->Cache;
     this->DensityPDFCache->Cache = nullptr;
-  }
-  if (this->DensityDistribution != nullptr)
-  {
-    delete this->DensityDistribution;
-    this->DensityDistribution = nullptr;
   }
   this->DensityLogPDFSampleMTime.Modified();
   this->DensityPDFMTime.Modified();
@@ -125,6 +123,7 @@ int vtkOTDensityMap::RequestData(vtkInformation* vtkNotUsed(request),
 {
   // Recover output
   vtkMultiBlockDataSet* output = vtkMultiBlockDataSet::GetData(outputVector, 0);
+  vtkImageData* imageOutput = vtkImageData::GetData(outputVector, 1);
 
   // Create Sample from input data array
   vtkDataArray* xArray = this->GetInputArrayToProcess(0, inputVector);
@@ -158,10 +157,10 @@ int vtkOTDensityMap::RequestData(vtkInformation* vtkNotUsed(request),
 
     // Compute OpenTURNS PDF
     KernelSmoothing* ks = new KernelSmoothing();
-    this->DensityDistribution = new vtkOTDistributionImplementationWrapper(ks->build(*input));
+    this->DistributionCache->Cache = ks->build(*input);
     Sample gridX(this->GridSubdivisions * this->GridSubdivisions, 2);
     this->DensityPDFCache->Cache =
-      new Sample(this->DensityDistribution->Implementation->computePDF(
+      new Sample(this->DistributionCache->Cache.getImplementation()->computePDF(
         pointMin, pointMax, pointNumber, gridX));
     delete ks;
     // this->DensityPDFCache->Cache is now a this->GridSubdivisions*this->GridSubdivisions serialized grid,
@@ -173,10 +172,10 @@ int vtkOTDensityMap::RequestData(vtkInformation* vtkNotUsed(request),
   {
     if (this->DensityLogPDFSampleCache->Cache == nullptr)
     {
-      const Sample xSample(this->DensityDistribution->Implementation->getSample(
+      const Sample xSample(this->DistributionCache->Cache.getSample(
         this->ContourApproximationNumberOfPoints));
       this->DensityLogPDFSampleCache->Cache =
-        new Sample(this->DensityDistribution->Implementation->computeLogPDF(xSample));
+        new Sample(this->DistributionCache->Cache.computeLogPDF(xSample));
     }
     else
     {
@@ -187,9 +186,9 @@ int vtkOTDensityMap::RequestData(vtkInformation* vtkNotUsed(request),
       if (newSize > oldSize)
       {
         const Sample xSample(
-          this->DensityDistribution->Implementation->getSample(newSize - oldSize));
+          this->DistributionCache->Cache.getSample(newSize - oldSize));
         this->DensityLogPDFSampleCache->Cache->add(
-          Sample(this->DensityDistribution->Implementation->computeLogPDF(xSample)));
+          Sample(this->DistributionCache->Cache.computeLogPDF(xSample)));
       }
       else if (newSize < oldSize)
       {
@@ -209,6 +208,7 @@ int vtkOTDensityMap::RequestData(vtkInformation* vtkNotUsed(request),
     0);
 
   vtkDataArray* density = vtkOTUtilities::SampleToArray(this->DensityPDFCache->Cache);
+  density->SetName("Density");
   image->GetPointData()->SetScalars(density);
   density->Delete();
 
@@ -281,6 +281,12 @@ int vtkOTDensityMap::RequestData(vtkInformation* vtkNotUsed(request),
   }
   output->SetNumberOfBlocks(nBlock);
 
+  vtkNew<vtkImagePermute> flipImage;
+  flipImage->SetInputData(image);
+  flipImage->SetFilteredAxes(1, 0, 2);
+  flipImage->Update();
+  imageOutput->ShallowCopy(flipImage->GetOutput());
+
   // Store Build Time for cache
   this->BuildTime.Modified();
 
@@ -289,6 +295,19 @@ int vtkOTDensityMap::RequestData(vtkInformation* vtkNotUsed(request),
   return 1;
 }
 
+//----------------------------------------------------------------------------
+int vtkOTDensityMap::FillOutputPortInformation(
+  int port, vtkInformation* info)
+{
+  if (port == 1)
+  {
+    info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkImageData");
+    return 1;
+  }
+  return this->Superclass::FillOutputPortInformation(port, info);
+}
+
+//----------------------------------------------------------------------------
 void vtkOTDensityMap::BuildContours(vtkPolyData* contourPd,
   int numContours,
   const double* contourValues,

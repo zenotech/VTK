@@ -15,6 +15,7 @@
 // Tests QVTKOpenGLWidget
 
 #include "QVTKOpenGLWidget.h"
+
 #include "vtkActor.h"
 #include "vtkGenericOpenGLRenderWindow.h"
 #include "vtkNew.h"
@@ -25,6 +26,7 @@
 
 #include <QApplication>
 #include <QSurfaceFormat>
+#include <qmainwindow.h>
 
 int TestQVTKOpenGLWidget(int argc, char* argv[])
 {
@@ -38,11 +40,9 @@ int TestQVTKOpenGLWidget(int argc, char* argv[])
   vtktesting->AddArguments(argc, argv);
 
   QVTKOpenGLWidget widget;
-
   {
     vtkNew<vtkGenericOpenGLRenderWindow> window0;
     widget.SetRenderWindow(window0);
-    widget.show();
     app.processEvents();
   }
 
@@ -72,9 +72,17 @@ int TestQVTKOpenGLWidget(int argc, char* argv[])
     return EXIT_FAILURE;
   }
 
+  widget.show();
+
+  // Make sure that the widget context is valid before making OpenGL calls.
+  // This should only take up to 4 calls to processEvents(). If this test keeps
+  // timing out, consider that the widget initialization is broken.
+  while (!widget.isValid())
+  {
+    app.processEvents();
+  }
+
   vtktesting->SetRenderWindow(window);
-  widget.update();
-  app.processEvents();
 
   int retVal = vtktesting->RegressionTest(10);
   switch (retVal)

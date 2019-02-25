@@ -23,7 +23,7 @@
 #include "vtkObjectFactory.h"
 #include "vtkOSPRayRendererNode.h"
 
-#include "ospray/ospray.h"
+#include "ospray/version.h"
 #include <vector>
 
 vtkInformationKeyMacro(vtkOSPRayLightNode, IS_AMBIENT, Integer);
@@ -38,11 +38,13 @@ vtkStandardNewMacro(vtkOSPRayLightNode);
 //----------------------------------------------------------------------------
 vtkOSPRayLightNode::vtkOSPRayLightNode()
 {
+  this->OLight = nullptr;
 }
 
 //----------------------------------------------------------------------------
 vtkOSPRayLightNode::~vtkOSPRayLightNode()
 {
+  ospRelease((OSPLight)this->OLight);
 }
 
 //----------------------------------------------------------------------------
@@ -110,6 +112,29 @@ double vtkOSPRayLightNode::GetRadius(vtkLight *light)
 }
 
 //----------------------------------------------------------------------------
+OSPLight vtkOSPRayLightNode::NewLight(vtkOSPRayRendererNode *orn,
+                                      OSPRenderer oRenderer,
+                                      const std::string& lightType)
+{
+  OSPLight result;
+#if OSPRAY_VERSION_MAJOR == 1 && OSPRAY_VERSION_MINOR >= 5
+  (void)oRenderer;
+  const std::string rendererType = vtkOSPRayRendererNode::GetRendererType(orn->GetRenderer());
+  result = ospNewLight2(rendererType.c_str(), lightType.c_str());
+#else
+  (void)orn;
+  result = ospNewLight(oRenderer, lightType.c_str());
+#endif
+
+  if (!result)
+  {
+    vtkGenericWarningMacro("Failed to create OSPRay light: " << lightType);
+  }
+
+  return result;
+}
+
+//----------------------------------------------------------------------------
 void vtkOSPRayLightNode::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
@@ -120,6 +145,9 @@ void vtkOSPRayLightNode::Render(bool prepass)
 {
   if (prepass)
   {
+    ospRelease((OSPLight)this->OLight);
+    OSPLight ospLight;
+
     vtkOSPRayRendererNode *orn =
       static_cast<vtkOSPRayRendererNode *>(
         this->GetFirstAncestorOfType("vtkOSPRayRendererNode"));
@@ -136,7 +164,7 @@ void vtkOSPRayLightNode::Render(bool prepass)
     }
     if (vtkOSPRayLightNode::GetIsAmbient(light))
     {
-      OSPLight ospLight = ospNewLight(oRenderer, "ambient");
+      ospLight = NewLight(orn, oRenderer, "ambient");
       color[0] = static_cast<float>(light->GetDiffuseColor()[0]);
       color[1] = static_cast<float>(light->GetDiffuseColor()[1]);
       color[2] = static_cast<float>(light->GetDiffuseColor()[2]);
@@ -163,14 +191,13 @@ void vtkOSPRayLightNode::Render(bool prepass)
         pz = p[2];
         }
       float coneAngle = static_cast<float>(light->GetConeAngle());
-      OSPLight ospLight;
       if (coneAngle <= 0.0)
       {
-        ospLight = ospNewLight(oRenderer, "PointLight");
+        ospLight = NewLight(orn, oRenderer, "PointLight");
       }
       else
       {
-        ospLight = ospNewLight(oRenderer, "SpotLight");
+        ospLight = NewLight(orn, oRenderer, "SpotLight");
         double fx, fy, fz;
         light->GetTransformedFocalPoint(fx, fy, fz);
         if (lt == VTK_LIGHT_TYPE_SCENE_LIGHT)
@@ -225,7 +252,7 @@ void vtkOSPRayLightNode::Render(bool prepass)
       direction[0] = fx - px;
       direction[1] = fy - py;
       direction[2] = fz - pz;
-      OSPLight ospLight = ospNewLight(oRenderer, "DirectionalLight");
+      ospLight = NewLight(orn, oRenderer, "DirectionalLight");
       ospSet3f(ospLight, "color", color[0], color[1], color[2]);
       float fI = static_cast<float>
         (vtkOSPRayLightNode::LightScale*
@@ -240,5 +267,6 @@ void vtkOSPRayLightNode::Render(bool prepass)
       ospCommit(ospLight);
       orn->AddLight(ospLight);
     }
+    this->OLight = ospLight;
   }
 }

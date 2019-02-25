@@ -175,7 +175,7 @@ public:
   //@{
   /**
    * Set/Get the prototype cell locator to use for probing the source dataset.
-   * By default, vtkCellLocator will be used.
+   * By default, vtkStaticCellLocator will be used.
    */
    virtual void SetCellLocatorPrototype(vtkAbstractCellLocator*);
    vtkGetObjectMacro(CellLocatorPrototype, vtkAbstractCellLocator);

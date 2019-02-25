@@ -4,12 +4,13 @@ set(Module_SRCS
   vtkBlueObeliskDataParser.cxx
   vtkCMLMoleculeReader.cxx
   vtkGaussianCubeReader2.cxx
-  vtkMoleculeAlgorithm.cxx
   vtkMoleculeMapper.cxx
   vtkMoleculeToAtomBallFilter.cxx
   vtkMoleculeToBondStickFilter.cxx
+  vtkMoleculeToLinesFilter.cxx
   vtkMoleculeToPolyDataFilter.cxx
   vtkPeriodicTable.cxx
+  vtkPointSetToMoleculeFilter.cxx
   vtkProgrammableElectronicData.cxx
   vtkProteinRibbonFilter.cxx
   vtkSimpleBondPerceiver.cxx

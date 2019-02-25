@@ -61,17 +61,31 @@ vtkLagrangeTriangle::~vtkLagrangeTriangle()
 //----------------------------------------------------------------------------
 vtkCell *vtkLagrangeTriangle::GetEdge(int edgeId)
 {
+  this->Edge->PointIds->Reset();
+  this->Edge->Points->Reset();
+
   vtkIdType order = this->GetOrder();
 
   vtkIdType bindex[3] = {0,0,0};
   bindex[(edgeId+2)%3] = order;
+
   for (vtkIdType i=0;i<=order;i++)
-    {
-    this->EdgeIds[i] = this->PointIds->GetId(this->ToIndex(bindex));
+  {
+    vtkIdType triangleIndex = this->ToIndex(bindex);
+
+    // The ordering for points in vtkLagrangeCurve are: first point, then last
+    // point, and then the remaining points in sequence. This loop iterates over
+    // the edge in sequence starting with the first point. The following value
+    // maps from this iteration loop to the edge's ordering.
+    vtkIdType edgeIndex = (i == 0 ? 0 : (i == order ? 1 : i + 1));
+
+    this->Edge->GetPointIds()->InsertId(edgeIndex, this->PointIds->GetId(triangleIndex));
+    this->Edge->GetPoints()->InsertPoint(edgeIndex, this->Points->GetPoint(triangleIndex));
+
     bindex[(edgeId+2)%3]--;
     bindex[edgeId]++;
-    }
-  this->Edge->vtkCell::Initialize(order + 1, this->EdgeIds, this->Points);
+  }
+
   return this->Edge;
 }
 
@@ -227,7 +241,7 @@ void vtkLagrangeTriangle::SubtriangleBarycentricPointIndices(
 }
 
 //----------------------------------------------------------------------------
-int vtkLagrangeTriangle::CellBoundary(int vtkNotUsed(subId), double pcoords[3],
+int vtkLagrangeTriangle::CellBoundary(int vtkNotUsed(subId), const double pcoords[3],
                                       vtkIdList *pts)
 {
   double t1=pcoords[0]-pcoords[1];
@@ -270,9 +284,9 @@ int vtkLagrangeTriangle::CellBoundary(int vtkNotUsed(subId), double pcoords[3],
 }
 
 //----------------------------------------------------------------------------
-int vtkLagrangeTriangle::EvaluatePosition(double* x, double* closestPoint,
+int vtkLagrangeTriangle::EvaluatePosition(const double x[3], double closestPoint[3],
                                           int& subId, double pcoords[3],
-                                          double& minDist2, double *weights)
+                                          double& minDist2, double weights[])
 {
   double pc[3], dist2, tempWeights[3], closest[3];
   double pcoordsMin[3] = {0., 0., 0.};
@@ -342,7 +356,7 @@ int vtkLagrangeTriangle::EvaluatePosition(double* x, double* closestPoint,
 
 //----------------------------------------------------------------------------
 void vtkLagrangeTriangle::EvaluateLocation(int& vtkNotUsed(subId),
-                                           double pcoords[3], double x[3],
+                                           const double pcoords[3], double x[3],
                                            double *weights)
 {
   x[0] = x[1] = x[2] = 0.;
@@ -434,8 +448,8 @@ void vtkLagrangeTriangle::Clip(double value,
 }
 
 //----------------------------------------------------------------------------
-int vtkLagrangeTriangle::IntersectWithLine(double* p1,
-                                           double* p2,
+int vtkLagrangeTriangle::IntersectWithLine(const double* p1,
+                                           const double* p2,
                                            double tol,
                                            double& t,
                                            double* x,
@@ -532,7 +546,7 @@ int vtkLagrangeTriangle::Triangulate(int vtkNotUsed(index), vtkIdList *ptIds,
 }
 
 //----------------------------------------------------------------------------
-void vtkLagrangeTriangle::JacobianInverse(double pcoords[3], double**inverse,
+void vtkLagrangeTriangle::JacobianInverse(const double pcoords[3], double**inverse,
                                           double* derivs)
 {
   // Given parametric coordinates compute inverse Jacobian transformation
@@ -583,8 +597,8 @@ void vtkLagrangeTriangle::JacobianInverse(double pcoords[3], double**inverse,
 
 //----------------------------------------------------------------------------
 void vtkLagrangeTriangle::Derivatives(int vtkNotUsed(subId),
-                                      double pcoords[3],
-                                      double* values,
+                                      const double pcoords[3],
+                                      const double* values,
                                       int dim,
                                       double *derivs)
 {
@@ -721,7 +735,7 @@ int vtkLagrangeTriangle::GetParametricCenter(double pcoords[3])
 }
 
 //----------------------------------------------------------------------------
-double vtkLagrangeTriangle::GetParametricDistance(double pcoords[3])
+double vtkLagrangeTriangle::GetParametricDistance(const double pcoords[3])
 {
   int i;
   double pDist, pDistMax=0.0;
@@ -782,7 +796,7 @@ double vtkLagrangeTriangle::d_eta(vtkIdType n, vtkIdType chi, double sigma)
  }
 
 //----------------------------------------------------------------------------
-void vtkLagrangeTriangle::InterpolateFunctions(double pcoords[3],
+void vtkLagrangeTriangle::InterpolateFunctions(const double pcoords[3],
                                                double* weights)
 {
   // Adapted from P. Silvester, "High-Order Polynomial Triangular Finite
@@ -847,7 +861,7 @@ void vtkLagrangeTriangle::InterpolateFunctions(double pcoords[3],
 }
 
 //----------------------------------------------------------------------------
-void vtkLagrangeTriangle::InterpolateDerivs(double pcoords[3],
+void vtkLagrangeTriangle::InterpolateDerivs(const double pcoords[3],
                                             double* derivs)
 {
   // Analytic differentiation of the triangle shape functions, as defined in

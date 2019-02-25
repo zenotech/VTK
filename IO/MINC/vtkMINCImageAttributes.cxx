@@ -116,7 +116,7 @@ protected:
 
 private:
   vtkMINCImageAttributeMap() : Map() {};
-  ~vtkMINCImageAttributeMap() {};
+  ~vtkMINCImageAttributeMap() = default;
 
   MapType Map;
 };
@@ -1190,7 +1190,7 @@ int vtkMINCImageAttributes::ValidatePatientAttribute(
     MIsex,           // "male__", "female", "other_"
     MIage,           // "XXXD", "XXXM", or "XXXY" (days, months, years)
     MIweight,        // "XXkg", "X.Xkg" (assume kg if no units given)
-    MIsize,          // "XXXcm" (assume metres if no units given)
+    MIsize,          // "XXXcm" (assume meters if no units given)
     MIaddress,       // newline-separated string
     MIinsurance_id,
     nullptr

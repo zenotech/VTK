@@ -82,9 +82,7 @@ vtkHeatmapItem::vtkHeatmapItem() : PositionVector(0, 0)
 }
 
 //-----------------------------------------------------------------------------
-vtkHeatmapItem::~vtkHeatmapItem()
-{
-}
+vtkHeatmapItem::~vtkHeatmapItem() = default;
 
 //-----------------------------------------------------------------------------
 void vtkHeatmapItem::SetPosition(const vtkVector2f &pos)
@@ -734,7 +732,7 @@ void vtkHeatmapItem::UpdateVisibleSceneExtent(vtkContext2D *painter)
 bool vtkHeatmapItem::LineIsVisible(double x0, double y0,
                                         double x1, double y1)
 {
-  // use local variables to improve readibility
+  // use local variables to improve readability
   double xMinScene = this->SceneBottomLeft[0];
   double yMinScene = this->SceneBottomLeft[1];
   double xMaxScene = this->SceneTopRight[0];

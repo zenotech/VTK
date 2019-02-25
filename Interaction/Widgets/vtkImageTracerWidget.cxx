@@ -216,9 +216,14 @@ void vtkImageTracerWidget::SetViewProp(vtkProp* prop)
 //------------------------------------------------------------------------------
 void vtkImageTracerWidget::RegisterPickers()
 {
-  this->Interactor->GetPickingManager()->AddPicker(this->PropPicker, this);
-  this->Interactor->GetPickingManager()->AddPicker(this->HandlePicker, this);
-  this->Interactor->GetPickingManager()->AddPicker(this->LinePicker, this);
+  vtkPickingManager* pm = this->GetPickingManager();
+  if (!pm)
+  {
+    return;
+  }
+  pm->AddPicker(this->PropPicker, this);
+  pm->AddPicker(this->HandlePicker, this);
+  pm->AddPicker(this->LinePicker, this);
 }
 
 void vtkImageTracerWidget::SetEnabled(int enabling)
@@ -272,6 +277,7 @@ void vtkImageTracerWidget::SetEnabled(int enabling)
     this->CurrentRenderer->AddViewProp(this->LineActor);
     this->LineActor->SetProperty(this->LineProperty);
     this->LineActor->PickableOff();
+    this->RegisterPickers();
 
     this->InvokeEvent(vtkCommand::EnableEvent,nullptr);
   }
@@ -312,6 +318,7 @@ void vtkImageTracerWidget::SetEnabled(int enabling)
     this->CurrentHandle = nullptr;
     this->InvokeEvent(vtkCommand::DisableEvent,nullptr);
     this->SetCurrentRenderer(nullptr);
+    this->UnRegisterPickers();
   }
 
   this->Interactor->Render();
@@ -854,10 +861,10 @@ void vtkImageTracerWidget::OnRightButtonDown()
     }
     else if ( this->State == vtkImageTracerWidget::Inserting )
     {
-        if ( static_cast<vtkActor*>(path->GetFirstNode()->GetViewProp()) == this->LineActor )
-        {
+      if ( static_cast<vtkActor*>(path->GetFirstNode()->GetViewProp()) == this->LineActor )
+      {
         this->HighlightLine(1);
-        }
+      }
       else
       {
         found = 0;

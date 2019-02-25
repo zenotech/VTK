@@ -301,7 +301,7 @@ public:
    * actually rendering in stereo mode.
    */
   vtkGetMacro(StereoType,int);
-  vtkSetMacro(StereoType,int);
+  void SetStereoType(int);
   void SetStereoTypeToCrystalEyes()
     {this->SetStereoType(VTK_STEREO_CRYSTAL_EYES);}
   void SetStereoTypeToRedBlue()
@@ -555,9 +555,9 @@ public:
   void *GetGenericParentId() override = 0;
   void *GetGenericContext() override = 0;
   void *GetGenericDrawable() override = 0;
-  void SetWindowInfo(char *) override = 0;
-  virtual void SetNextWindowInfo(char *) = 0;
-  void SetParentInfo(char *) override = 0;
+  void SetWindowInfo(const char *) override = 0;
+  virtual void SetNextWindowInfo(const char *) = 0;
+  void SetParentInfo(const char *) override = 0;
   //@}
 
   /**
@@ -565,6 +565,19 @@ public:
    * with the currently activated OpenGL context.
    */
   virtual bool InitializeFromCurrentContext() { return false; };
+
+  //@{
+  /**
+   * Set/Get an already existing window that this window should
+   * share data with if possible. This must be set
+   * after the shared render window has been created and initialized
+   * but before this window has been initialized. Not all platforms
+   * support data sharing.
+   */
+  virtual void SetSharedRenderWindow(vtkRenderWindow *);
+  vtkGetObjectMacro(SharedRenderWindow, vtkRenderWindow);
+  virtual bool GetPlatformSupportsRenderWindowSharing() { return false; };
+  //@}
 
   /**
    * Attempt to make this window the current graphics context for the calling
@@ -722,6 +735,8 @@ protected:
    * The universal time since the last abort check occurred.
    */
   double AbortCheckTime;
+
+  vtkRenderWindow *SharedRenderWindow;
 
 private:
   vtkRenderWindow(const vtkRenderWindow&) = delete;

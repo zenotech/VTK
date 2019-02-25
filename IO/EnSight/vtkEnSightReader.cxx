@@ -188,7 +188,7 @@ int vtkEnSightReader::RequestData(
   // This overrides the ivar.
   if(outInfo->Has(vtkStreamingDemandDrivenPipeline::UPDATE_TIME_STEP()) && tsLength>0)
   {
-    // Get the requested time step. We only supprt requests of a single time
+    // Get the requested time step. We only support requests of a single time
     // step in this reader right now
     double requestedTimeStep =
       outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_TIME_STEP());
@@ -1227,8 +1227,7 @@ int vtkEnSightReader::ReadCaseFileTime(char* line)
         {
           this->MinimumTimeValue = timeStep;
         }
-        else
-        if ( timeStep > this->MaximumTimeValue )
+        else if ( timeStep > this->MaximumTimeValue )
         {
           this->MaximumTimeValue = timeStep;
         }

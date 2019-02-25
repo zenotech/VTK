@@ -28,6 +28,7 @@
 #include "vtkOpenGLRenderUtilities.h"
 #include "vtkOpenGLRenderWindow.h"
 #include "vtkOpenGLShaderCache.h"
+#include "vtkOpenGLState.h"
 #include "vtkOpenGLVertexArrayObject.h"
 #include "vtkPainterCommunicator.h"
 #include "vtkPixelBufferObject.h"
@@ -271,6 +272,8 @@ public:
         const deque<vtkPixelExtent> &extents,
         int clearEETex = 0)
   {
+    vtkOpenGLState *ostate = fbo->GetContext()->GetState();
+
     //attach
     fbo->AddColorAttachment(GL_DRAW_FRAMEBUFFER, 0U, this->LICTexture0);
     fbo->AddColorAttachment(GL_DRAW_FRAMEBUFFER, 1U, this->SeedTexture0);
@@ -287,11 +290,8 @@ public:
 
     // clear the parts of the screen which we will modify
     // initially mask all fragments
-    glClearColor(0.0, 1.0, 0.0, 0.0);
-    #if 0
-    glClear(GL_COLOR_BUFFER_BIT);
-    #else
-    glEnable(GL_SCISSOR_TEST);
+    ostate->vtkglClearColor(0.0, 1.0, 0.0, 0.0);
+    ostate->vtkglEnable(GL_SCISSOR_TEST);
     size_t nBlocks = extents.size();
     for (size_t e=0; e<nBlocks; ++e)
     {
@@ -307,11 +307,10 @@ public:
       unsigned int extSize[2];
       ext.Size(extSize);
 
-      glScissor(ext[0], ext[2], extSize[0], extSize[1]);
-      glClear(GL_COLOR_BUFFER_BIT);
+      ostate->vtkglScissor(ext[0], ext[2], extSize[0], extSize[1]);
+      ostate->vtkglClear(GL_COLOR_BUFFER_BIT);
     }
-    glDisable(GL_SCISSOR_TEST);
-    #endif
+    ostate->vtkglDisable(GL_SCISSOR_TEST);
     // detach
     // detach
     fbo->RemoveTexColorAttachments(GL_DRAW_FRAMEBUFFER, num);
@@ -326,6 +325,8 @@ public:
         const vtkPixelExtent &viewExt,
         const deque<vtkPixelExtent> &extents)
   {
+    vtkOpenGLState *ostate = fbo->GetContext()->GetState();
+
     //attach
     fbo->AddColorAttachment(GL_DRAW_FRAMEBUFFER, 0U, tex);
     fbo->ActivateDrawBuffers(1);
@@ -333,11 +334,8 @@ public:
 
     // clear the parts of the screen which we will modify
     // initially mask all fragments
-    glClearColor(0.0, 1.0, 0.0, 0.0);
-    #if 0
-    glClear(GL_COLOR_BUFFER_BIT);
-    #else
-    glEnable(GL_SCISSOR_TEST);
+    ostate->vtkglClearColor(0.0, 1.0, 0.0, 0.0);
+    ostate->vtkglEnable(GL_SCISSOR_TEST);
     size_t nBlocks = extents.size();
     for (size_t e=0; e<nBlocks; ++e)
     {
@@ -353,11 +351,10 @@ public:
       unsigned int extSize[2];
       ext.Size(extSize);
 
-      glScissor(ext[0], ext[2], extSize[0], extSize[1]);
-      glClear(GL_COLOR_BUFFER_BIT);
+      ostate->vtkglScissor(ext[0], ext[2], extSize[0], extSize[1]);
+      ostate->vtkglClear(GL_COLOR_BUFFER_BIT);
     }
-    glDisable(GL_SCISSOR_TEST);
-    #endif
+    ostate->vtkglDisable(GL_SCISSOR_TEST);
     // detach
     fbo->RemoveTexColorAttachments(GL_DRAW_FRAMEBUFFER, 1);
     fbo->DeactivateDrawBuffers();
@@ -1411,6 +1408,8 @@ vtkTextureObject *vtkLineIntegralConvolution2D::Execute(
     vtkErrorMacro("invalid this->Context");
     return nullptr;
   }
+  vtkOpenGLState *ostate = this->Context->GetState();
+
   if (this->NumberOfSteps < 0)
   {
     vtkErrorMacro("Number of integration steps should be positive.");
@@ -1513,7 +1512,7 @@ vtkTextureObject *vtkLineIntegralConvolution2D::Execute(
   this->FBO->Bind(GL_FRAMEBUFFER);
   this->FBO->InitializeViewport(computeTexSize[0], computeTexSize[1]);
 
-  // initialize the buffer mananger. Textures are assigned
+  // initialize the buffer manager. Textures are assigned
   // and bound to individual units. These textures and units
   // are active and bound for the remainder of this execution.
   vtkLICPingPongBufferManager bufs(
@@ -1549,9 +1548,9 @@ vtkTextureObject *vtkLineIntegralConvolution2D::Execute(
     this->VTShader->Program->SetUniformi("texVectors", bufs.GetVectorTextureUnit());
     vtkOpenGLCheckErrorMacro("failed");
     // essential to initialize the entire buffer
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    ostate->vtkglClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     vtkOpenGLCheckErrorMacro("failed");
-    glClear(GL_COLOR_BUFFER_BIT);
+    ostate->vtkglClear(GL_COLOR_BUFFER_BIT);
     vtkOpenGLCheckErrorMacro("failed");
     size_t nVectorExtents = vectorExtents.size();
     for (size_t q=0; q<nVectorExtents; ++q)
@@ -1818,7 +1817,7 @@ vtkTextureObject *vtkLineIntegralConvolution2D::Execute(
     this->StartTimerEvent("vtkLineIntegralConvolution::Integrate2");
     #endif
 
-    // in pass 2 lic is comuted by convolving edge-enhanced result of pass 1
+    // in pass 2 lic is computed by convolving edge-enhanced result of pass 1
     // rather than noise. This gives the result a nice smooth look, since the
     // input is fairly smooth fewer steps are needed.
 

@@ -120,10 +120,10 @@ void vtkAttributeClustering2DLayoutStrategy::SetVertexAttribute(const char* att)
     this->VertexAttribute = cp1;
     do { *cp1++ = *cp2++; } while ( --n );
   }
-   else
-   {
+  else
+  {
     this->VertexAttribute = nullptr;
-   }
+  }
 
   this->Modified();
 
@@ -606,7 +606,7 @@ void vtkAttributeClustering2DLayoutStrategy::ResolveCoincidentVertices()
       float jumpDistanceY = 5.0*(paddedBounds[3]-paddedBounds[2])/yDim; // 2.5 grid spaces max
       int collisionOps = 0;
 
-      // You get 10 trys and then we have to punt
+      // You get 10 tries and then we have to punt
       while (collision && (collisionOps < 10))
       {
         collisionOps++;

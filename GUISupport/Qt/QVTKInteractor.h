@@ -50,10 +50,10 @@ class QVTKInteractorInternal;
 
 /**
  * @class QVTKInteractor
- * @brief - an interactor for QVTKOpenGLWidget (and QVTKWiget).
+ * @brief - an interactor for QVTKOpenGLNativeWidget (and QVTKWiget).
  *
  * QVTKInteractor handles relaying Qt events to VTK.
- * @sa QVTKOpenGLWidget
+ * @sa QVTKOpenGLNativeWidget
  */
 
 class VTKGUISUPPORTQT_EXPORT QVTKInteractor : public vtkRenderWindowInteractor

@@ -132,14 +132,23 @@ public:
     int destType);
 
   /**
+   * Check if the array already exists.
+   * offset is the index of the first vertex of the array if it exists.
+   * totalOffset is the total number of vertices in the appended arrays.
+   * Note that if the array does not exist, offset is equal to totalOffset.
+   */
+  bool ArrayExists(const char *attribute, vtkDataArray *da,
+    vtkIdType& offset,
+    vtkIdType& totalOffset);
+
+  /**
    * Append a data array for an attribute in the VBO Group
    * registers the data array until build is called
    */
-  void AppendDataArray(const char *attribute, vtkDataArray *da,
-    int destType);
+  void AppendDataArray(const char *attribute, vtkDataArray *da, int destType);
 
   /**
-   * using the data arays in this group
+   * using the data arrays in this group
    * build all the VBOs, once this has been called the
    * reference to the data arrays will be freed.
    */
@@ -171,6 +180,8 @@ protected:
 
   std::map<std::string, vtkOpenGLVertexBufferObject*> UsedVBOs;
   std::map<std::string, std::vector<vtkDataArray*> > UsedDataArrays;
+  std::map<std::string, std::map<vtkDataArray*, vtkIdType> > UsedDataArrayMaps;
+  std::map<std::string, vtkIdType> UsedDataArraySizes;
 
 private:
   vtkOpenGLVertexBufferObjectGroup(const vtkOpenGLVertexBufferObjectGroup&) = delete;

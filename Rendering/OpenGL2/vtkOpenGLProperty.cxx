@@ -18,6 +18,7 @@
 #include "vtkOpenGLHelper.h"
 
 #include "vtkObjectFactory.h"
+#include "vtkOpenGLState.h"
 #include "vtkOpenGLTexture.h"
 #include "vtkTexture.h"
 
@@ -27,13 +28,9 @@
 
 vtkStandardNewMacro(vtkOpenGLProperty);
 
-vtkOpenGLProperty::vtkOpenGLProperty()
-{
-}
+vtkOpenGLProperty::vtkOpenGLProperty() = default;
 
-vtkOpenGLProperty::~vtkOpenGLProperty()
-{
-}
+vtkOpenGLProperty::~vtkOpenGLProperty() = default;
 
 
 // ----------------------------------------------------------------------------
@@ -41,19 +38,21 @@ vtkOpenGLProperty::~vtkOpenGLProperty()
 void vtkOpenGLProperty::Render(vtkActor *anActor, vtkRenderer *ren)
 {
   // turn on/off backface culling
+  vtkOpenGLState *ostate =
+    static_cast<vtkOpenGLRenderer *>(ren)->GetState();
   if (! this->BackfaceCulling && ! this->FrontfaceCulling)
   {
-    glDisable (GL_CULL_FACE);
+    ostate->vtkglDisable (GL_CULL_FACE);
   }
   else if (this->BackfaceCulling)
   {
-    glCullFace (GL_BACK);
-    glEnable (GL_CULL_FACE);
+    ostate->vtkglCullFace (GL_BACK);
+    ostate->vtkglEnable (GL_CULL_FACE);
   }
   else //if both front & back culling on, will fall into backface culling
   { //if you really want both front and back, use the Actor's visibility flag
-    glCullFace (GL_FRONT);
-    glEnable (GL_CULL_FACE);
+    ostate->vtkglCullFace (GL_FRONT);
+    ostate->vtkglEnable (GL_CULL_FACE);
   }
 
   this->RenderTextures(anActor, ren);
@@ -72,7 +71,7 @@ bool vtkOpenGLProperty::RenderTextures(vtkActor*, vtkRenderer* ren)
 
   vtkOpenGLCheckErrorMacro("failed after Render");
 
-  return (textures.size() > 0);
+  return (!textures.empty());
 }
 
 //-----------------------------------------------------------------------------
@@ -83,7 +82,8 @@ void vtkOpenGLProperty::PostRender(vtkActor *actor, vtkRenderer *renderer)
   // Reset the face culling now we are done, leaking into text actor etc.
   if (this->BackfaceCulling || this->FrontfaceCulling)
   {
-    glDisable(GL_CULL_FACE);
+    static_cast<vtkOpenGLRenderer *>(renderer)
+      ->GetState()->vtkglDisable(GL_CULL_FACE);
   }
 
   // deactivate any textures.

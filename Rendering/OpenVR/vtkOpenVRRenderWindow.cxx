@@ -28,12 +28,14 @@ https://github.com/ValveSoftware/openvr/blob/master/LICENSE
 #include "vtkOpenGLRenderer.h"
 #include "vtkOpenGLRenderWindow.h"
 #include "vtkOpenGLShaderCache.h"
+#include "vtkOpenGLState.h"
 #include "vtkOpenGLTexture.h"
 #include "vtkOpenGLVertexArrayObject.h"
 #include "vtkOpenGLVertexBufferObject.h"
 #include "vtkOpenVRCamera.h"
 #include "vtkOpenVRDefaultOverlay.h"
 #include "vtkOpenVRModel.h"
+#include "vtkOpenVRRenderer.h"
 #include "vtkPointData.h"
 #include "vtkPolyData.h"
 #include "vtkPolyDataMapper.h"
@@ -275,10 +277,8 @@ vtkOpenVRModel *vtkOpenVRRenderWindow::FindOrLoadRenderModel(
 
 void vtkOpenVRRenderWindow::RenderModels()
 {
-  glEnable(GL_DEPTH_TEST);
-
-  bool bIsInputCapturedByAnotherProcess =
-    this->HMD->IsInputFocusCapturedByAnotherProcess();
+  vtkOpenGLState *ostate = this->GetState();
+  ostate->vtkglEnable(GL_DEPTH_TEST);
 
   // for each device
   for (uint32_t unTrackedDevice = vr::k_unTrackedDeviceIndex_Hmd + 1;
@@ -314,12 +314,6 @@ void vtkOpenVRRenderWindow::RenderModels()
       continue;
     }
 
-    if( bIsInputCapturedByAnotherProcess &&
-        this->HMD->GetTrackedDeviceClass( unTrackedDevice ) == vr::TrackedDeviceClass_Controller )
-    {
-      continue;
-    }
-
     this->TrackedDeviceToRenderModel[ unTrackedDevice ]->Render(this, pose);
   }
 }
@@ -331,6 +325,15 @@ void vtkOpenVRRenderWindow::MakeCurrent()
   {
     this->HelperWindow->MakeCurrent();
   }
+}
+
+vtkOpenGLState *vtkOpenVRRenderWindow::GetState()
+{
+  if (this->HelperWindow)
+  {
+    return this->HelperWindow->GetState();
+  }
+  return this->State;
 }
 
 // ----------------------------------------------------------------------------
@@ -469,7 +472,7 @@ void vtkOpenVRRenderWindow::Render()
 
 void vtkOpenVRRenderWindow::StereoUpdate()
 {
-  // camera handles what we need
+  glBindFramebuffer( GL_FRAMEBUFFER, this->GetLeftRenderBufferId());
 }
 
 void vtkOpenVRRenderWindow::StereoMidpoint()
@@ -477,7 +480,7 @@ void vtkOpenVRRenderWindow::StereoMidpoint()
   // render the left eye models
   this->RenderModels();
 
-  glDisable( GL_MULTISAMPLE );
+  this->GetState()->vtkglDisable( GL_MULTISAMPLE );
 
   if ( this->HMD && this->SwapBuffers ) // picking does not swap and we don't show it
   {
@@ -492,6 +495,7 @@ void vtkOpenVRRenderWindow::StereoMidpoint()
     vr::Texture_t leftEyeTexture = {(void*)(long)this->LeftEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
     vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture );
   }
+  glBindFramebuffer( GL_FRAMEBUFFER, this->GetRightRenderBufferId());
 }
 
 void  vtkOpenVRRenderWindow::StereoRenderComplete()
@@ -509,7 +513,7 @@ void  vtkOpenVRRenderWindow::StereoRenderComplete()
     cam->ApplyEyePose(this, false, -1.0);
   }
 
-  glDisable( GL_MULTISAMPLE );
+  this->GetState()->vtkglDisable( GL_MULTISAMPLE );
 
   // for now as fast as possible
   if ( this->HMD && this->SwapBuffers) // picking does not swap and we don't show it
@@ -694,6 +698,18 @@ void vtkOpenVRRenderWindow::PrintSelf(ostream& os, vtkIndent indent)
 
   os << indent << "ContextId: " << this->HelperWindow->GetGenericContext() << "\n";
   os << indent << "Window Id: " << this->HelperWindow->GetGenericWindowId() << "\n";
+}
+
+// Add a renderer to the list of renderers.
+void vtkOpenVRRenderWindow::AddRenderer(vtkRenderer *ren)
+{
+  if (ren && !vtkOpenVRRenderer::SafeDownCast(ren))
+  {
+    vtkErrorMacro("vtkOpenVRRenderWindow::AddRenderer: Failed to add renderer of type " << ren->GetClassName()
+       << ": A vtkOpenVRRenderer is expected");
+    return;
+  }
+  this->Superclass::AddRenderer(ren);
 }
 
 // Begin the rendering process.

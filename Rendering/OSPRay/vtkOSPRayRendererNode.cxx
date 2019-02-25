@@ -49,7 +49,6 @@
 #include "vtkVolumeCollection.h"
 #include "vtkWeakPointer.h"
 
-#include "ospray/ospray.h"
 #include "ospray/version.h"
 
 #include <algorithm>
@@ -215,6 +214,7 @@ public:
     this->least[2] = 0.;
     this->LastViewPort[0] = 0.;
     this->LastViewPort[1] = 0.;
+    this->LastParallelScale = 0.0;
   };
 
   ~vtkOSPRayRendererNodeInternals() {};
@@ -363,15 +363,16 @@ public:
         ochars[1] = bg1[1]*255;
         ochars[2] = bg1[2]*255;
       }
-      osp::Texture2D *t2d;
-      t2d = (osp::Texture2D*)ospNewTexture2D
+      OSPTexture2D t2d = ospNewTexture2D
         (
          osp::vec2i{jsize,isize},
          OSP_TEXTURE_RGB8,
          ochars,
          0);//OSP_TEXTURE_FILTER_NEAREST);
 
-      OSPLight ospLight = ospNewLight(oRenderer, "hdri");
+      OSPLight ospLight = vtkOSPRayLightNode::NewLight(this->Owner,
+                                                       oRenderer,
+                                                       "hdri");
       ospSetObject(ospLight, "map", ((OSPTexture2D)(t2d)));
       double *up = vtkOSPRayRendererNode::GetNorthPole(ren);
       if (up)
@@ -412,6 +413,7 @@ public:
   double lup[3];
   double least[3];
   double LastViewPort[2];
+  double LastParallelScale;
 
   OSPLight BGLight;
 };
@@ -424,6 +426,7 @@ vtkOSPRayRendererNode::vtkOSPRayRendererNode()
 {
   this->Buffer = nullptr;
   this->ZBuffer = nullptr;
+  this->ODepthBuffer = nullptr;
   this->OModel = nullptr;
   this->ORenderer = nullptr;
   this->NumActors = 0;
@@ -443,18 +446,10 @@ vtkOSPRayRendererNode::~vtkOSPRayRendererNode()
 {
   delete[] this->Buffer;
   delete[] this->ZBuffer;
-  if (this->OModel)
-  {
-    ospRelease((OSPModel)this->OModel);
-  }
-  if (this->ORenderer)
-  {
-    ospRelease((OSPRenderer)this->ORenderer);
-  }
-  if (this->OFrameBuffer)
-  {
-    ospRelease(this->OFrameBuffer);
-  }
+  delete[] this->ODepthBuffer;
+  ospRelease((OSPModel)this->OModel);
+  ospRelease((OSPRenderer)this->ORenderer);
+  ospRelease(this->OFrameBuffer);
   this->AccumulateMatrix->Delete();
   delete this->Internal;
 }
@@ -738,7 +733,7 @@ void vtkOSPRayRendererNode::Traverse(int operation)
 
   this->Apply(operation,true);
 
-  OSPRenderer oRenderer = (osp::Renderer*)this->ORenderer;
+  OSPRenderer oRenderer = this->ORenderer;
 
   //camera
   //TODO: this repeated traversal to find things of particular types
@@ -784,7 +779,9 @@ void vtkOSPRayRendererNode::Traverse(int operation)
       )
   {
     //hardcode an ambient light for AO since OSP 1.2 stopped doing so.
-    OSPLight ospAmbient = ospNewLight(oRenderer, "AmbientLight");
+    OSPLight ospAmbient = vtkOSPRayLightNode::NewLight(this,
+                                                       oRenderer,
+                                                       "AmbientLight");
     ospSetString(ospAmbient, "name", "default_ambient");
     ospSet3f(ospAmbient, "color", 1.f, 1.f, 1.f);
     ospSet1f(ospAmbient, "intensity",
@@ -835,7 +832,7 @@ void vtkOSPRayRendererNode::Traverse(int operation)
       (numAct != this->NumActors))
   {
     this->NumActors = numAct;
-    //ospRelease((OSPModel)this->OModel);
+    ospRelease((OSPModel)this->OModel);
     oModel = ospNewModel();
     this->OModel = oModel;
     it->InitTraversal();
@@ -917,14 +914,14 @@ void vtkOSPRayRendererNode::Render(bool prepass)
     if (!this->ORenderer || previousType != type)
     {
       this->Traverse(invalidate);
-      ospRelease((osp::Renderer*)this->ORenderer);
-      oRenderer = (osp::Renderer*)ospNewRenderer(type.c_str());
+      ospRelease(this->ORenderer);
+      oRenderer = ospNewRenderer(type.c_str());
       this->ORenderer = oRenderer;
       previousType = type;
     }
     else
     {
-      oRenderer = (osp::Renderer*)this->ORenderer;
+      oRenderer = this->ORenderer;
     }
     ospSet1f(this->ORenderer, "maxContribution", 2.f);
     ospSet1f(this->ORenderer, "minContribution", 0.01f);
@@ -986,7 +983,7 @@ void vtkOSPRayRendererNode::Render(bool prepass)
   }
   else
   {
-    OSPRenderer oRenderer = (osp::Renderer*)this->ORenderer;
+    OSPRenderer oRenderer = this->ORenderer;
     ospCommit(oRenderer);
 
     osp::vec2i isize = {this->Size[0], this->Size[1]};
@@ -994,6 +991,7 @@ void vtkOSPRayRendererNode::Render(bool prepass)
     {
       this->ImageX = this->Size[0];
       this->ImageY = this->Size[1];
+      ospRelease(this->OFrameBuffer);
       this->OFrameBuffer = ospNewFrameBuffer
         (isize,
          OSP_FB_RGBA8,
@@ -1009,7 +1007,8 @@ void vtkOSPRayRendererNode::Render(bool prepass)
       this->ZBuffer = new float[this->Size[0]*this->Size[1]];
       if (this->CompositeOnGL)
       {
-        ODepthBuffer = new float[this->Size[0] * this->Size[1]];
+        delete[] this->ODepthBuffer;
+        this->ODepthBuffer = new float[this->Size[0] * this->Size[1]];
       }
     }
     else if (this->Accumulate)
@@ -1123,6 +1122,12 @@ void vtkOSPRayRendererNode::Render(bool prepass)
             }
           }
         }
+        if (this->Internal->LastParallelScale !=
+            ren->GetActiveCamera()->GetParallelScale())
+        {
+          this->Internal->LastParallelScale = ren->GetActiveCamera()->GetParallelScale();
+          canReuse = false;
+        }
       }
       if (!canReuse)
       {
@@ -1144,7 +1149,6 @@ void vtkOSPRayRendererNode::Render(bool prepass)
     ospSet1i(oRenderer, "backgroundEnabled", ren->GetErase());
     if (this->CompositeOnGL)
     {
-      OSPTexture2D glDepthTex=nullptr;
       vtkRenderWindow *rwin =
       vtkRenderWindow::SafeDownCast(ren->GetVTKWindow());
       int viewportX, viewportY;
@@ -1179,10 +1183,10 @@ void vtkOSPRayRendererNode::Render(bool prepass)
       cameraDir.z -= cameraPos[2];
       cameraDir = ospray::opengl::normalize(cameraDir);
 
-      glDepthTex = ospray::opengl::getOSPDepthTextureFromOpenGLPerspective
+      OSPTexture2D glDepthTex = ospray::opengl::getOSPDepthTextureFromOpenGLPerspective
         (fovy, aspect, zNear, zFar,
          (osp::vec3f&)cameraDir, (osp::vec3f&)cameraUp,
-         this->GetZBuffer(), ODepthBuffer, viewportWidth, viewportHeight);
+         this->GetZBuffer(), this->ODepthBuffer, viewportWidth, viewportHeight);
 
       ospSetObject(oRenderer, "maxDepthTexture", glDepthTex);
     }

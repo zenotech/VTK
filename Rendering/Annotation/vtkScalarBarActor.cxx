@@ -518,7 +518,7 @@ int vtkScalarBarActor::RebuildLayoutIfNeeded(vtkViewport* viewport)
         viewport->GetVTKWindow()->GetMTime() > this->BuildTime))
   {
     // if the viewport has changed we may - or may not need
-    // to rebuild, it depends on if the projected coords chage
+    // to rebuild, it depends on if the projected coords change
     int size[2];
     int* barOrigin;
     barOrigin = this->PositionCoordinate->GetComputedViewportValue(viewport);
@@ -2656,12 +2656,12 @@ int vtkScalarBarActor::PlaceAnnotationsHorizontally(
 
 #define VTK_ANN_HLAYOUT(j, placer) \
   this->P->AnnotationLabels[j]->GetTextProperty()\
-  ->SetJustification(placer.Places[j].Justification); \
+  ->SetJustification((placer).Places[j].Justification); \
   this->P->AnnotationLabels[j]->GetTextProperty()\
-  ->SetVerticalJustification(placer.Dir > 0 ? \
+  ->SetVerticalJustification((placer).Dir > 0 ? \
     VTK_TEXT_BOTTOM : VTK_TEXT_TOP); \
-  this->P->AnnotationLabels[j]->SetPosition(placer.Places[j].Anchor); \
-  placer.AddBrokenLeader(j, lpts, llines, llcolors, \
+  this->P->AnnotationLabels[j]->SetPosition((placer).Places[j].Anchor); \
+  (placer).AddBrokenLeader(j, lpts, llines, llcolors, \
                          this->P->AnnotationColors[j]);
 
   int numNotes = static_cast<int>(this->P->AnnotationLabels.size());

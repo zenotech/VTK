@@ -10,9 +10,9 @@ set(Module_SRCS
   vtkExtractPolyDataPiece.cxx
   vtkExtractUnstructuredGridPiece.cxx
   vtkExtractUserDefinedPiece.cxx
+  vtkIntegrateAttributes.cxx
   vtkPassThroughFilter.cxx
   vtkPCellDataToPointData.cxx
-  vtkPConnectivityFilter.cxx
   vtkPeriodicFilter.cxx
   vtkPExtractDataArraysOverTime.cxx
   vtkPExtractSelectedArraysOverTime.cxx
@@ -40,6 +40,7 @@ set(Module_SRCS
   vtkTransmitStructuredDataPiece.cxx
   vtkTransmitStructuredGridPiece.cxx
   vtkTransmitUnstructuredGridPiece.cxx
+  vtkUnstructuredGridGhostCellsGenerator.cxx
   )
 set_source_files_properties(
   vtkBlockDistribution.h

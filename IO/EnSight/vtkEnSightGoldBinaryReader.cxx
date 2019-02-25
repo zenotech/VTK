@@ -37,8 +37,8 @@
 #if defined(_WIN32)
 # define VTK_STAT_STRUCT struct _stat64
 # define VTK_STAT_FUNC _stat64
-#elif defined _DARWIN_FEATURE_64_BIT_INODE && !defined __FreeBSD__
-// FreeBSD and OSX now deprecate stat64
+#elif defined _DARWIN_FEATURE_64_BIT_INODE || defined __FreeBSD__
+// FreeBSD and OSX use stat
 # define VTK_STAT_STRUCT struct stat
 # define VTK_STAT_FUNC stat
 #else
@@ -4029,10 +4029,10 @@ int vtkEnSightGoldBinaryReader::ReadLine(char result[80])
   if (!this->GoldIFile->read(result, 80))
   {
     // The read fails when reading the last part/array when there are no points.
-    // I took out the error macro as a tempory fix.
+    // I took out the error macro as a temporary fix.
     // We need to determine what EnSight does when the part with zero point
     // is not the last, and change the read array method.
-    //int fixme; // I do not a file to test with yet.
+    //int fixme; // I do not have a file to test with yet.
     vtkDebugMacro("Read failed");
     return 0;
   }
@@ -4041,7 +4041,16 @@ int vtkEnSightGoldBinaryReader::ReadLine(char result[80])
 
   if (this->Fortran)
   {
-    strncpy(result, &result[4], 76);
+    // strncpy cannot be used for overlapping buffers
+    int i = 0;
+    for ( ; i < 76 && result[i+4] != '\0'; ++i)
+    {
+      result[i] = result[i+4];
+    }
+    for ( ; i < 76; ++i)
+    {
+      result[i] = '\0';
+    }
     result[76] = 0;
     // better read an extra 8 bytes to prevent error next time
     char dummy[8];

@@ -54,12 +54,11 @@
 #include "vtkAbstractPointLocator.h"
 
 class vtkIdList;
-class vtkBucketList;
+struct vtkBucketList;
 
 
 class VTKCOMMONDATAMODEL_EXPORT vtkStaticPointLocator : public vtkAbstractPointLocator
 {
-friend class vtkBucketList;
 public:
   /**
    * Construct with automatic computation of divisions, averaging
@@ -157,6 +156,14 @@ public:
   int IntersectWithLine(double a0[3], double a1[3], double tol, double& t,
                         double lineX[3], double ptX[3], vtkIdType &ptId);
 
+  /**
+   * Merge points in the locator given a tolerance. Return a merge map which
+   * represents the mapping of "concident" point ids to a single point. Note
+   * the number of points in the merge map is the number of points the
+   * locator was built with. The user is expected to pass in an allocated
+   * mergeMap.
+   */
+  void MergePoints(double tol, vtkIdType *mergeMap);
 
   //@{
   /**
@@ -215,6 +222,16 @@ public:
    * on 64-bit architectures.
    */
   bool GetLargeIds() {return this->LargeIds;}
+
+  //@{
+  /**
+   * Provide an accessor to the bucket spacing. Valid after the locator is
+   * built.
+   */
+  virtual double *GetSpacing() { return this->H; }
+  virtual void GetSpacing(double spacing[3])
+  { spacing[0] = this->H[0]; spacing[1] = this->H[1]; spacing[2] = this->H[2]; }
+  //@}
 
 protected:
   vtkStaticPointLocator();

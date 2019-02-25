@@ -37,9 +37,14 @@ double *vtkSkybox::GetBounds()
 vtkSkybox::vtkSkybox()
 {
   this->Projection = vtkSkybox::Cube;
+  this->FloorPlane[0] = 0.0;
+  this->FloorPlane[1] = 1.0;
+  this->FloorPlane[2] = 0.0;
+  this->FloorPlane[3] = 0.0;
+  this->FloorRight[0] = 1.0;
+  this->FloorRight[1] = 0.0;
+  this->FloorRight[2] = 0.0;
 }
 
 //------------------------------------------------------------------------------
-vtkSkybox::~vtkSkybox()
-{
-}
+vtkSkybox::~vtkSkybox() = default;

@@ -34,6 +34,7 @@
 #include <string>                      // for ivar
 
 class vtkIdList;
+class vtkOpenGLBufferObject;
 class vtkOpenGLHardwareSupport;
 class vtkOpenGLShaderCache;
 class vtkOpenGLVertexBufferObjectCache;
@@ -44,6 +45,7 @@ class vtkTexture;
 class vtkTextureObject;
 class vtkTextureUnitManager;
 class vtkGenericOpenGLResourceFreeCallback;
+class vtkOpenGLState;
 
 class VTKRENDERINGOPENGL2_EXPORT vtkOpenGLRenderWindow : public vtkRenderWindow
 {
@@ -150,6 +152,13 @@ public:
    */
   int GetColorBufferSizes(int *rgba) override;
 
+  /**
+   * Get the internal format of current attached texture or render buffer.
+   * attachmentPoint is the index of attachment.
+   * Returns 0 if not able to determine.
+   */
+  int GetColorBufferInternalFormat(int attachmentPoint);
+
   //@{
   /**
    * Set the size of the window in screen coordinates in pixels.
@@ -168,14 +177,6 @@ public:
 
   // Initialize VTK for rendering in a new OpenGL context
   virtual void OpenGLInitContext();
-
-  //@{
-  /**
-   * Get if the context includes opengl core profile 3.2 support
-   */
-  static bool GetContextSupportsOpenGL32();
-  void SetContextSupportsOpenGL32(bool val);
-  //@}
 
   /**
    * Get the major and minor version numbers of the OpenGL context we are using
@@ -412,12 +413,45 @@ public:
    * Set the number of vertical syncs required between frames.
    * A value of 0 means swap buffers as quickly as possible
    * regardless of the vertical refresh. A value of 1 means swap
-   * buffers in sync with the vertical refresh to elimiate tearing.
+   * buffers in sync with the vertical refresh to eliminate tearing.
    * A value of -1 means use a value of 1 unless we missed a frame
    * in which case swap immediately. Returns true if the call
    * succeeded.
    */
   virtual bool SetSwapControl(int ) { return false; }
+
+  // Get the state object used to keep track of
+  // OpenGL state
+  virtual vtkOpenGLState *GetState() {
+    return this->State; }
+
+  // Get a VBO that can be shared by many
+  // It consists of normalized display
+  // coordinates for a quad and tcoords
+  vtkOpenGLBufferObject *GetTQuad2DVBO();
+
+  // Activate and return thje texture unit for a generic 2d 64x64
+  // float greyscale noise texture ranging from 0 to 1. The texture is
+  // generated using PerlinNoise.  This textur eunit will automatically
+  // be deactivated at the end of the render process.
+  int GetNoiseTextureUnit();
+
+  /**
+   * Update the system, if needed, due to stereo rendering. For some stereo
+   * methods, subclasses might need to switch some hardware settings here.
+   */
+  void StereoUpdate() override;
+
+  /**
+   * Intermediate method performs operations required between the rendering
+   * of the left and right eye.
+   */
+  void StereoMidpoint() override;
+
+  /**
+   * Handle opengl specific code and calls superclass
+   */
+  void Render() override;
 
 protected:
   vtkOpenGLRenderWindow();
@@ -425,6 +459,8 @@ protected:
 
   vtkOpenGLShaderCache *ShaderCache;
   vtkOpenGLVertexBufferObjectCache *VBOCache;
+
+  vtkOpenGLState *State;
 
   // used in testing for opengl support
   // in the SupportsOpenGL() method
@@ -539,6 +575,12 @@ protected:
   float MaximumHardwareLineWidth;
 
   char *Capabilities;
+
+  // used for fast quad rendering
+  vtkOpenGLBufferObject *TQuad2DVBO;
+
+  // noise texture
+  vtkTextureObject *NoiseTextureObject;
 
 private:
   vtkOpenGLRenderWindow(const vtkOpenGLRenderWindow&) = delete;

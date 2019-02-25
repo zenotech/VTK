@@ -1,3 +1,6 @@
+find_package(OSPRay REQUIRED)
+include_directories(${OSPRAY_INCLUDE_DIRS})
+
 vtk_add_test_cxx(vtkRenderingOSPRayCxxTests tests
   # Surface rendering tests
   TestOSPRayAmbient.cxx
@@ -6,6 +9,7 @@ vtk_add_test_cxx(vtkRenderingOSPRayCxxTests tests
   TestOSPRayDynamicObject.cxx
   TestOSPRayDynamicScene.cxx
   TestOSPRayImplicits.cxx
+  TestOSPRayIsosurface.cxx
   TestOSPRayLayers.cxx
   TestOSPRayLights.cxx
   TestOSPRayMultiBlock.cxx
@@ -13,7 +17,10 @@ vtk_add_test_cxx(vtkRenderingOSPRayCxxTests tests
   TestOSPRayOrthographic.cxx
   TestOSPRayPass.cxx
   TestOSPRayRenderMesh.cxx
+  TestOSPRayRotatedNormals.cxx
   TestOSPRayScalarBar.cxx
+  TestOSPRayTetrahedraMapper.cxx
+  TestOSPRayTetrahedraMapperMixedCells.cxx
   TestOSPRayTime.cxx
   TestOSPRayWindow.cxx
   TestOSPRayStereo.cxx
@@ -41,7 +48,6 @@ vtk_add_test_cxx(vtkRenderingOSPRayCxxTests tests
   TestPathTracerMaterialLibrary.cxx,NO_VALID
   TestPathTracerMaterials.cxx
   TestPathTracerShadows.cxx
-  TestOSPRayTetrahedraMapper.cxx
   )
 vtk_test_cxx_executable(vtkRenderingOSPRayCxxTests tests RENDERING_FACTORY
   vtkOSPRayTestInteractor.cxx

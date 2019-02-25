@@ -13,7 +13,7 @@ file(REMOVE_RECURSE ${INSTALL_DIR})
 # Define default architectures to compile for
 set(IOS_SIMULATOR_ARCHITECTURES "x86_64"
     CACHE STRING "iOS Simulator Architectures")
-set(IOS_DEVICE_ARCHITECTURES "arm64;armv7"
+set(IOS_DEVICE_ARCHITECTURES "arm64"
     CACHE STRING "iOS Device Architectures")
 list(REMOVE_DUPLICATES IOS_SIMULATOR_ARCHITECTURES)
 list(REMOVE_DUPLICATES IOS_DEVICE_ARCHITECTURES)
@@ -60,6 +60,10 @@ elseif (CMAKE_GENERATOR MATCHES "Ninja")
 else()
   set(VTK_BUILD_COMMAND BUILD_COMMAND make)
 endif()
+
+# make sure we have a CTestCustom.cmake file
+configure_file("${VTK_CMAKE_DIR}/CTestCustom.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/CTestCustom.cmake" @ONLY)
 
 # Compile a minimal VTK for its compile tools
 macro(compile_vtk_tools)

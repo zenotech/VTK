@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.3 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.3...3.12 FATAL_ERROR)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Android" AND CMAKE_VERSION VERSION_LESS 3.7)
   message(FATAL_ERROR "CMake 3.7 or above is required to build for Android")
@@ -12,6 +12,11 @@ set(CMAKE_MODULE_PATH ${VTK_CMAKE_DIR} ${CMAKE_MODULE_PATH})
 if (APPLE)
   include(vtkApple)
 endif ()
+
+# must be before the following iOS / Android
+include(vtkVersion)
+set(VTK_VERSION
+    "${VTK_MAJOR_VERSION}.${VTK_MINOR_VERSION}.${VTK_BUILD_VERSION}")
 
 option(VTK_IOS_BUILD "Build vtk.framework for iOS" OFF)
 mark_as_advanced(VTK_IOS_BUILD)
@@ -31,9 +36,6 @@ include(vtkCompilerChecks)
 include(vtkCompilerPlatformFlags)
 include(vtkCompilerExtraFlags)
 include(vtkInitializeBuildType)
-include(vtkVersion)
-set(VTK_VERSION
-    "${VTK_MAJOR_VERSION}.${VTK_MINOR_VERSION}.${VTK_BUILD_VERSION}")
 include(vtkSupportMacros)
 include(vtkDownload)
 include(vtkTesting)

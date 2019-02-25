@@ -35,9 +35,7 @@ vtkOpenGLIndexBufferObject::vtkOpenGLIndexBufferObject()
   this->SetType(vtkOpenGLIndexBufferObject::ElementArrayBuffer);
 }
 
-vtkOpenGLIndexBufferObject::~vtkOpenGLIndexBufferObject()
-{
-}
+vtkOpenGLIndexBufferObject::~vtkOpenGLIndexBufferObject() = default;
 
 namespace
 {
@@ -407,7 +405,7 @@ void vtkOpenGLIndexBufferObject::AppendStripIndexBuffer(
   }
 }
 
-// Create supporting arays that are needed when rendering cell data
+// Create supporting arrays that are needed when rendering cell data
 // Some VTK cells have to be broken into smaller cells for OpenGL
 // When we have cell data we have to map cell attributes from the VTK
 // cell number to the actual OpenGL cell

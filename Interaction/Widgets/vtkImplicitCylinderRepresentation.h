@@ -200,7 +200,7 @@ public:
   /**
    * Set/Get the bounds of the widget representation. PlaceWidget can also be
    * used to set the bounds of the widget but it may also have other effects
-   * on the internal state of the represenation. Use this function when only
+   * on the internal state of the representation. Use this function when only
    * the widget bounds are needs to be modified.
    */
   vtkSetVector6Macro(WidgetBounds, double);
@@ -377,6 +377,11 @@ public:
   vtkGetMacro(RepresentationState, int);
   //@}
 
+  /*
+  * Register internal Pickers within PickingManager
+  */
+  void RegisterPickers() override;
+
 protected:
   vtkImplicitCylinderRepresentation();
   ~vtkImplicitCylinderRepresentation() override;
@@ -459,9 +464,6 @@ protected:
   // Do the picking
   vtkCellPicker *Picker;
   vtkCellPicker *CylPicker;
-
-  // Register internal Pickers within PickingManager
-  void RegisterPickers() override;
 
   // Transform the normal (used for rotation)
   vtkTransform *Transform;

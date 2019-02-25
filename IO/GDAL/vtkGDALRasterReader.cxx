@@ -79,7 +79,7 @@ public:
 
   template <typename VTK_TYPE, typename RAW_TYPE>
   void Convert(std::vector<RAW_TYPE>& rawUniformGridData,
-               int targetWidth, int targetHeight);
+               int targetWidth, int targetHeight, bool flipX, bool flipY);
 
   bool GetGeoCornerPoint(GDALDataset* dataset,
                          double x, double y, double* out) const;
@@ -108,7 +108,7 @@ public:
 
   int HasNoDataValue;
   double NoDataValue;
-  vtkIdType NumberOfPoints;
+  vtkIdType NumberOfCells;
 
   vtkSmartPointer<vtkUniformGrid> UniformGridData;
   vtkGDALRasterReader* Reader;
@@ -122,7 +122,7 @@ vtkGDALRasterReader::vtkGDALRasterReaderInternal::vtkGDALRasterReaderInternal(
   GDALData(0),
   TargetDataType(GDT_Byte),
   BadCornerPoint(-1),
-  NumberOfPoints(0),
+  NumberOfCells(0),
   UniformGridData(0),
   Reader(reader)
 {
@@ -226,7 +226,7 @@ void vtkGDALRasterReader::vtkGDALRasterReaderInternal::ReadData(
 
   // Initialize
   this->UniformGridData = vtkSmartPointer<vtkUniformGrid>::New();
-  this->NumberOfPoints = 0;
+  this->NumberOfCells = 0;
 
   switch (this->TargetDataType)
   {
@@ -472,20 +472,22 @@ void vtkGDALRasterReader::vtkGDALRasterReaderInternal::GenericReadData()
   (void)err; //unused
 
   const double* d = GetGeoCornerPoints();
+  // 4,5 are the x,y coordinates for the opposite corner to 0,1
   double geoSpacing[] = {(d[4]-d[0])/this->Reader->RasterDimensions[0],
                          (d[5]-d[1])/this->Reader->RasterDimensions[1],
                          1};
 
-  // Set meta data on the image
-  this->UniformGridData->SetExtent(0, (destWidth - 1), 0, (destHeight - 1), 0, 0);
-  this->UniformGridData->SetSpacing(geoSpacing[0], geoSpacing[1], geoSpacing[2]);
-  this->UniformGridData->SetOrigin(d[0], d[1], 0);
-  this->Convert<VTK_TYPE, RAW_TYPE>(rawUniformGridData, destWidth, destHeight);
+  // destWidth, destHeight are the number of cells. Points are one more than cells
+  this->UniformGridData->SetExtent(0, destWidth, 0, destHeight, 0, 0);
+  this->UniformGridData->SetSpacing(abs(geoSpacing[0]), abs(geoSpacing[1]), geoSpacing[2]);
+  this->UniformGridData->SetOrigin(std::min(d[0], d[4]), std::min(d[1], d[5]), 0);
+  this->Convert<VTK_TYPE, RAW_TYPE>(rawUniformGridData, destWidth, destHeight,
+                                    geoSpacing[0] < 0, geoSpacing[1] < 0);
 
   if (paletteBand)
   {
-    this->UniformGridData->GetPointData()->GetScalars()->SetName("Categories");
-    this->UniformGridData->GetPointData()->GetScalars()->SetLookupTable(
+    this->UniformGridData->GetCellData()->GetScalars()->SetName("Categories");
+    this->UniformGridData->GetCellData()->GetScalars()->SetLookupTable(
       colorTable);
   }
 }
@@ -493,15 +495,14 @@ void vtkGDALRasterReader::vtkGDALRasterReaderInternal::GenericReadData()
 //----------------------------------------------------------------------------
 void vtkGDALRasterReader::vtkGDALRasterReaderInternal::ReleaseData()
 {
-  delete this->GDALData;
-  this->GDALData = 0;
+  GDALClose(this->GDALData);
 }
 
 //-----------------------------------------------------------------------------
 template <typename VTK_TYPE, typename RAW_TYPE>
 void vtkGDALRasterReader::vtkGDALRasterReaderInternal::Convert(
   std::vector<RAW_TYPE>& rawUniformGridData, int targetWidth,
-  int targetHeight)
+  int targetHeight, bool flipX, bool flipY)
 {
   if (!this->UniformGridData)
   {
@@ -525,33 +526,35 @@ void vtkGDALRasterReader::vtkGDALRasterReaderInternal::Convert(
 
   for (int j = 0; j < targetHeight; ++j)
   {
+    int jIndex = flipY ? (targetHeight - 1 - j) : j;
     for (int i = 0; i < targetWidth; ++i)
     {
+      int iIndex = flipX ? (targetWidth - 1 - i) : i;
       // Each band GDALData is stored in width * height size array.
       for (int bandIndex = 0; bandIndex < this->NumberOfBands; ++bandIndex)
       {
-        targetIndex = i * NumberOfBands +
-                      j * targetWidth * NumberOfBands + bandIndex;
-        sourceIndex = i + j * targetWidth +
+        targetIndex = i * this->NumberOfBands +
+                      j * targetWidth * this->NumberOfBands + bandIndex;
+        sourceIndex = iIndex + jIndex * targetWidth +
                       bandIndex * targetWidth * targetHeight;
 
         RAW_TYPE tmp = rawUniformGridData[sourceIndex];
         if (this->HasNoDataValue && tmp == TNoDataValue)
         {
-          this->UniformGridData->BlankPoint(targetIndex);
+          this->UniformGridData->BlankCell(targetIndex);
         }
         else
         {
           if(tmp < min) min = tmp;
           if(tmp > max) max = tmp;
-          this->NumberOfPoints++;
+          this->NumberOfCells++;
         }
 
         scArr->InsertValue(targetIndex, rawUniformGridData[sourceIndex]);
       }
     }
   }
-  this->UniformGridData->GetPointData()->SetScalars(scArr);
+  this->UniformGridData->GetCellData()->SetScalars(scArr);
 }
 
 //-----------------------------------------------------------------------------
@@ -766,6 +769,16 @@ vtkGDALRasterReader::~vtkGDALRasterReader()
   }
 }
 
+
+//-----------------------------------------------------------------------------
+int vtkGDALRasterReader::CanReadFile(const char* fname)
+{
+  GDALDataset* dataset = static_cast<GDALDataset*>(GDALOpen(fname, GA_ReadOnly));
+  bool canRead = (dataset != nullptr);
+  GDALClose(dataset);
+  return canRead;
+}
+
 //-----------------------------------------------------------------------------
 const char* vtkGDALRasterReader::GetProjectionString() const
 {
@@ -816,9 +829,9 @@ const std::string& vtkGDALRasterReader::GetDriverLongName()
   return this->DriverLongName;
 }
 
-vtkIdType vtkGDALRasterReader::GetNumberOfPoints()
+vtkIdType vtkGDALRasterReader::GetNumberOfCells()
 {
-  return this->Implementation->NumberOfPoints;
+  return this->Implementation->NumberOfCells;
 }
 
 #ifdef _MSC_VER
@@ -898,9 +911,7 @@ int vtkGDALRasterReader::RequestData(vtkInformation* vtkNotUsed(request),
     return 0;
   }
 
-
-  vtkUniformGrid::SafeDownCast(dataObj)->ShallowCopy(
-    this->Implementation->UniformGridData);
+  vtkUniformGrid::SafeDownCast(dataObj)->ShallowCopy(this->Implementation->UniformGridData);
   return 1;
 }
 

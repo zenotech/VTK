@@ -141,9 +141,7 @@ vtkQuadratureSchemeDictionaryGenerator::vtkQuadratureSchemeDictionaryGenerator()
 }
 
 //-----------------------------------------------------------------------------
-vtkQuadratureSchemeDictionaryGenerator::~vtkQuadratureSchemeDictionaryGenerator()
-{
-}
+vtkQuadratureSchemeDictionaryGenerator::~vtkQuadratureSchemeDictionaryGenerator() = default;
 
 //-----------------------------------------------------------------------------
 int vtkQuadratureSchemeDictionaryGenerator::FillInputPortInformation(int port,
@@ -268,7 +266,7 @@ int vtkQuadratureSchemeDictionaryGenerator::Generate(
         return 0;
     }
 
-    // The definition must apear in the dictionary associated
+    // The definition must appear in the dictionary associated
     // with the offset array
     key->Set(info, def, cellType);
   }

@@ -47,9 +47,7 @@ vtkStandardNewMacro(vtkOBJPolyDataProcessor)
 }
 
 //----------------------------------------------------------------------------
-vtkOBJImporter::~vtkOBJImporter()
-{
-}
+vtkOBJImporter::~vtkOBJImporter() = default;
 
 int CanReadFile( vtkObject* that, const std::string& fname )
 {
@@ -160,9 +158,7 @@ std::string vtkOBJImporter::GetOutputDescription(int idx)
 
 struct vtkOBJImportedPolyDataWithMaterial
 {
-  ~vtkOBJImportedPolyDataWithMaterial()
-  {
-  }
+  ~vtkOBJImportedPolyDataWithMaterial() = default;
   vtkOBJImportedPolyDataWithMaterial()
   { // initialize some structures to store the file contents in
     points            = vtkSmartPointer<vtkPoints>::New();
@@ -255,7 +251,7 @@ std::string vtkOBJPolyDataProcessor::GetTextureFilename( int idx )
 {
   vtkOBJImportedMaterial* mtl = this->GetMaterial(idx);
 
-  if (mtl && mtl->texture_filename.size())
+  if (mtl && !mtl->texture_filename.empty())
   {
     std::vector<std::string> path_and_filename(2);
     path_and_filename[0] = this->TexturePath;
@@ -452,6 +448,12 @@ int vtkOBJPolyDataProcessor::RequestData(
     lineNr++;
     char *pLine = rawLine;
     char *pEnd = rawLine + strlen(rawLine);
+
+    // watch for BOM
+    if (pEnd - pLine > 3 && pLine[0] == -17 && pLine[1] == -69 && pLine[2] == -65)
+    {
+      pLine += 3;
+    }
 
     // find the first non-whitespace character
     while (isspace(*pLine) && pLine < pEnd)
@@ -843,17 +845,17 @@ int vtkOBJPolyDataProcessor::RequestData(
         lineElems       = active->lineElems;
         normal_polys    = active->normal_polys;
       }
-    else /** This material name already exists; switch back to it! */
-    {
-      vtkOBJImportedPolyDataWithMaterial* known_mtl = mtlName_to_Actor[mtl_name];
-      vtkDebugMacro("switching to append faces with pre-existing material named "
-                    << known_mtl->materialName);
-      polys           = known_mtl->polys; // Update pointers reading file further
-      tcoord_polys    = known_mtl->tcoord_polys;
-      pointElems      = known_mtl->pointElems;
-      lineElems       = known_mtl->lineElems;
-      normal_polys    = known_mtl->normal_polys;
-    }
+      else /** This material name already exists; switch back to it! */
+      {
+        vtkOBJImportedPolyDataWithMaterial* known_mtl = mtlName_to_Actor[mtl_name];
+        vtkDebugMacro("switching to append faces with pre-existing material named "
+                      << known_mtl->materialName);
+        polys           = known_mtl->polys; // Update pointers reading file further
+        tcoord_polys    = known_mtl->tcoord_polys;
+        pointElems      = known_mtl->pointElems;
+        lineElems       = known_mtl->lineElems;
+        normal_polys    = known_mtl->normal_polys;
+      }
     }
     else
     {

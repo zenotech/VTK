@@ -199,10 +199,10 @@ bool vtkMPASReader::Internal::isExtraDim(const string &name)
 //----------------------------------------------------------------------------
 
 #define CHECK_MALLOC(ptr) \
-  if (ptr == nullptr)                  \
-  {                               \
-  vtkErrorMacro( << "malloc failed!" << endl);     \
-  return(0);                      \
+  if ((ptr) == nullptr)                          \
+  {                                              \
+  vtkErrorMacro( << "malloc failed!" << endl);   \
+  return(0);                                     \
   }
 
 
@@ -211,7 +211,7 @@ bool vtkMPASReader::Internal::isExtraDim(const string &name)
 //----------------------------------------------------------------------------
 
 #define CHECK_DIM(ncFile, name) \
-  if (!isNcDim(ncFile, name))                                         \
+  if (!isNcDim(ncFile, name))                                       \
   {                                                                 \
   vtkErrorMacro( << "Cannot find dimension: " << name << endl);     \
   return 0;                                                         \
@@ -221,8 +221,8 @@ bool vtkMPASReader::Internal::isExtraDim(const string &name)
 // Macro to check if the named NetCDF variable exists
 //----------------------------------------------------------------------------
 
-#define CHECK_VAR(ncFile, name)                                      \
-  if (!isNcVar(ncFile, name))                                        \
+#define CHECK_VAR(ncFile, name)                                    \
+  if (!isNcVar(ncFile, name))                                      \
   {                                                                \
   vtkErrorMacro( << "Cannot find variable: " << name << endl);     \
   return 0;                                                        \
@@ -535,6 +535,7 @@ int vtkMPASReader::RequestInformation(
   {
     // Tell the pipeline what steps are available
     std::vector<double> timeSteps;
+    timeSteps.reserve(this->NumberOfTimeSteps);
     for (int i = 0; i < this->NumberOfTimeSteps; ++i)
     {
       timeSteps.push_back(static_cast<double>(i));
@@ -934,10 +935,6 @@ int vtkMPASReader::ReadAndOutputGrid()
         return 0;
       }
       this->FixPoints();
-      if (!this->EliminateXWrap())
-      {
-        return 0;
-      }
       break;
 
     default:
@@ -1160,12 +1157,8 @@ int vtkMPASReader::AllocPlanarGeometry()
 {
   NcFile* ncFile = this->Internals->ncFile;
 
-  const float BLOATFACTOR = .5f;
-  this->ModNumPoints = (int)floor(this->NumberOfPoints*(1.0 + BLOATFACTOR));
-  this->ModNumCells = (int)floor(this->NumberOfCells*(1.0 + BLOATFACTOR))+1;
-
   CHECK_VAR(ncFile, "xCell");
-  this->PointX = (double*)malloc(this->ModNumPoints * sizeof(double));
+  this->PointX = (double*)malloc(this->NumberOfPoints * sizeof(double));
   CHECK_MALLOC(this->PointX);
   NcVar*  xCellVar = ncFile->get_var("xCell");
   if (!this->ValidateDimensions(xCellVar, false, 1, "nCells"))
@@ -1177,7 +1170,7 @@ int vtkMPASReader::AllocPlanarGeometry()
   this->PointX[0] = 0.0;
 
   CHECK_VAR(ncFile, "yCell");
-  this->PointY = (double*)malloc(this->ModNumPoints * sizeof(double));
+  this->PointY = (double*)malloc(this->NumberOfPoints * sizeof(double));
   CHECK_MALLOC(this->PointY);
   NcVar*  yCellVar = ncFile->get_var("yCell");
   if (!this->ValidateDimensions(yCellVar, false, 1, "nCells"))
@@ -1189,7 +1182,7 @@ int vtkMPASReader::AllocPlanarGeometry()
   this->PointY[0] = 0.0;
 
   CHECK_VAR(ncFile, "zCell");
-  this->PointZ = (double*)malloc(this->ModNumPoints * sizeof(double));
+  this->PointZ = (double*)malloc(this->NumberOfPoints * sizeof(double));
   CHECK_MALLOC(this->PointZ);
   NcVar *zCellVar = ncFile->get_var("zCell");
   if (!this->ValidateDimensions(zCellVar, false, 1, "nCells"))
@@ -1214,23 +1207,6 @@ int vtkMPASReader::AllocPlanarGeometry()
   }
   connectionsVar->get(this->OrigConnections, this->NumberOfCells,
                       this->PointsPerCell);
-
-  // create list to include modified origConnections (due to eliminating
-  // wraparound) plus additional cells added when mirroring cells that had
-  // previously wrapped around
-
-  this->ModConnections = (int *) malloc(this->ModNumCells * this->PointsPerCell
-                                        * sizeof(int));
-  CHECK_MALLOC(this->ModConnections);
-
-  // allocate an array to map the extra points and cells to the original
-  // so that when obtaining data, we know where to get it
-  this->PointMap = (int*)malloc((int)floor(this->NumberOfPoints*BLOATFACTOR)
-                                * sizeof(int));
-  CHECK_MALLOC(this->PointMap);
-  this->CellMap = (int*)malloc((int)floor(this->NumberOfCells*BLOATFACTOR)
-                               * sizeof(int));
-  CHECK_MALLOC(this->CellMap);
 
   if (isNcVar(ncFile, "maxLevelCell"))
   {
@@ -1443,8 +1419,7 @@ int vtkMPASReader::EliminateXWrap()
       return 0;
   }
 
-  // Assume a point is wrapped if it is more than 3/4 across the dataset:
-  double tolerance = xLength * 0.75;
+  const double tolerance = 5.5;
 
   // For each cell, examine vertices
   // Add new points and cells where needed to account for wraparound.
@@ -1560,7 +1535,6 @@ int vtkMPASReader::EliminateXWrap()
 
   return 1;
 }
-
 
 //----------------------------------------------------------------------------
 //  Add points to vtk data structures
@@ -1846,13 +1820,13 @@ void vtkMPASReader::OutputCells()
   {
 
     int* conns;
-    if (this->Geometry == Spherical)
+    if (this->Geometry == Projected)
     {
-      conns = this->OrigConnections + (j * this->PointsPerCell);
+      conns = this->ModConnections + (j * this->PointsPerCell);
     }
     else
     {
-      conns = this->ModConnections + (j * this->PointsPerCell);
+      conns = this->OrigConnections + (j * this->PointsPerCell);
     }
 
     int minLevel= 0;

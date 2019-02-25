@@ -36,9 +36,7 @@ vtkHyperTreeGridAxisReflection::vtkHyperTreeGridAxisReflection()
 }
 
 //-----------------------------------------------------------------------------
-vtkHyperTreeGridAxisReflection::~vtkHyperTreeGridAxisReflection()
-{
-}
+vtkHyperTreeGridAxisReflection::~vtkHyperTreeGridAxisReflection() = default;
 
 //----------------------------------------------------------------------------
 void vtkHyperTreeGridAxisReflection::PrintSelf( ostream& os, vtkIndent indent )
@@ -60,6 +58,12 @@ int vtkHyperTreeGridAxisReflection::FillOutputPortInformation( int, vtkInformati
 int vtkHyperTreeGridAxisReflection::ProcessTrees( vtkHyperTreeGrid* input,
                                               vtkDataObject* outputDO )
 {
+  // Skip empty inputs
+  if (input->GetNumberOfLeaves() == 0)
+  {
+    return 1;
+  }
+
   // Downcast output data object to hyper tree grid
   vtkHyperTreeGrid* output = vtkHyperTreeGrid::SafeDownCast( outputDO );
   if ( ! output )

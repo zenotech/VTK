@@ -19,6 +19,7 @@ vtk_add_test_cxx(vtkFiltersGeneralCxxTests tests
   TestBooleanOperationPolyDataFilter2.cxx
   TestBooleanOperationPolyDataFilter.cxx
   TestLoopBooleanPolyDataFilter.cxx
+  TestCellValidator.cxx,NO_VALID
   TestContourTriangulatorCutter.cxx
   TestContourTriangulator.cxx
   TestContourTriangulatorMarching.cxx
@@ -29,6 +30,7 @@ vtk_add_test_cxx(vtkFiltersGeneralCxxTests tests
   TestDistancePolyDataFilter.cxx
   TestGraphWeightEuclideanDistanceFilter.cxx,NO_VALID
   TestImageDataToPointSet.cxx,NO_VALID
+  TestIntersectionPolyDataFilter4.cxx,NO_VALID
   TestIntersectionPolyDataFilter3.cxx
   TestIntersectionPolyDataFilter2.cxx,NO_VALID
   TestIntersectionPolyDataFilter.cxx

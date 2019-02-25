@@ -1,4 +1,6 @@
 vtk_module(vtkIOSegY
+  GROUPS
+    StandAlone
   TEST_DEPENDS
     vtkInteractionStyle
     vtkRenderingOpenGL2
@@ -9,7 +11,7 @@ vtk_module(vtkIOSegY
   DEPENDS
     vtkCommonDataModel
     vtkCommonExecutionModel
-    vtkIOCore
+    vtkIOImage
   PRIVATE_DEPENDS
     vtkCommonCore
   )

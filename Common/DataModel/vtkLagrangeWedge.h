@@ -12,9 +12,24 @@
      PURPOSE.  See the above copyright notice for more information.
 
 =========================================================================*/
-// .NAME vtkLagrangeWedge
-// .SECTION Description
-// .SECTION See Also
+/**
+ * @class   vtkLagrangeWedge
+ * @brief   A 3D cell that represents an arbitrary order Lagrange wedge
+ *
+ * vtkLagrangeWedge is a concrete implementation of vtkCell to represent a
+ * 3D wedge using Lagrange shape functions of user specified order.
+ * A wedge consists of two triangular and three quadrilateral faces.
+ * The first six points of the wedge (0-5) are the "corner" points
+ * where the first three points are the base of the wedge. This wedge
+ * point ordering is opposite the vtkWedge ordering though in that
+ * the base of the wedge defined by the first three points (0,1,2) form
+ * a triangle whose normal points inward (toward the triangular face (3,4,5)).
+ * While this is opposite the vtkWedge convention it is consistent with
+ * every other cell type in VTK. The first 2 parametric coordinates of the
+ * Lagrange wedge or for the triangular base and vary between 0 and 1. The
+ * third parametric coordinate is between the two triangular faces and goes
+ * from 0 to 1 as well.
+*/
 
 #ifndef vtkLagrangeWedge_h
 #define vtkLagrangeWedge_h
@@ -55,13 +70,12 @@ public:
 
   void Initialize() override;
 
-  int CellBoundary(int subId, double pcoords[3], vtkIdList* pts) override;
-  int EvaluatePosition(
-    double x[3], double* closestPoint,
+  int CellBoundary(int subId, const double pcoords[3], vtkIdList* pts) override;
+  int EvaluatePosition(const double x[3], double closestPoint[3],
     int& subId, double pcoords[3],
-    double& dist2, double* weights) override;
+    double& dist2, double weights[]) override;
   void EvaluateLocation(
-    int& subId, double pcoords[3], double x[3],
+    int& subId, const double pcoords[3], double x[3],
     double* weights) override;
   void Contour(
     double value, vtkDataArray* cellScalars,
@@ -75,23 +89,22 @@ public:
     vtkPointData* inPd, vtkPointData* outPd,
     vtkCellData* inCd, vtkIdType cellId, vtkCellData* outCd,
     int insideOut) override;
-  int IntersectWithLine(
-    double p1[3], double p2[3], double tol, double& t,
+  int IntersectWithLine(const double p1[3], const double p2[3], double tol, double& t,
     double x[3], double pcoords[3], int& subId) override;
   int Triangulate(int index, vtkIdList* ptIds, vtkPoints* pts) override;
   void Derivatives(
-    int subId, double pcoords[3], double* values,
+    int subId, const double pcoords[3], const double* values,
     int dim, double* derivs) override;
   double* GetParametricCoords() override;
   int GetParametricCenter(double center[3]) override;
 
-  double GetParametricDistance(double pcoords[3]) override;
+  double GetParametricDistance(const double pcoords[3]) override;
 
   const int* GetOrder();
   int GetOrder(int i) { return this->GetOrder()[i]; }
 
-  void InterpolateFunctions(double pcoords[3], double* weights) override;
-  void InterpolateDerivs(double pcoords[3], double* derivs) override;
+  void InterpolateFunctions(const double pcoords[3], double* weights) override;
+  void InterpolateDerivs(const double pcoords[3], double* derivs) override;
 
   bool SubCellCoordinatesFromId(vtkVector3i& ijk, int subId);
   bool SubCellCoordinatesFromId(int& i, int& j, int& k, int subId);

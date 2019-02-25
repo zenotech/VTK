@@ -1185,7 +1185,8 @@ void preSig(const char *arg)
     if (n > 0)
     {
       memmove(&signature[n], signature, sigLength);
-      strncpy(signature, arg, n);
+      /* we intentionally do not want /0 here */
+      memmove(signature, arg, n);
       sigLength += n;
     }
     signature[sigLength] = '\0';
@@ -1201,10 +1202,9 @@ void postSig(const char *arg)
     checkSigSize(n);
     if (n > 0)
     {
-      strncpy(&signature[sigLength], arg, n);
+      strncpy(&signature[sigLength], arg, n + 1);
       sigLength += n;
     }
-    signature[sigLength] = '\0';
   }
 }
 
@@ -11651,9 +11651,9 @@ int count_from_dimensions(ValueInfo *val)
       cp = val->Dimensions[i];
       if (cp[0] != '\0')
       {
-        while (*cp != '\0' && *cp >= '0' && *cp <= '9') { cp++; }
-        while (*cp != '\0' && (*cp == 'u' || *cp == 'l' ||
-                               *cp == 'U' || *cp == 'L')) { cp++; }
+        while (*cp >= '0' && *cp <= '9') { cp++; }
+        while (*cp == 'u' || *cp == 'l' ||
+               *cp == 'U' || *cp == 'L') { cp++; }
         if (*cp == '\0')
         {
           n = (int)strtol(val->Dimensions[i], NULL, 0);

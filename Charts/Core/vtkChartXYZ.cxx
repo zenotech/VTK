@@ -73,9 +73,7 @@ vtkChartXYZ::vtkChartXYZ() : Geometry(0, 0, 10, 10), IsX(false), Angle(0)
 }
 
 //-----------------------------------------------------------------------------
-vtkChartXYZ::~vtkChartXYZ()
-{
-}
+vtkChartXYZ::~vtkChartXYZ() = default;
 
 //-----------------------------------------------------------------------------
 void vtkChartXYZ::SetAngle(double angle)
@@ -116,6 +114,13 @@ vtkAxis * vtkChartXYZ::GetAxis(int axis)
 {
   assert(axis >= 0 && axis < 3);
   return this->Axes[axis];
+}
+
+//-----------------------------------------------------------------------------
+void vtkChartXYZ::SetAxis(int axisIndex, vtkAxis* axis)
+{
+  assert(axisIndex >= 0 && axisIndex < 3);
+  this->Axes[axisIndex] = axis;
 }
 
 //-----------------------------------------------------------------------------

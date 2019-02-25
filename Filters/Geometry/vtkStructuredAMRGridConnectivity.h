@@ -25,7 +25,7 @@
  *  implementation see vtkPStructuredAMRGridConnectivity.
  *
  * @sa
- *  vtkGhostArray vtkPStructuredAMRGridConnectivity vtkAbstractGridConnectivity
+ *  vtkPStructuredAMRGridConnectivity vtkAbstractGridConnectivity
 */
 
 #ifndef vtkStructuredAMRGridConnectivity_h
@@ -111,7 +111,7 @@ public:
 
   //@{
   /**
-   * Get/Set macor NodeCentered property which indicates if the data is
+   * Get/Set macro NodeCentered property which indicates if the data is
    * node-centered or cell-centered. By default, node-centered is set to false
    * since AMR datasets are primarily cell-centered.
    */

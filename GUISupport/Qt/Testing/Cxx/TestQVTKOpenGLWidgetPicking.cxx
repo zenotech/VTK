@@ -24,6 +24,7 @@
 #include "vtkProperty2D.h"
 #include "vtkPropPicker.h"
 #include "vtkRenderer.h"
+#include "vtkRenderWindowInteractor.h"
 #include "vtkSphereSource.h"
 
 #include <QApplication>
@@ -42,7 +43,6 @@ int TestQVTKOpenGLWidgetPicking(int argc, char* argv[])
   QApplication app(argc, argv);
 
   QVTKOpenGLWidget widget;
-  widget.resize(300, 300);
 
   auto renWin = vtkSmartPointer<vtkGenericOpenGLRenderWindow>::New();
   widget.SetRenderWindow(renWin);
@@ -89,6 +89,16 @@ int TestQVTKOpenGLWidgetPicking(int argc, char* argv[])
   ren->GetActiveCamera()->SetPosition(0.0, 0.0, 9.0);
 
   widget.show();
+
+  // Make sure that the widget context is valid before making OpenGL calls.
+  // This should only take up to 4 calls to processEvents(). If this test keeps
+  // timing out, consider that the widget initialization is broken.
+  while (!widget.isValid())
+  {
+    app.processEvents();
+  }
+
+  widget.resize(300, 300);
   app.processEvents();
 
   auto picker = vtkSmartPointer<vtkPropPicker>::New();

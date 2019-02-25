@@ -2,7 +2,10 @@ vtk_add_test_python(
   TestCellArray.py,NO_DATA,NO_VALID,NO_RT
   TestEmptyXML.py,NO_DATA,NO_VALID,NO_RT
   TestXMLMultiBlock.py,NO_DATA,NO_VALID,NO_RT
+  TestXMLTimeInField.py,NO_DATA,NO_VALID,NO_RT
   TestXMLImageDataIO.py
+  TestXMLPartitionedDataSet.py,NO_DATA,NO_VALID,NO_RT
+  TestXMLPartitionedDataSetCollection.py,NO_DATA,NO_VALID,NO_RT
   TestXMLPolyDataIO.py
   TestXMLRectilinearGridIO.py
   TestXMLStructuredGridIO.py

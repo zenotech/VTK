@@ -257,6 +257,7 @@ void vtkOpenVRRenderer::ResetCamera(double bounds[6])
   vtkOpenVRRenderWindow *win =
     static_cast<vtkOpenVRRenderWindow *>(this->GetRenderWindow());
   win->SetPhysicalTranslation(-center[0],-center[1]+distance,-center[2]);
+  win->SetPhysicalScale(distance);
 }
 
 // Alternative version of ResetCamera(bounds[6]);
@@ -297,11 +298,11 @@ void vtkOpenVRRenderer::ResetCameraClippingRange( double bounds[6] )
 
   this->ExpandBounds(bounds, this->ActiveCamera->GetModelTransformMatrix());
 
-  double distance = this->ActiveCamera->GetDistance();
   double trans[3];
   vtkOpenVRRenderWindow *win =
     static_cast<vtkOpenVRRenderWindow *>(this->GetRenderWindow());
   win->GetPhysicalTranslation(trans);
+  double distance = win->GetPhysicalScale();
 
   range[0] = 0.2; // 20 cm in front of HMD
   range[1] = 0.0;

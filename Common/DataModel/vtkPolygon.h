@@ -53,7 +53,7 @@ public:
   int GetNumberOfFaces() override {return 0;};
   vtkCell *GetEdge(int edgeId) override;
   vtkCell *GetFace(int) override {return nullptr;};
-  int CellBoundary(int subId, double pcoords[3], vtkIdList *pts) override;
+  int CellBoundary(int subId, const double pcoords[3], vtkIdList *pts) override;
   void Contour(double value, vtkDataArray *cellScalars,
                vtkIncrementalPointLocator *locator,vtkCellArray *verts,
                vtkCellArray *lines, vtkCellArray *polys,
@@ -64,15 +64,15 @@ public:
             vtkPointData *inPd, vtkPointData *outPd,
             vtkCellData *inCd, vtkIdType cellId, vtkCellData *outCd,
             int insideOut) override;
-  int EvaluatePosition(double x[3], double* closestPoint,
+  int EvaluatePosition(const double x[3], double closestPoint[3],
                        int& subId, double pcoords[3],
-                       double& dist2, double *weights) override;
-  void EvaluateLocation(int& subId, double pcoords[3], double x[3],
+                       double& dist2, double weights[]) override;
+  void EvaluateLocation(int& subId, const double pcoords[3], double x[3],
                         double *weights) override;
-  int IntersectWithLine(double p1[3], double p2[3], double tol, double& t,
+  int IntersectWithLine(const double p1[3], const double p2[3], double tol, double& t,
                         double x[3], double pcoords[3], int& subId) override;
   int Triangulate(int index, vtkIdList *ptIds, vtkPoints *pts) override;
-  void Derivatives(int subId, double pcoords[3], double *values,
+  void Derivatives(int subId, const double pcoords[3], const double *values,
                    int dim, double *derivs) override;
   int IsPrimaryCell() override {return 0;}
   //@}
@@ -94,12 +94,12 @@ public:
    * The function assumes the input point lies on the polygon plane without
    * checking that.
    */
-  void InterpolateFunctions(double x[3], double *sf) override;
+  void InterpolateFunctions(const double x[3], double *sf) override;
 
   //@{
   /**
    * Computes the unit normal to the polygon. If pts=nullptr, point indexing is
-   * assummed to be {0, 1, ..., numPts-1}.
+   * assumed to be {0, 1, ..., numPts-1}.
    */
   static void ComputeNormal(vtkPoints *p, int numPts, vtkIdType *pts,
                             double n[3]);
@@ -124,7 +124,7 @@ public:
   //@{
   /**
    * Determine whether or not a polygon is convex. If pts=nullptr, point indexing
-   * is assummed to be {0, 1, ..., numPts-1}.
+   * is assumed to be {0, 1, ..., numPts-1}.
    */
   static bool IsConvex(vtkPoints *p, int numPts, vtkIdType *pts);
   static bool IsConvex(vtkIdTypeArray *ids, vtkPoints *p);
@@ -246,7 +246,7 @@ protected:
   ~vtkPolygon() override;
 
   // Compute the interpolation functions using Mean Value Coordinate.
-  void InterpolateFunctionsUsingMVC(double x[3], double *weights);
+  void InterpolateFunctionsUsingMVC(const double x[3], double *weights);
 
   // variables used by instances of this class
   double   Tolerance; // Intersection tolerance

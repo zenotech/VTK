@@ -22,6 +22,7 @@ PURPOSE.  See the above copyright notice for more information.
 #include "vtkOpenGLRenderWindow.h"
 #include "vtkOpenGLError.h"
 #include "vtkOpenGLShaderCache.h"
+#include "vtkOpenGLVertexBufferObjectCache.h"
 #include "vtkRendererCollection.h"
 #include "vtkStringOutputWindow.h"
 #include "vtkWin32RenderWindowInteractor.h"
@@ -739,11 +740,6 @@ void vtkWin32OpenGLRenderWindow::SetupPixelFormatPaletteAndContext(
           }
         }
       }
-      if (this->ContextId &&
-          (iContextAttribs[1] >= 4 || iContextAttribs[3] >= 2))
-      {
-        this->SetContextSupportsOpenGL32(true);
-      }
     }
     // fallback on old approach
     if (!this->ContextId)
@@ -1081,6 +1077,22 @@ void vtkWin32OpenGLRenderWindow::Initialize (void)
       this->CreateOffScreenWindow(width,height);
     }
   }
+
+  if (this->SharedRenderWindow)
+  {
+    vtkWin32OpenGLRenderWindow *renWin =
+      vtkWin32OpenGLRenderWindow::SafeDownCast(this->SharedRenderWindow);
+    if (renWin && renWin->Initialized)
+    {
+      bool result = wglShareLists( renWin->ContextId, this->ContextId) == TRUE;
+      if (result)
+      {
+        this->VBOCache->Delete();
+        this->VBOCache = renWin->VBOCache;
+        this->VBOCache->Register(this);
+      }
+    }
+  }
 }
 
 void vtkWin32OpenGLRenderWindow::Finalize (void)
@@ -1321,7 +1333,7 @@ void vtkWin32OpenGLRenderWindow::SetWindowId(HWND arg)
 }
 
 // Set this RenderWindow's X window id to a pre-existing window.
-void vtkWin32OpenGLRenderWindow::SetWindowInfo(char *info)
+void vtkWin32OpenGLRenderWindow::SetWindowInfo(const char *info)
 {
   int tmp;
 
@@ -1331,7 +1343,7 @@ void vtkWin32OpenGLRenderWindow::SetWindowInfo(char *info)
   vtkDebugMacro(<< "Setting WindowId to " << this->WindowId << "\n");
 }
 
-void vtkWin32OpenGLRenderWindow::SetNextWindowInfo(char *info)
+void vtkWin32OpenGLRenderWindow::SetNextWindowInfo(const char *info)
 {
   int tmp;
 
@@ -1357,7 +1369,7 @@ void vtkWin32OpenGLRenderWindow::SetDeviceContext(HDC arg)
 }
 
 // Sets the HWND id of the window that WILL BE created.
-void vtkWin32OpenGLRenderWindow::SetParentInfo(char *info)
+void vtkWin32OpenGLRenderWindow::SetParentInfo(const char *info)
 {
   int tmp;
 

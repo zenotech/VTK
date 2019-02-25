@@ -1,7 +1,8 @@
 set(TestXML_ARGS "DATA{${VTK_TEST_INPUT_DIR}/sample.xml}")
-vtk_add_test_cxx(vtkIOXMLCxxTests tests
+set(all_tests
   TestAMRXMLIO.cxx,NO_VALID
   TestDataObjectXMLIO.cxx,NO_VALID
+  TestMultiBlockXMLIOWithPartialArrays.cxx,NO_VALID
   TestReadDuplicateDataArrayNames.cxx,NO_DATA,NO_VALID
   TestXML.cxx,NO_DATA,NO_VALID,NO_OUTPUT
   TestXMLGhostCellsImport.cxx
@@ -12,6 +13,15 @@ vtk_add_test_cxx(vtkIOXMLCxxTests tests
   TestXMLUnstructuredGridReader.cxx
   TestXMLWriterWithDataArrayFallback.cxx,NO_VALID
   )
+
+if ((NOT DEFINED MSVC_VERSION) OR (MSVC_VERSION GREATER 1800))
+  # skip TestXMLWriteRead test on MSVC 2013 and older.
+  list(APPEND all_tests
+    TestXMLWriteRead.cxx,NO_VALID,NO_DATA)
+endif()
+
+vtk_add_test_cxx(vtkIOXMLCxxTests tests
+  ${all_tests})
 
 # Each of these most be added in a separate vtk_add_test_cxx
 vtk_add_test_cxx(vtkIOXMLCxxTests tests

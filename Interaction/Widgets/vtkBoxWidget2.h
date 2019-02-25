@@ -33,7 +33,7 @@
  * the event that it handles.
  *
  * To use this widget, you generally pair it with a vtkBoxRepresentation
- * (or a subclass). Variuos options are available in the representation for
+ * (or a subclass). Various options are available in the representation for
  * controlling how the widget appears, and how the widget functions.
  *
  * @par Event Bindings:
@@ -167,6 +167,11 @@ protected:
   static void TranslateAction(vtkAbstractWidget*);
   static void ScaleAction(vtkAbstractWidget*);
   static void MoveAction(vtkAbstractWidget*);
+  static void SelectAction3D(vtkAbstractWidget*);
+  static void EndSelectAction3D(vtkAbstractWidget*);
+  static void MoveAction3D(vtkAbstractWidget*);
+  static void StepAction3D(vtkAbstractWidget*);
+
 
   // Control whether scaling, rotation, and translation are supported
   vtkTypeBool TranslationEnabled;

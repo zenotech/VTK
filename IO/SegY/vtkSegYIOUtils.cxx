@@ -17,12 +17,13 @@
 
 #include <cmath>
 #include <cstring>
+#include <cstdint>
 #include <sys/types.h>
 
 //----------------------------------------------------------------------------
 vtkSegYIOUtils::vtkSegYIOUtils()
 {
-  isBigEndian = checkIfBigEndian();
+  this->IsBigEndian = checkIfBigEndian();
 }
 
 //----------------------------------------------------------------------------
@@ -33,13 +34,19 @@ vtkSegYIOUtils* vtkSegYIOUtils::Instance()
 }
 
 //----------------------------------------------------------------------------
-int vtkSegYIOUtils::readShortInteger(int pos, std::ifstream& in)
+short vtkSegYIOUtils::readShortInteger(int pos, std::ifstream& in)
 {
   in.seekg(pos, in.beg);
+  return readShortInteger(in);
+}
+
+//----------------------------------------------------------------------------
+short vtkSegYIOUtils::readShortInteger(std::ifstream& in)
+{
   char buffer[2];
   in.read(buffer, sizeof(buffer));
 
-  if (!isBigEndian)
+  if (!this->IsBigEndian)
   {
     swap(buffer, buffer + 1);
   }
@@ -53,18 +60,7 @@ int vtkSegYIOUtils::readShortInteger(int pos, std::ifstream& in)
 int vtkSegYIOUtils::readLongInteger(int pos, std::ifstream& in)
 {
   in.seekg(pos, in.beg);
-  char buffer[4];
-  in.read(buffer, sizeof(buffer));
-
-  if (!isBigEndian)
-  {
-    swap(buffer, buffer + 3);
-    swap(buffer + 1, buffer + 2);
-  }
-
-  int num;
-  memcpy(&num, buffer, 4);
-  return num;
+  return readLongInteger(in);
 }
 
 //----------------------------------------------------------------------------
@@ -73,7 +69,7 @@ int vtkSegYIOUtils::readLongInteger(std::ifstream& in)
   char buffer[4];
   in.read(buffer, sizeof(buffer));
 
-  if (!isBigEndian)
+  if (!this->IsBigEndian)
   {
     swap(buffer, buffer + 3);
     swap(buffer + 1, buffer + 2);
@@ -90,7 +86,7 @@ float vtkSegYIOUtils::readFloat(std::ifstream& in)
   char buffer[4];
   in.read(buffer, sizeof(buffer));
 
-  if (!isBigEndian)
+  if (!this->IsBigEndian)
   {
     swap(buffer, buffer + 3);
     swap(buffer + 1, buffer + 2);
@@ -107,7 +103,7 @@ float vtkSegYIOUtils::readIBMFloat(std::ifstream& in)
   char buffer[4];
   in.read(buffer, sizeof(buffer));
 
-  if (!isBigEndian)
+  if (!this->IsBigEndian)
   {
     swap(buffer, buffer + 3);
     swap(buffer + 1, buffer + 2);
@@ -131,16 +127,16 @@ float vtkSegYIOUtils::readIBMFloat(std::ifstream& in)
   // More details at
   // https://en.m.wikipedia.org/wiki/IBM_Floating_Point_Architecture
 
-  long* longbuffer = reinterpret_cast<long*>(buffer);
+  uint32_t* longbuffer = reinterpret_cast<uint32_t*>(buffer);
   int sign = longbuffer[0] >> 31 & 0x01;
   int exponent = longbuffer[0] >> 24 & 0x7F;
-  float fraction = (longbuffer[0] & 0x00ffffff) / float(pow(2.0, 24));
+  float fraction = (longbuffer[0] & 0x00ffffff) / powf(2.0f, 24.0f);
   if (fraction == 0.0f)
   {
     // Value is 0
     return 0.0f;
   }
-  float num = (1 - 2 * sign) * fraction * pow(16.0, double(exponent - 64.0));
+  float num = (1 - 2 * sign) * fraction * powf(16.0f, exponent - 64.0f);
   return num;
 }
 
@@ -169,7 +165,7 @@ void vtkSegYIOUtils::swap(char* a, char* b)
 }
 
 //----------------------------------------------------------------------------
-int vtkSegYIOUtils::getFileSize(std::ifstream& in)
+std::streamoff vtkSegYIOUtils::getFileSize(std::ifstream& in)
 {
   in.seekg(0, in.end);
   return in.tellg();

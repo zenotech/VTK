@@ -31,13 +31,9 @@
 vtkStandardNewMacro(vtkImageDataToPointSet);
 
 //-------------------------------------------------------------------------
-vtkImageDataToPointSet::vtkImageDataToPointSet()
-{
-}
+vtkImageDataToPointSet::vtkImageDataToPointSet() = default;
 
-vtkImageDataToPointSet::~vtkImageDataToPointSet()
-{
-}
+vtkImageDataToPointSet::~vtkImageDataToPointSet() = default;
 
 void vtkImageDataToPointSet::PrintSelf(ostream &os, vtkIndent indent)
 {
@@ -98,7 +94,7 @@ int vtkImageDataToPointSet::CopyStructure(vtkStructuredGrid *outData,
 
   if (pointId != points->GetNumberOfPoints())
   {
-    vtkErrorMacro(<< "Somehow misscounted points");
+    vtkErrorMacro(<< "Somehow miscounted points");
     return 0;
   }
 

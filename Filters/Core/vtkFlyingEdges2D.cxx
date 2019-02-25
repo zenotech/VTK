@@ -108,7 +108,7 @@ public:
   {
     this->Origin[0] = this->Origin[0] + this->Spacing[0]*updateExt[0];
     this->Origin[1] = this->Origin[1] + this->Spacing[1]*updateExt[2];
-    this->Origin[2] = this->Origin[2] + this->Spacing[2]*updateExt[4];;
+    this->Origin[2] = this->Origin[2] + this->Spacing[2]*updateExt[4];
   }
 
   // The three passes of the algorithm.
@@ -766,10 +766,12 @@ ContourImage(vtkFlyingEdges2D *self, T *scalars, vtkPoints *newPts,
       algo.NewLines = static_cast<vtkIdType*>(newLines->GetPointer());
       if (newScalars)
       {
-        newScalars->WriteVoidPointer(0,numOutXPts+numOutYPts);
+        vtkIdType numPrevPts = newScalars->GetNumberOfTuples();
+        vtkIdType numNewPts = totalPts - numPrevPts;
+        newScalars->WriteVoidPointer(0,totalPts);
         algo.NewScalars = static_cast<T*>(newScalars->GetVoidPointer(0));
         T TValue = static_cast<T>(value);
-        std::fill_n(algo.NewScalars, totalPts, TValue);
+        std::fill_n(algo.NewScalars+numPrevPts, numNewPts, TValue);
       }
 
       // PASS 4: Now process each x-row and produce the output primitives.

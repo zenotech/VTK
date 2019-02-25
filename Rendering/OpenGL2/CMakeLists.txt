@@ -49,6 +49,7 @@ set(Module_SRCS
   vtkOpenGLPolyDataMapper.cxx
   vtkOpenGLPolyDataMapper2D.cxx
   vtkOpenGLProperty.cxx
+  vtkOpenGLQuadHelper.cxx
   vtkOpenGLRenderPass.cxx
   vtkOpenGLRenderTimer.cxx
   vtkOpenGLRenderTimerLog.cxx
@@ -58,6 +59,7 @@ set(Module_SRCS
   vtkOpenGLShaderCache.cxx
   vtkOpenGLSkybox.cxx
   vtkOpenGLSphereMapper.cxx
+  vtkOpenGLState.cxx
   vtkOpenGLStickMapper.cxx
   vtkOpenGLTextActor.cxx
   vtkOpenGLTextActor3D.cxx
@@ -83,6 +85,7 @@ set(Module_SRCS
   vtkSobelGradientMagnitudePass.cxx
   vtkTextureObject.cxx
   vtkTextureUnitManager.cxx
+  vtkToneMappingPass.cxx
   vtkTransformFeedback.cxx
   vtkTranslucentPass.cxx
   vtkValuePass.cxx
@@ -114,6 +117,7 @@ set(shader_files
   glsl/vtkGaussianBlurPassVS.glsl
   glsl/vtkGlyph3DVS.glsl
   glsl/vtkPointGaussianVS.glsl
+  glsl/vtkPointGaussianGS.glsl
   glsl/vtkPointFillPassFS.glsl
   glsl/vtkPolyData2DFS.glsl
   glsl/vtkPolyData2DVS.glsl
@@ -124,8 +128,8 @@ set(shader_files
   glsl/vtkSimpleMotionBlurPassFS.glsl
   glsl/vtkSobelGradientMagnitudePass1FS.glsl
   glsl/vtkSobelGradientMagnitudePass2FS.glsl
-  glsl/vtkSphereMapperVS.glsl
-  glsl/vtkStickMapperVS.glsl
+  glsl/vtkSphereMapperGS.glsl
+  glsl/vtkStickMapperGS.glsl
   glsl/vtkTextureObjectFS.glsl
   glsl/vtkTextureObjectVS.glsl
   )
@@ -306,6 +310,10 @@ if(VTK_USE_X)
     LINK_PUBLIC ${X11_LIBRARIES} ${X11_Xt_LIB})
 elseif(VTK_USE_COCOA)
   vtk_module_link_libraries(${vtk-module} LINK_PUBLIC "-framework Cocoa")
+endif()
+
+if (WIN32 AND MSVC)
+  vtk_module_link_libraries(${vtk-module} LINK_PRIVATE dbghelp)
 endif()
 
 if(ANDROID)

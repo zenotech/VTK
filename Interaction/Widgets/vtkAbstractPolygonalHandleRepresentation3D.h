@@ -156,7 +156,7 @@ public:
 
   //@{
   /**
-   * Toogle the visibility of the handle on and off
+   * Toggle the visibility of the handle on and off
    */
   vtkSetMacro( HandleVisibility, vtkTypeBool );
   vtkGetMacro( HandleVisibility, vtkTypeBool );
@@ -182,6 +182,11 @@ public:
   vtkBooleanMacro( SmoothMotion, vtkTypeBool );
   //@}
 
+  /*
+  * Register internal Pickers within PickingManager
+  */
+  void RegisterPickers() override;
+
 protected:
   vtkAbstractPolygonalHandleRepresentation3D();
   ~vtkAbstractPolygonalHandleRepresentation3D() override;
@@ -200,9 +205,6 @@ protected:
   int                          WaitingForMotion;
   int                          WaitCount;
   vtkTypeBool                  HandleVisibility;
-
-  // Register internal Pickers within PickingManager
-  void RegisterPickers() override;
 
   // Methods to manipulate the cursor
   virtual void Translate(double *p1, double *p2);

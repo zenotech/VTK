@@ -43,7 +43,7 @@
  *     above sea level   ???? should we make this from center of earth ????
  *                       ???? what about equatorial bulge ????
  *   Heading in degrees:  (-180->180)
- *     Relative to Logitude and Latitude.
+ *     Relative to Longitude and Latitude.
  *     0 is north.
  *     90 is east.       ???? what is the standard ????
  *     180 is south.
@@ -80,6 +80,7 @@ class vtkCamera;
 class vtkGeoTerrainNode;
 class vtkTransform;
 
+#if !defined(VTK_LEGACY_REMOVE)
 class VTKGEOVISCORE_EXPORT vtkGeoCamera : public vtkObject
 {
 public:
@@ -128,7 +129,7 @@ public:
   //@{
   /**
    * Heading is in degrees:  (-180->180)
-   * Relative to Logitude and Latitude.
+   * Relative to Longitude and Latitude.
    * 0 is north.
    * 90 is east.       ???? what is the standard ????
    * 180 is south.
@@ -245,4 +246,5 @@ private:
   void operator=(const vtkGeoCamera&) = delete;
 };
 
+#endif //VTK_LEGACY_REMOVE
 #endif

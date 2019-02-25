@@ -64,13 +64,9 @@ typename ConnectivityVTKAOS<Device>::IndicesType
 ConnectivityVTKAOS<Device>::GetIndices(vtkm::Id index) const
 {
   vtkm::Id offset = this->IndexOffsets.Get(index);
-  vtkm::IdComponent length = this->Connectivity.Get(offset);
+  auto length = static_cast<vtkm::IdComponent>(this->Connectivity.Get(offset));
   return IndicesType(this->Connectivity, length, offset + 1);
 }
-
-
-
-
 
 //------------------------------------------------------------------------------
 template <typename Device>
@@ -167,6 +163,12 @@ template class ReverseConnectivityVTK<vtkm::cont::DeviceAdapterTagSerial>;
 template class ConnectivityVTKAOS<vtkm::cont::DeviceAdapterTagTBB>;
 template class ConnectivityVTKSingleType<vtkm::cont::DeviceAdapterTagTBB>;
 template class ReverseConnectivityVTK<vtkm::cont::DeviceAdapterTagTBB>;
+#endif
+
+#ifdef VTKM_ENABLE_OPENMP
+template class ConnectivityVTKAOS<vtkm::cont::DeviceAdapterTagOpenMP>;
+template class ConnectivityVTKSingleType<vtkm::cont::DeviceAdapterTagOpenMP>;
+template class ReverseConnectivityVTK<vtkm::cont::DeviceAdapterTagOpenMP>;
 #endif
 
 }

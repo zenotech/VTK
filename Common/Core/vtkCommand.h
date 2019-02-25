@@ -87,6 +87,9 @@
  * - vtkCommand::PlacePointEvent
  *  - Widgets/vtkSeedWidget returns a pointer to an int, being the current
  * handle number
+ * - vtkCommand::DeletePointEvent
+ *  - Widgets/vtkSeedWidget returns a pointer to an int, being the
+ * handle number of the deleted point
  * - vtkCommand::ResetWindowLevelEvent
  *  - Widgets/vtkImagePlaneWidget returns an array of 2 double values (window
  * and level)
@@ -279,6 +282,7 @@
     _vtk_add_event(CreateTimerEvent)\
     _vtk_add_event(DestroyTimerEvent)\
     _vtk_add_event(PlacePointEvent)\
+    _vtk_add_event(DeletePointEvent)\
     _vtk_add_event(PlaceWidgetEvent)\
     _vtk_add_event(CursorChangedEvent)\
     _vtk_add_event(ExecuteInformationEvent)\
@@ -329,6 +333,8 @@
     _vtk_add_event(HighlightEvent)\
     _vtk_add_event(WindowSupportsOpenGLEvent)\
     _vtk_add_event(WindowIsDirectEvent)\
+    _vtk_add_event(WindowStereoTypeChangedEvent)\
+    _vtk_add_event(WindowResizeEvent)\
     _vtk_add_event(UncheckedPropertyModifiedEvent)\
     _vtk_add_event(UpdateShaderEvent)\
     _vtk_add_event(MessageEvent)\

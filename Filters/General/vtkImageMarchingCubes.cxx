@@ -176,7 +176,7 @@ int vtkImageMarchingCubes::RequestData(
     this->Gradients->Allocate(3*estimatedSize,3*estimatedSize/2);
   }
 
-  // Initialize the internal point locator (edge table for oen image of cubes).
+  // Initialize the internal point locator (edge table for one image of cubes).
   this->InitializeLocator(extent[0], extent[1], extent[2], extent[3]);
 
   // Loop through the chunks running marching cubes on each one
@@ -731,7 +731,7 @@ void vtkImageMarchingCubes::IncrementLocatorZ()
 // (1,1,1)->(0,1,1): 6,  (0,1,1)->(0,0,1): 7,
 // (0,0,0)->(0,0,1): 8,  (1,0,0)->(1,0,1): 9,
 // (0,1,0)->(0,1,1): 10, (1,1,0)->(1,1,1): 11.
-// Shared edges are computed internaly. (no error checking)
+// Shared edges are computed internally. (no error checking)
 void vtkImageMarchingCubes::AddLocatorPoint(int cellX, int cellY, int edge,
                                             vtkIdType ptId)
 {

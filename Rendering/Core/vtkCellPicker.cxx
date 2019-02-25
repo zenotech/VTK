@@ -42,6 +42,8 @@
 #include "vtkCamera.h"
 #include "vtkAbstractCellLocator.h"
 
+#include <algorithm>
+
 vtkStandardNewMacro(vtkCellPicker);
 
 //----------------------------------------------------------------------------
@@ -278,7 +280,7 @@ int vtkCellPicker::Pick3DRay(
 // Tolerance for parametric coordinate matching an intersection with a plane
 #define VTKCELLPICKER_PLANE_TOL 1e-14
 
-double vtkCellPicker::IntersectWithLine(double p1[3], double p2[3],
+double vtkCellPicker::IntersectWithLine(const double p1[3], const double p2[3],
                                           double tol,
                                           vtkAssemblyPath *path,
                                           vtkProp3D *prop,
@@ -447,15 +449,30 @@ double vtkCellPicker::IntersectActorWithLine(const double p1[3],
           // box not hit: no need to intersect...
           continue;
         }
+
+        double t = tMin;
         vtkAbstractCellLocator* loc = nullptr;
+        vtkIdType cellId = -1;
+        int subId = -1;
+        double p = VTK_DOUBLE_MAX;
+        double xyz[3] = { 0., 0., 0. };
+        double pcoord[3] = { 0., 0., 0. };
         bool ok = this->IntersectDataSetWithLine(ds, p1, p2, t1, t2, tol,
-                                         loc, minCellId, minSubId,
-                                         tMin, pDistMin, minXYZ, minPCoords);
+                                                 loc, cellId, subId,
+                                                 t, p, xyz, pcoord);
         if ( ok )
         {
+          tMin = t;
+
           flatIndex = iter->GetCurrentFlatIndex();
           data = ds;
           locator = loc;
+
+          minCellId = cellId;
+          minSubId = subId;
+          pDistMin = p;
+          std::copy( xyz, xyz+3, minXYZ );
+          std::copy( pcoord, pcoord+3, minPCoords );
         }
       }
     }

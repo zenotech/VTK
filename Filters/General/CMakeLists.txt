@@ -11,6 +11,7 @@ set(Module_SRCS
   vtkBrownianPoints.cxx
   vtkCellCenters.cxx
   vtkCellDerivatives.cxx
+  vtkCellValidator.cxx
   vtkClipClosedSurface.cxx
   vtkClipConvexPolyData.cxx
   vtkClipDataSet.cxx
@@ -30,6 +31,7 @@ set(Module_SRCS
   vtkDicer.cxx
   vtkDiscreteFlyingEdges2D.cxx
   vtkDiscreteFlyingEdges3D.cxx
+  vtkDiscreteFlyingEdgesClipper2D.cxx
   vtkDiscreteMarchingCubes.cxx
   vtkEdgePoints.cxx
   vtkExtractSelectedFrustum.cxx

@@ -1054,7 +1054,8 @@ int vtkFieldDataToAttributeDataFilter::GetComponentsType(int numComp, vtkDataArr
 }
 
 vtkDataArray *vtkFieldDataToAttributeDataFilter::GetFieldArray(vtkFieldData *fd,
-                                                               char *name, int comp)
+                                                               const char *name,
+                                                               int comp)
 {
   vtkDataArray *da = nullptr;
   int numComp;
@@ -1126,10 +1127,10 @@ void vtkFieldDataToAttributeDataFilter::SetArrayName(vtkObject *self, char* &nam
     name = new char[strlen(newName)+1];
     strcpy(name,newName);
   }
-   else
-   {
+  else
+  {
     name = nullptr;
-   }
+  }
   self->Modified();
 }
 

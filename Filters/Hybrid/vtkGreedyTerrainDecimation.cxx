@@ -84,9 +84,7 @@ vtkGreedyTerrainDecimation::vtkGreedyTerrainDecimation()
 }
 
 //----------------------------------------------------------------------
-vtkGreedyTerrainDecimation::~vtkGreedyTerrainDecimation()
-{
-}
+vtkGreedyTerrainDecimation::~vtkGreedyTerrainDecimation() = default;
 
 //----------------------------------------------------------------------
 inline void vtkGreedyTerrainDecimation::GetTerrainPoint(int i, int j, double x[3])
@@ -754,7 +752,7 @@ int vtkGreedyTerrainDecimation::RequestData(
   newPts->Allocate(numPts);
   this->Points = static_cast<vtkDoubleArray *>(newPts->GetData());
 
-  // initailize the normals
+  // initialize the normals
   if (this->ComputeNormals)
   {
     this->Normals = vtkFloatArray::New();

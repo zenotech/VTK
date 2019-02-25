@@ -139,6 +139,7 @@ void vtkPointWidget::SetEnabled(int enabling)
     this->CurrentRenderer->AddActor(this->Actor);
     this->Actor->SetProperty(this->Property);
     this->Cursor3D->Update();
+    this->RegisterPickers();
 
     this->InvokeEvent(vtkCommand::EnableEvent,nullptr);
   }
@@ -162,6 +163,7 @@ void vtkPointWidget::SetEnabled(int enabling)
 
     this->InvokeEvent(vtkCommand::DisableEvent,nullptr);
     this->SetCurrentRenderer(nullptr);
+    this->UnRegisterPickers();
   }
 
   this->Interactor->Render();
@@ -170,7 +172,12 @@ void vtkPointWidget::SetEnabled(int enabling)
 //------------------------------------------------------------------------------
 void vtkPointWidget::RegisterPickers()
 {
-  this->Interactor->GetPickingManager()->AddPicker(this->CursorPicker, this);
+  vtkPickingManager* pm = this->GetPickingManager();
+  if (!pm)
+  {
+    return;
+  }
+  pm->AddPicker(this->CursorPicker, this);
 }
 
 void vtkPointWidget::ProcessEvents(vtkObject* vtkNotUsed(object),

@@ -61,7 +61,8 @@ public:
     Scaling,
     Spinning,
     Inserting,
-    Erasing
+    Erasing,
+    Pushing
   };
 
   //@{
@@ -109,7 +110,7 @@ public:
    * position. i.e., if ProjectionNormal is 0, all of the x-coordinate
    * values of the points are set to position. Any value can be passed (and is
    * ignored) to update the poly line points when Projection normal is set to 3
-   * for arbritrary plane orientations.
+   * for arbitrary plane orientations.
    */
   void SetProjectionPosition(double position);
   vtkGetMacro(ProjectionPosition, double);
@@ -226,6 +227,11 @@ public:
    */
   void SetLineColor(double r, double g, double b);
 
+  /*
+  * Register internal Pickers within PickingManager
+  */
+  void RegisterPickers() override;
+
 protected:
   vtkCurveRepresentation();
   ~vtkCurveRepresentation() override;
@@ -258,6 +264,7 @@ protected:
   int  HighlightHandle(vtkProp *prop); //returns handle index or -1 on fail
   virtual void SizeHandles();
   virtual void InsertHandleOnLine(double* pos) = 0;
+  virtual void PushHandle(double* pos);
   void EraseHandle(const int&);
 
   // Do the picking
@@ -266,9 +273,7 @@ protected:
   double LastPickPosition[3];
   vtkActor *CurrentHandle;
   int CurrentHandleIndex;
-
-  // Register internal Pickers within PickingManager
-  void RegisterPickers() override;
+  bool FirstSelected;
 
   // Methods to manipulate the curve.
   void MovePoint(double *p1, double *p2);

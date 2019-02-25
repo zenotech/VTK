@@ -66,7 +66,11 @@ void vtkWidgetRepresentation::SetRenderer(vtkRenderer *ren)
 
   this->UnRegisterPickers();
   this->Renderer = ren;
-  this->PickersModified();
+  // register with potentially new picker
+  if (this->Renderer)
+  {
+    this->RegisterPickers();
+  }
   this->Modified();
 }
 
@@ -94,16 +98,18 @@ void vtkWidgetRepresentation::UnRegisterPickers()
 }
 
 //----------------------------------------------------------------------------
-void vtkWidgetRepresentation::PickersModified()
+void vtkWidgetRepresentation::SetPickingManaged(bool managed)
 {
-  vtkPickingManager* pm = this->GetPickingManager();
-  if (!pm)
+  if (this->PickingManaged == managed)
   {
     return;
   }
-
   this->UnRegisterPickers();
-  this->RegisterPickers();
+  this->PickingManaged = managed;
+  if (this->PickingManaged)
+  {
+    this->RegisterPickers();
+  }
 }
 
 //----------------------------------------------------------------------------
@@ -126,7 +132,7 @@ vtkAssemblyPath* vtkWidgetRepresentation::
 GetAssemblyPath(double X, double Y, double Z, vtkAbstractPropPicker* picker)
 {
   vtkPickingManager* pm = this->GetPickingManager();
-  if (!pm)
+  if (!this->PickingManaged || !pm)
   {
     picker->Pick(X, Y, Z, this->Renderer);
     return picker->GetPath();
@@ -135,6 +141,7 @@ GetAssemblyPath(double X, double Y, double Z, vtkAbstractPropPicker* picker)
   return pm->GetAssemblyPath(X, Y, 0., picker, this->Renderer, this);
 }
 
+//------------------------------------------------------------------------------
 vtkAssemblyPath* vtkWidgetRepresentation::
 GetAssemblyPath3DPoint(double pos[3], vtkAbstractPropPicker* picker)
 {
@@ -330,7 +337,7 @@ void vtkWidgetRepresentation::UpdatePropPose(
 
   newTransform->Translate(pos1[0], pos1[1], pos1[2]);
 
-  // now try to get the composit of translate, rotate, and scale
+  // now try to get the composite of translate, rotate, and scale
   newTransform->Translate(-(orig[0]), -(orig[1]), -(orig[2]));
   newTransform->PreMultiply();
   newTransform->Translate(orig[0], orig[1], orig[2]);

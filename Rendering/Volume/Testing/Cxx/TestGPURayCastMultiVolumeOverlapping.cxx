@@ -22,7 +22,6 @@
 #include "vtkCommand.h"
 #include "vtkConeSource.h"
 #include "vtkGPUVolumeRayCastMapper.h"
-#include "vtkOpenGLGPUVolumeRayCastMapper.h"
 #include "vtkInteractorStyleTrackballCamera.h"
 #include "vtkXMLImageDataReader.h"
 #include "vtkVolume16Reader.h"
@@ -54,7 +53,7 @@ public:
   static MoveRotateCommand* New() { return new MoveRotateCommand; };
 
   void Execute(vtkObject* caller, unsigned long eventId,
-    void* /*data*/) VTK_OVERRIDE
+    void* /*data*/) override
   {
     switch (eventId)
     {

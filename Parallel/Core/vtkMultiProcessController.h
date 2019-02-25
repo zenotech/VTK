@@ -260,7 +260,7 @@ public:
   void TriggerRMI(int remoteProcessId, void *arg, int argLength, int tag);
 
   /**
-   * A conveniance method.  Called on process 0 to break "ProcessRMIs" loop
+   * A convenience method.  Called on process 0 to break "ProcessRMIs" loop
    * on all other processes.
    */
   void TriggerBreakRMIs();
@@ -531,7 +531,7 @@ public:
    * to the destination process.  The destination process receives the
    * messages and stores them in rank order.  The \c length argument
    * (which must be the same on all processes) is the length of the
-   * sendBuffers.  The \c recvBuffer (on te destination process) must be of
+   * sendBuffers.  The \c recvBuffer (on the destination process) must be of
    * length length*numProcesses.  Gather is the inverse operation of Scatter.
    */
   int Gather(const int *sendBuffer, int *recvBuffer,

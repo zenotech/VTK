@@ -183,6 +183,7 @@ void vtkSphereWidget::SetEnabled(int enabling)
     this->HandleActor->SetProperty(this->HandleProperty);
     this->SelectRepresentation();
     this->SizeHandles();
+    this->RegisterPickers();
 
     this->InvokeEvent(vtkCommand::EnableEvent,nullptr);
   }
@@ -207,6 +208,7 @@ void vtkSphereWidget::SetEnabled(int enabling)
 
     this->InvokeEvent(vtkCommand::DisableEvent,nullptr);
     this->SetCurrentRenderer(nullptr);
+    this->UnRegisterPickers();
   }
 
   this->Interactor->Render();
@@ -760,7 +762,12 @@ void vtkSphereWidget::SizeHandles()
 //------------------------------------------------------------------------------
 void vtkSphereWidget::RegisterPickers()
 {
-  this->Interactor->GetPickingManager()->AddPicker(this->Picker, this);
+  vtkPickingManager* pm = this->GetPickingManager();
+  if (!pm)
+  {
+    return;
+  }
+  pm->AddPicker(this->Picker, this);
 }
 
 //----------------------------------------------------------------------------

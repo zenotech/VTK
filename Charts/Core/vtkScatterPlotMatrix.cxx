@@ -117,7 +117,7 @@ public:
       this->LabelFont->SetColor(0.0, 0.0, 0.0);
       this->LabelFont->SetOpacity(1.0);
     }
-    ~pimplChartSetting() {}
+    ~pimplChartSetting() = default;
 
     int MarkerStyle;
     float MarkerSize;
@@ -203,7 +203,7 @@ public:
   vtkVector2i                NextActivePlot;
 
   vtkNew<vtkChartXYZ> BigChart3D;
-  vtkNew<vtkAxis>     TestAxis;   // Used to get ranges/numer of ticks
+  vtkNew<vtkAxis>     TestAxis;   // Used to get ranges/number of ticks
   vtkSmartPointer<vtkTooltipItem> TooltipItem;
   vtkSmartPointer<vtkStringArray> IndexedLabelsArray;
 };
@@ -648,7 +648,7 @@ void vtkScatterPlotMatrix::AdvanceAnimation()
 
   // 1: Remove decoration from the big chart.
   // 2: Set three dimensions to plot in the BigChart3D.
-  // 3: Make BigChart inivisible, and BigChart3D visible.
+  // 3: Make BigChart invisible, and BigChart3D visible.
   // 4: Rotate between the two dimensions we are transitioning between.
   //    -> Loop from start to end angle to complete the effect.
   // 5: Make the new dimensionality active, update BigChart.
@@ -774,8 +774,13 @@ void vtkScatterPlotMatrix::AdvanceAnimation()
       this->Private->Interactor->DestroyTimer(this->Private->TimerId);
       this->Private->TimerId = 0;
       this->Private->TimerCallbackInitialized = false;
+      this->Animating = false;
+
+      // Make sure the active plot is redrawn completely after the animation
+      this->Modified();
+      this->ActivePlotValid = false;
+      this->Update();
     }
-    this->Animating = false;
   }
 }
 

@@ -17,7 +17,7 @@
  * @brief   Axis aligned hyper tree grid clip
  *
  *
- * Clip an hyper tree grid along an axis aligned plane or box and output
+ * Clip a hyper tree grid along an axis aligned plane or box and output
  * a hyper tree grid with same dimensionality.
  * This filter also allows for reversal of the direction of what is inside
  * versus what is outside by setting the InsideOut instance variable.
@@ -98,8 +98,12 @@ public:
    */
   vtkSetVector6Macro(Bounds,double);
   vtkGetVectorMacro(Bounds,double,6);
-  void GetMinimumBounds( double[3] );
-  void GetMaximumBounds( double[3] );
+  void SetMinimumBounds(double x, double y, double z);
+  void SetMaximumBounds(double x, double y, double z);
+  void SetMinimumBounds(double[3]) VTK_SIZEHINT(3);
+  void SetMaximumBounds(double[3]) VTK_SIZEHINT(3);
+  void GetMinimumBounds(double[3]) VTK_SIZEHINT(3);
+  void GetMaximumBounds(double[3]) VTK_SIZEHINT(3);
   //@}
 
   //@{
@@ -127,8 +131,11 @@ public:
   /**
    * Helpers to set/get the 10 coefficients of the quadric function
    */
-  void SetQuadricCoefficients( double[10] );
-  void GetQuadricCoefficients( double[10] );
+  void SetQuadricCoefficients(double a0, double a1, double a2, double a3,
+                              double a4, double a5, double a6, double a7,
+                              double a8, double a9);
+  void SetQuadricCoefficients(double[10]) VTK_SIZEHINT(10) ;
+  void GetQuadricCoefficients(double[10]) VTK_SIZEHINT(10);
   double* GetQuadricCoefficients();
   //@}
 

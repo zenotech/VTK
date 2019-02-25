@@ -134,7 +134,7 @@ public:
    */
   void SetWindowName(const char *) override;
 
-  void SetNextWindowInfo(char *) override
+  void SetNextWindowInfo(const char *) override
   {
       vtkWarningMacro("SetNextWindowInfo not implemented (WindowRemap not implemented).");
   }
@@ -158,14 +158,14 @@ public:
    * The parameter is an ASCII string of a decimal number representing
    * a pointer to the window.
    */
-  void SetWindowInfo(char*) override;
+  void SetWindowInfo(const char*) override;
 
   /**
    * See the documentation for SetParentId().  This method allows the ParentId
    * to be set as an ASCII string of a decimal number that is the memory
    * address of the parent NSView.
    */
-  void SetParentInfo(char*) override;
+  void SetParentInfo(const char*) override;
 
   void SetNextWindowId(void*) override
   {
@@ -179,9 +179,14 @@ public:
   bool InitializeFromCurrentContext() override;
 
   /**
+   * Does this platform support render window data sharing.
+   */
+  bool GetPlatformSupportsRenderWindowSharing() override { return true; };
+
+  /**
    * Prescribe that the window be created in a stereo-capable mode. This
    * method must be called before the window is realized. This method
-   * overrrides the superclass method since this class can actually check
+   * overrides the superclass method since this class can actually check
    * whether the window has been realized yet.
    */
   void SetStereoCapableWindow(vtkTypeBool capable) override;

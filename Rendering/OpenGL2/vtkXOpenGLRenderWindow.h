@@ -230,6 +230,11 @@ public:
    */
   bool InitializeFromCurrentContext() override;
 
+  /**
+   * Does this platform support render window data sharing.
+   */
+  bool GetPlatformSupportsRenderWindowSharing() override { return true; };
+
   //@{
   /**
    * Move the window to a new position on the display.
@@ -262,17 +267,17 @@ public:
   /**
    * Set this RenderWindow's X window id to a pre-existing window.
    */
-  void SetWindowInfo(char *info) override;
+  void SetWindowInfo(const char *info) override;
 
   /**
    * Set the window info that will be used after WindowRemap()
    */
-  void SetNextWindowInfo(char *info) override;
+  void SetNextWindowInfo(const char *info) override;
 
   /**
    * Sets the X window id of the window that WILL BE created.
    */
-  void SetParentInfo(char *info) override;
+  void SetParentInfo(const char *info) override;
 
   /**
    * This computes the size of the render window
@@ -301,7 +306,7 @@ public:
    * Set the number of vertical syncs required between frames.
    * A value of 0 means swap buffers as quickly as possible
    * regardless of the vertical refresh. A value of 1 means swap
-   * buffers in sync with the vertical refresh to elimiate tearing.
+   * buffers in sync with the vertical refresh to eliminate tearing.
    * A value of -1 means use a value of 1 unless we missed a frame
    * in which case swap immediately. Returns true if the call
    * succeeded.

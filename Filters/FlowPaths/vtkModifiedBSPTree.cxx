@@ -653,8 +653,8 @@ int BSPNode::getDominantAxis(const double dir[3])
   }
 }
 //---------------------------------------------------------------------------
-int vtkModifiedBSPTree::IntersectWithLine(double p1[3],
-                                          double p2[3],
+int vtkModifiedBSPTree::IntersectWithLine(const double p1[3],
+                                          const double p2[3],
                                           double tol,
                                           double &t,
                                           double x[3],
@@ -671,7 +671,7 @@ int vtkModifiedBSPTree::IntersectWithLine(double p1[3],
   return hit;
 }
 //---------------------------------------------------------------------------
-int vtkModifiedBSPTree::IntersectWithLine(double p1[3], double p2[3], double tol,
+int vtkModifiedBSPTree::IntersectWithLine(const double p1[3], const double p2[3], double tol,
                                           double &t, double x[3], double pcoords[3], int &subId, vtkIdType &cellId)
 {
   //
@@ -1066,10 +1066,7 @@ vtkIdListCollection *vtkModifiedBSPTree::GetLeafNodeCellInformation()
     ns.pop();
     if (node->mChild[0])
     { // this must be a parent node
-      if (node->mChild[0])
-      {
-        ns.push(node->mChild[0]);
-      }
+      ns.push(node->mChild[0]);
       if (node->mChild[1])
       {
         ns.push(node->mChild[1]);

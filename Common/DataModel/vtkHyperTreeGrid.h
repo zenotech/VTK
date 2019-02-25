@@ -18,8 +18,9 @@
  * arranged as a rectilinear grid.
  *
  *
- * An hypertree grid is a dataset containing a rectilinear grid of root nodes,
- * each of which can be refined as a vtkHyperTree grid. This organization of the
+ * A hypertree grid is a dataset containing a rectilinear grid of root nodes,
+ * each of which can be refined as a vtkHyperTree grid. Each root node
+ * corresponds to a cell of the rectilinear grid. This organization of the
  * root nodes allows for the definition of tree-based AMR grids that do not have
  * uniform geometry.
  * Some filters can be applied on this dataset: contour, outline, geometry.
@@ -45,7 +46,7 @@
 #include "vtkCommonDataModelModule.h" // For export macro
 #include "vtkDataSet.h"
 
-#include <map> // STL header for dual point coordinates ajustment
+#include <map> // STL header for dual point coordinates adjustment
 
 class vtkHyperTree;
 class vtkHyperTreeCursor;
@@ -93,7 +94,7 @@ public:
 
   //@{
   /**
-   * Set/Get sizes of this rectilinear grid dataset
+   * Set/Get the number of local cells in each direction for the underlying rectilinear grid dataset.
    */
   void SetGridSize( unsigned int[3] );
   void SetGridSize( unsigned int, unsigned int, unsigned int );
@@ -102,7 +103,8 @@ public:
 
   //@{
   /**
-   * Set/Get extent of this rectilinear grid dataset.
+   * Set/Get extent of the underlying rectilinear grid dataset. This is the local extent
+   * and is with respect to the points.
    */
   void SetGridExtent(int extent[6]);
   void SetGridExtent(int, int, int, int, int, int );
@@ -268,7 +270,7 @@ public:
 
   /**
    * Create a new hyper tree grid cursor: an object that
-   * can traverse the cells of an hyper tree grid, starting at given
+   * can traverse the cells of a hyper tree grid, starting at given
    * tree root index.
    * If no hyper tree is present at given location, then one
    * will be created only if 'create' flag is true.
@@ -278,7 +280,7 @@ public:
 
   /**
    * Create a new hyper tree grid geometric cursor: an object that
-   * can traverse the cells of an hyper tree grid, starting at given
+   * can traverse the cells of a hyper tree grid, starting at given
    * tree root index, managing the geometric properties.
    * If no hyper tree is present at given location, then one
    * will be created only if 'create' flag is true.
@@ -288,7 +290,7 @@ public:
 
   /**
    * Create a new hyper tree grid Von Neumann super cursor: an object that
-   * can traverse the cells of an hyper tree grid, starting at given
+   * can traverse the cells of a hyper tree grid, starting at given
    * tree root index, managing geometric properties and von Neumann
    * neighborhood with basic hyper tree grid cursors.
    * If no hyper tree is present at given location, then one
@@ -299,7 +301,7 @@ public:
 
   /**
    * Create a new hyper tree grid Moore super cursor: an object that
-   * can traverse the cells of an hyper tree grid, starting at given
+   * can traverse the cells of a hyper tree grid, starting at given
    * tree root index, managing geometric properties and Moore
    * neighborhood with basic hyper tree grid cursors.
    * If no hyper tree is present at given location, then one

@@ -161,8 +161,12 @@ void vtkPOVExporter::WriteData()
   }
 
   //get the renderer
-  vtkRenderer *renderer =
-    this->RenderWindow->GetRenderers()->GetFirstRenderer();
+  vtkRenderer *renderer = this->ActiveRenderer;
+  if (!renderer)
+  {
+    renderer = this->RenderWindow->GetRenderers()->GetFirstRenderer();
+  }
+
   // make sure it has at least one actor
   if (renderer->GetActors()->GetNumberOfItems() < 1)
   {
@@ -346,7 +350,7 @@ void vtkPOVExporter::WriteActor(vtkActor *actor)
 
   // convert non polygon data to polygon data if needed
   vtkGeometryFilter *geometryFilter = nullptr;
-  vtkPolyData *polys = nullptr;;
+  vtkPolyData *polys = nullptr;
   if (dataset->GetDataObjectType() != VTK_POLY_DATA)
   {
     geometryFilter = vtkGeometryFilter::New();

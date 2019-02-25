@@ -110,6 +110,11 @@ void vtkSingleVTPExporter::WriteData()
   vtkCollectionSimpleIterator rit;
   for (rc->InitTraversal(rit); (ren = rc->GetNextRenderer(rit)); )
   {
+    if (this->ActiveRenderer && ren != this->ActiveRenderer)
+    {
+      // If ActiveRenderer is specified then ignore all other renderers
+      continue;
+    }
     if (!ren->GetDraw())
     {
       continue;
@@ -259,7 +264,7 @@ void vtkSingleVTPExporter::ProcessTriangle(
   }
 
   // Step 3, neither of the above worked so instead
-  // subdivide the triangel into 4 and recurse
+  // subdivide the triangle into 4 and recurse
   // add 3 points and interpolated data for them
   vtkIdType nptids[3];
   for (int i = 0; i < 3; i++)
@@ -287,7 +292,7 @@ void vtkSingleVTPExporter::ProcessTriangle(
 }
 
 // for an input polydata with texture coordinates handle any
-// triangels with repeating textures. Basically calls
+// triangles with repeating textures. Basically calls
 // process triangle for each input triangle.
 vtkPolyData *vtkSingleVTPExporter::FixTextureCoordinates(vtkPolyData *ipd)
 {
@@ -320,6 +325,7 @@ vtkPolyData *vtkSingleVTPExporter::FixTextureCoordinates(vtkPolyData *ipd)
       // does this triangle go outside of 0 to 1.5 in tcoords?
       this->ProcessTriangle(pts, opd);
     }
+    newPolys->Delete();
     ptIds->Delete();
   }
 
@@ -490,7 +496,7 @@ void vtkSingleVTPExporter::WriteVTP(
         case 1:
           for (int j = 0; j < inpts; ++j)
           {
-            double *tmp = itc->GetTuple(j);
+            double *tmp = is->GetTuple(j);
             oscalars->InsertNextTuple4(
               col[0]*tmp[0],
               col[1]*tmp[0],
@@ -501,7 +507,7 @@ void vtkSingleVTPExporter::WriteVTP(
         case 2:
           for (int j = 0; j < inpts; ++j)
           {
-            double *tmp = itc->GetTuple(j);
+            double *tmp = is->GetTuple(j);
             oscalars->InsertNextTuple4(
               col[0]*tmp[0],
               col[1]*tmp[0],
@@ -512,7 +518,7 @@ void vtkSingleVTPExporter::WriteVTP(
         case 3:
           for (int j = 0; j < inpts; ++j)
           {
-            double *tmp = itc->GetTuple(j);
+            double *tmp = is->GetTuple(j);
             oscalars->InsertNextTuple4(
               col[0]*tmp[0],
               col[1]*tmp[1],
@@ -523,7 +529,7 @@ void vtkSingleVTPExporter::WriteVTP(
         case 4:
           for (int j = 0; j < inpts; ++j)
           {
-            double *tmp = itc->GetTuple(j);
+            double *tmp = is->GetTuple(j);
             oscalars->InsertNextTuple4(
               col[0]*tmp[0],
               col[1]*tmp[1],
@@ -857,15 +863,15 @@ void vtkSingleVTPExporter::WriteTexture(
             }
             break;
             case 4:
-            for (int x = 0; x < rdims[0]*4; ++x)
+            for (int x = 0; x < rdims[0]; ++x)
             {
               if (x == dims[0])
               {
                 ipos -= dims[0]*4;
               }
-              *opos = *ipos;
-              opos++;
-              ipos++;
+              memcpy(opos, ipos, 4);
+              opos += 4;
+              ipos += 4;
             }
             break;
           }

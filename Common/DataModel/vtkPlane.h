@@ -83,9 +83,9 @@ public:
    * projected point is returned in xproj. NOTE : normal assumed to
    * have magnitude 1.
    */
-  static void ProjectPoint(double x[3], double origin[3], double normal[3],
+  static void ProjectPoint(const double x[3], const double origin[3], const double normal[3],
                            double xproj[3]);
-  void ProjectPoint(double x[3], double xproj[3]);
+  void ProjectPoint(const double x[3], double xproj[3]);
   //@}
 
   //@{
@@ -93,9 +93,9 @@ public:
    * Project a vector v onto plane defined by origin and normal. The
    * projected vector is returned in vproj.
    */
-  static void ProjectVector(double v[3], double origin[3], double normal[3],
+  static void ProjectVector(const double v[3], const double origin[3], const double normal[3],
                            double vproj[3]);
-  void ProjectVector(double v[3], double vproj[3]);
+  void ProjectVector(const double v[3], double vproj[3]);
   //@}
 
   //@{
@@ -104,9 +104,9 @@ public:
    * projected point is returned in xproj. NOTE : normal does NOT have to
    * have magnitude 1.
    */
-  static void GeneralizedProjectPoint(double x[3], double origin[3],
-                                      double normal[3], double xproj[3]);
-  void GeneralizedProjectPoint(double x[3], double xproj[3]);
+  static void GeneralizedProjectPoint(const double x[3], const double origin[3],
+                                      const double normal[3], double xproj[3]);
+  void GeneralizedProjectPoint(const double x[3], double xproj[3]);
   //@}
 
 
@@ -133,9 +133,27 @@ public:
    * do not intersect between (0<=t<=1). If the plane and line are parallel,
    * zero is returned and t is set to VTK_LARGE_DOUBLE.
    */
-  static int IntersectWithLine(double p1[3], double p2[3], double n[3],
+  static int IntersectWithLine(const double p1[3], const double p2[3], double n[3],
                                double p0[3], double& t, double x[3]);
-  int IntersectWithLine(double p1[3], double p2[3], double& t, double x[3]);
+  int IntersectWithLine(const double p1[3], const double p2[3], double& t, double x[3]);
+  //@}
+
+  //@{
+  /**
+   * Given two planes, one infinite and one finite, defined by the normal n
+   * and point o (infinite plane), and the second finite plane1 defined by
+   * the three points (pOrigin,px,py), compute a line of intersection (if
+   * any). The line of intersection is defined by the return values
+   * (x0,x1). If there is no intersection, then zero is returned; otherwise
+   * non-zero. There are two variants of this method. The static function
+   * operates on the supplied function parameters; the non-static operates on
+   * this instance of vtkPlane (and its associated origin and normal).
+   */
+  static int IntersectWithFinitePlane(double n[3], double o[3],
+                                      double pOrigin[3], double px[3], double py[3],
+                                      double x0[3], double x1[3]);
+  int IntersectWithFinitePlane(double pOrigin[3], double px[3], double py[3],
+                               double x0[3], double x1[3]);
   //@}
 
 protected:

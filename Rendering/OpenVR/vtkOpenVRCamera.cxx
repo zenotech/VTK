@@ -18,6 +18,7 @@
 #include "vtkObjectFactory.h"
 #include "vtkRenderer.h"
 #include "vtkOpenVRRenderWindow.h"
+#include "vtkOpenGLState.h"
 #include "vtkOpenGLError.h"
 #include "vtkPerspectiveTransform.h"
 
@@ -87,7 +88,7 @@ void vtkOpenVRCamera::GetHMDEyeProjections(vtkRenderer *ren)
   float fxmin, fxmax, fymin, fymax;
   double xmin, xmax, ymin, ymax;
 
-  // note docs are propbably wrong in OpenVR arg list for this func
+  // note docs are probably wrong in OpenVR arg list for this func
   hMD->GetProjectionRaw( vr::Eye_Left, &fxmin, &fxmax, &fymin, &fymax);
   xmin = fxmin*znear;
   xmax = fxmax*znear;
@@ -146,6 +147,8 @@ void vtkOpenVRCamera::Render(vtkRenderer *ren)
 
   vtkOpenVRRenderWindow *win =
     vtkOpenVRRenderWindow::SafeDownCast(ren->GetRenderWindow());
+  vtkOpenGLState *ostate = win->GetState();
+
   int renSize[2];
   win->GetRenderBufferSize(renSize[0],renSize[1]);
 
@@ -163,9 +166,8 @@ void vtkOpenVRCamera::Render(vtkRenderer *ren)
     // Left Eye
     if (win->GetMultiSamples() && !ren->GetSelector())
     {
-      glEnable( GL_MULTISAMPLE );
+      ostate->vtkglEnable( GL_MULTISAMPLE );
     }
-    glBindFramebuffer( GL_FRAMEBUFFER, win->GetLeftRenderBufferId());
 
     // adjust for left eye position
     if (!ren->GetSelector())
@@ -178,9 +180,8 @@ void vtkOpenVRCamera::Render(vtkRenderer *ren)
     // right eye
     if (win->GetMultiSamples() && !ren->GetSelector())
     {
-      glEnable( GL_MULTISAMPLE );
+      ostate->vtkglEnable( GL_MULTISAMPLE );
     }
-    glBindFramebuffer( GL_FRAMEBUFFER, win->GetRightRenderBufferId());
 
     if (!ren->GetSelector())
     {
@@ -191,11 +192,10 @@ void vtkOpenVRCamera::Render(vtkRenderer *ren)
     }
   }
 
-  glViewport(0, 0, renSize[0], renSize[1] );
-  glScissor(0, 0, renSize[0], renSize[1] );
+  ostate->vtkglViewport(0, 0, renSize[0], renSize[1] );
+  ostate->vtkglScissor(0, 0, renSize[0], renSize[1] );
     ren->Clear();
-  if ((ren->GetRenderWindow())->GetErase() && ren->GetErase()
-      && !ren->GetIsPicking())
+  if ((ren->GetRenderWindow())->GetErase() && ren->GetErase())
   {
     ren->Clear();
   }

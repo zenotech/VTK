@@ -685,8 +685,8 @@ void vtkImageData::GetPoint(vtkIdType ptId, double x[3])
 //----------------------------------------------------------------------------
 vtkIdType vtkImageData::FindPoint(double x[3])
 {
-  int i, loc[3];
-  double d;
+  static bool gaveWarning = false;
+  int loc[3];
   const double *origin = this->Origin;
   const double *spacing = this->Spacing;
   const int* extent = this->Extent;
@@ -699,16 +699,34 @@ vtkIdType vtkImageData::FindPoint(double x[3])
   //
   //  Compute the ijk location
   //
-  for (i=0; i<3; i++)
+  for (int i=0; i<3; i++)
   {
-    d = x[i] - origin[i];
-    loc[i] = vtkMath::Floor((d / spacing[i]) + 0.5);
-    if ( loc[i] < extent[i*2] || loc[i] > extent[i*2+1] )
+    if ( spacing[i] == 0.0 )
     {
-      return -1;
+      if ( gaveWarning == false )
+      {
+        vtkWarningMacro(
+          "Spacing in direction " << i
+          << " is 0. Unexpected results may be returned from vtkImageData::FindPoint()");
+        gaveWarning = true;
+      }
+      if ( x[i] != origin[i])
+      {
+        return -1;
+      }
+      loc[i] = extent[i*2];
     }
-    // since point id is relative to the first point actually stored
-    loc[i] -= extent[i*2];
+    else
+    {
+      double d = x[i] - origin[i];
+      loc[i] = vtkMath::Floor((d / spacing[i]) + 0.5);
+      if ( loc[i] < extent[i*2] || loc[i] > extent[i*2+1] )
+      {
+        return -1;
+      }
+      // since point id is relative to the first point actually stored
+      loc[i] -= extent[i*2];
+    }
   }
   //
   //  From this location get the point id
@@ -1996,7 +2014,7 @@ void vtkImageData::SetDataDescription(int desc)
       break;
 
     case VTK_XYZ_GRID:
-      this->Voxel = vtkVoxel::New();;
+      this->Voxel = vtkVoxel::New();
       break;
   }
 }
@@ -2205,7 +2223,7 @@ void *vtkImageData::GetArrayPointer(vtkDataArray* array, int coordinate[3])
   }
 
   const int* extent = this->Extent;
-  // error checking: since most acceses will be from pointer arithmetic.
+  // error checking: since most accesses will be from pointer arithmetic.
   // this should not waste much time.
   for (idx = 0; idx < 3; ++idx)
   {

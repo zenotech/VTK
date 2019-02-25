@@ -50,9 +50,7 @@ vtkInformationObjectBaseVectorKey::vtkInformationObjectBaseVectorKey(
 }
 
 //----------------------------------------------------------------------------
-vtkInformationObjectBaseVectorKey::~vtkInformationObjectBaseVectorKey()
-{
-}
+vtkInformationObjectBaseVectorKey::~vtkInformationObjectBaseVectorKey() = default;
 
 //----------------------------------------------------------------------------
 void vtkInformationObjectBaseVectorKey::PrintSelf(
@@ -89,7 +87,7 @@ bool vtkInformationObjectBaseVectorKey::ValidateDerivedType(
         vtkObjectBase* aValue)
 {
   // verify that type of aValue is compatible with
-  // this conatiner.
+  // this container.
   if(aValue!=nullptr
      && this->RequiredClass!=nullptr
      && !aValue->IsA(this->RequiredClass))

@@ -13,6 +13,7 @@
 
 =========================================================================*/
 #include "vtkIdList.h"
+#include "vtkSMPTools.h" //for parallel sort
 #include "vtkObjectFactory.h"
 
 vtkStandardNewMacro(vtkIdList);
@@ -168,6 +169,11 @@ vtkIdType *vtkIdList::Resize(const vtkIdType sz)
     return nullptr;
   }
 
+  if (this->NumberOfIds > newSize)
+  {
+    this->NumberOfIds = newSize;
+  }
+
   if (this->Ids)
   {
     memcpy(newIds, this->Ids,
@@ -229,6 +235,16 @@ void vtkIdList::IntersectWith(vtkIdList* otherIds)
   }
 }
 #undef VTK_TMP_ARRAY_SIZE
+
+//----------------------------------------------------------------------------
+void vtkIdList::Sort()
+{
+  if ( this->Ids == nullptr || this->NumberOfIds < 2 )
+  {
+    return;
+  }
+  vtkSMPTools::Sort(this->Ids, this->Ids+this->NumberOfIds);
+}
 
 //----------------------------------------------------------------------------
 void vtkIdList::PrintSelf(ostream& os, vtkIndent indent)

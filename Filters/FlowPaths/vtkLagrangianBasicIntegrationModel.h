@@ -170,7 +170,7 @@ public:
 
   //@{
   /**
-   * Get the tolerance to use with this model
+   * Get the tolerance to use with this model.
    */
   vtkGetMacro(Tolerance, double);
   //@}
@@ -210,7 +210,7 @@ public:
    * containing the point x. return false if out of domain,
    * return true and data to recover the cell if in domain.
    * does not filter out ghost cells.
-   * convienence method with less outputs.
+   * convenience method with less outputs.
    */
   virtual bool FindInLocators(double* x, vtkDataSet*& dataset, vtkIdType& cellId,
     vtkAbstractCellLocator*& loc, double*& weights);
@@ -230,17 +230,30 @@ public:
 
   /**
    * Empty method to be reimplemented if necessary in inherited classes.
-   * Allows a inherited class to create
-   * Specific array in the output point data
+   * Allows a inherited class to create specific array in the output point data
    * for filling point data with variables.
    */
   virtual void InsertVariablesParticleData(vtkLagrangianParticle* vtkNotUsed(particle),
     vtkPointData* vtkNotUsed(particleData), int vtkNotUsed(stepEnum)) {}
 
   /**
-   * Initialize a particle by setting user variables
-   * and perform any user model specific operation
-   * empty in basic implementation
+   * Empty method to be reimplemented if necessary in inherited classes.
+   * Allows an inherited class to create specific array in the outputs
+   * field data associated with each particle path.
+   */
+  virtual void InitializeModelPathData(vtkFieldData* vtkNotUsed(data)) {}
+
+  /**
+   * Empty method to be reimplemented if necessary in inherited classes.
+   * Allows a inherited class to insert data in initialized
+   * array in the outputs field data associated with each particle path.
+   */
+  virtual void InsertModelPathData(vtkLagrangianParticle* vtkNotUsed(particle),
+    vtkFieldData* vtkNotUsed(data)) {}
+
+  /**
+   * Initialize a particle by setting user variables and perform any user
+   * model specific operation. empty in basic implementation.
    */
   virtual void InitializeParticle(vtkLagrangianParticle* vtkNotUsed(particle)){}
 

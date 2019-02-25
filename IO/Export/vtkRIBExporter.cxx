@@ -77,14 +77,6 @@ void vtkRIBExporter::WriteData()
     return;
   }
 
-  // first make sure there is only one renderer in this rendering window
-  if (this->RenderWindow->GetRenderers()->GetNumberOfItems() > 1)
-  {
-    vtkErrorMacro(<< "RIB files only support one renderer per window.");
-    return;
-  }
-
-  vtkRenderer *ren;
   vtkActorCollection *ac;
   vtkLightCollection *lc;
   vtkActor *anActor;
@@ -92,9 +84,11 @@ void vtkRIBExporter::WriteData()
   vtkTexture *aTexture;
 
   // get the renderer
-  vtkCollectionSimpleIterator sit;
-  this->RenderWindow->GetRenderers()->InitTraversal(sit);
-  ren = this->RenderWindow->GetRenderers()->GetNextRenderer(sit);
+  vtkRenderer *ren = this->ActiveRenderer;
+  if (!ren)
+  {
+    ren = this->RenderWindow->GetRenderers()->GetFirstRenderer();
+  }
 
   // make sure it has at least one actor
   if (ren->GetActors()->GetNumberOfItems() < 1)
@@ -168,6 +162,7 @@ void vtkRIBExporter::WriteData()
   //
   // If there is no light defined, create one
   //
+  vtkCollectionSimpleIterator sit;
   lc->InitTraversal(sit);
   if (lc->GetNextLight(sit) == nullptr)
   {
@@ -1298,8 +1293,8 @@ void vtkRIBExporter::WriteTexture (vtkTexture *aTexture)
   // renderman and bmrt seem to require r,g,b and alpha in all their
   // texture maps. So if our tmap doesn't have the right components
   // we add them
-   if (bpp == 1) // needs intensity intensity and alpha
-   {
+  if (bpp == 1) // needs intensity intensity and alpha
+  {
     iac1 = vtkImageAppendComponents::New();
     iac2 = vtkImageAppendComponents::New();
     icp = vtkImageConstantPad::New();
@@ -1313,7 +1308,7 @@ void vtkRIBExporter::WriteTexture (vtkTexture *aTexture)
     icp->SetOutputNumberOfScalarComponents(4);
 
     aWriter->SetInputConnection(icp->GetOutputPort());
-   }
+  }
   else if (bpp == 2) // needs intensity intensity
   {
     iec = vtkImageExtractComponents::New();
@@ -1344,12 +1339,12 @@ void vtkRIBExporter::WriteTexture (vtkTexture *aTexture)
   aWriter->SetFileName (this->GetTIFFName (aTexture));
   aWriter->Write ();
 
-   if (bpp == 1)
-   {
+  if (bpp == 1)
+  {
     iac1->Delete ();
     iac2->Delete ();
     icp->Delete ();
-   }
+  }
   else if (bpp == 2)
   {
     iec->Delete ();
@@ -1394,12 +1389,12 @@ void vtkRIBExporter::ModifyArrayName(char *newname, const char* name)
   int cc = 0;
   for ( cc =0; name[cc]; cc++ )
   {
-      if ( (name[cc] >= 'A' && name[cc] <= 'Z') ||
-           (name[cc] >= '0' && name[cc] <= '9') ||
-           (name[cc] >= 'a' && name[cc] <= 'z') )
-      {
+    if ( (name[cc] >= 'A' && name[cc] <= 'Z') ||
+         (name[cc] >= '0' && name[cc] <= '9') ||
+         (name[cc] >= 'a' && name[cc] <= 'z') )
+    {
       newname[cc] = name[cc];
-      }
+    }
     else
     {
       newname[cc] = '_';

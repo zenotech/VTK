@@ -88,7 +88,7 @@ void vtkOSPRayMaterialLibrary::AddTexture(const std::string& nickname, const std
 }
 
 // ----------------------------------------------------------------------------
-void vtkOSPRayMaterialLibrary::AddShaderVariable(const std::string& nickname, const std::string& varname, int numVars, double *x)
+void vtkOSPRayMaterialLibrary::AddShaderVariable(const std::string& nickname, const std::string& varname, int numVars, const double *x)
 {
   std::vector<double> w;
   w.assign(x, x+numVars);
@@ -131,30 +131,31 @@ bool vtkOSPRayMaterialLibrary::InternalParse
   } else {
     doc = new std::istringstream(filename);
   }
+  bool retOK = false;
   if (std::string(filename).rfind(".mtl") != std::string::npos)
-    {
-    return this->InternalParseMTL(filename, fromfile, doc);
-    }
-  return this->InternalParseJSON(filename, fromfile, doc);
+  {
+    retOK = this->InternalParseMTL(filename, fromfile, doc);
+  }
+  else
+  {
+    retOK = this->InternalParseJSON(filename, fromfile, doc);
+  }
+  delete doc;
+  return retOK;
 }
 
 // ----------------------------------------------------------------------------
 bool vtkOSPRayMaterialLibrary::InternalParseJSON
   (const char *filename, bool fromfile, std::istream *doc)
 {
-  //todo: this reader is a lot more fragile then I'ld like, need to make it robust
   Json::Value root;
-  try
+  std::string errs;
+  Json::CharReaderBuilder jreader;
+  bool ok = Json::parseFromStream(jreader, *doc, &root, &errs);
+  if (!ok)
   {
-    *doc >> root;
-  }
-  catch (Json::RuntimeError)
-  {
-    delete doc;
     return false;
   }
-  delete doc;
-
   if (!root.isMember("family"))
   {
     vtkErrorMacro("Not a materials file. Must have \"family\"=\"...\" entry.");
@@ -354,7 +355,7 @@ bool vtkOSPRayMaterialLibrary::InternalParseMTL
       if (tstr.compare(0, key.size(), key) == 0)
       {
         std::string v = tstr.substr(key.size());
-        double dv;
+        double dv = 0.;
         bool OK = false;
         try
         {
@@ -385,7 +386,9 @@ bool vtkOSPRayMaterialLibrary::InternalParseMTL
         std::string v1 = vs.substr(0,loc1);
         std::string v2 = vs.substr(loc1+1,loc2);
         std::string v3 = vs.substr(loc2+1);
-        double d1, d2, d3;
+        double d1 = 0;
+        double d2 = 0;
+        double d3 = 0;
         bool OK = false;
         try
         {

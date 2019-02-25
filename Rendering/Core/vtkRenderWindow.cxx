@@ -81,12 +81,14 @@ vtkRenderWindow::vtkRenderWindow()
   this->OffScreenRendering = 1;
 #endif
   this->DeviceIndex = 0;
+  this->SharedRenderWindow = nullptr;
 }
 
 //----------------------------------------------------------------------------
 vtkRenderWindow::~vtkRenderWindow()
 {
   this->SetInteractor(nullptr);
+  this->SetSharedRenderWindow(nullptr);
 
   delete [] this->AccumulationBuffer;
   this->AccumulationBuffer = nullptr;
@@ -119,6 +121,25 @@ vtkRenderWindowInteractor *vtkRenderWindow::MakeRenderWindowInteractor()
   this->Interactor = vtkRenderWindowInteractor::New();
   this->Interactor->SetRenderWindow(this);
   return this->Interactor;
+}
+
+void vtkRenderWindow::SetSharedRenderWindow(vtkRenderWindow *val)
+{
+  if (this->SharedRenderWindow == val)
+  {
+    return;
+  }
+
+  if (this->SharedRenderWindow)
+  {
+    // this->ReleaseGraphicsResources();
+    this->SharedRenderWindow->UnRegister(this);
+  }
+  this->SharedRenderWindow = val;
+  if (val)
+  {
+    val->Register(this);
+  }
 }
 
 //----------------------------------------------------------------------------
@@ -169,6 +190,19 @@ void vtkRenderWindow::SetDesiredUpdateRate(double rate)
   }
 }
 
+//----------------------------------------------------------------------------
+void vtkRenderWindow::SetStereoType(int stereoType)
+{
+  if (this->StereoType == stereoType)
+  {
+    return;
+  }
+
+  this->StereoType = stereoType;
+  this->InvokeEvent(vtkCommand::WindowStereoTypeChangedEvent);
+
+  this->Modified();
+}
 
 //----------------------------------------------------------------------------
 //
@@ -754,7 +788,7 @@ void vtkRenderWindow::StereoRenderComplete(void)
         // set up the pointers
         // right starts on x = 1 on even scanlines
         // right starts on x = 0 on odd scanlines
-        if(y % 2) {
+        if (y % 2 == 0) {
           left = sleft + y * 3 * size[0] + 3;
           right = sright + y * 3 * size[0] + 3;
         }

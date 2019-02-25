@@ -12,9 +12,21 @@
      PURPOSE.  See the above copyright notice for more information.
 
 =========================================================================*/
-// .NAME vtkLagrangeTetra
-// .SECTION Description
-// .SECTION See Also
+/**
+ * @class   vtkLagrangeTetra
+ * @brief   A 3D cell that represents an arbitrary order Lagrange tetrahedron
+ *
+ * vtkLagrangeTetra is a concrete implementation of vtkCell to represent a
+ * 3D tetrahedron using Lagrange shape functions of user specified order.
+ *
+ * The number of points in a Lagrange cell determines the order over which they
+ * are iterated relative to the parametric coordinate system of the cell. The
+ * first points that are reported are vertices. They appear in the same order in
+ * which they would appear in linear cells. Mid-edge points are reported next.
+ * They are reported in sequence. For two- and three-dimensional (3D) cells, the
+ * following set of points to be reported are face points. Finally, 3D cells
+ * report points interior to their volume.
+*/
 
 #ifndef vtkLagrangeTetra_h
 #define vtkLagrangeTetra_h
@@ -66,11 +78,11 @@ public:
     return ((vtkLagrangeTetra::MaximumOrder() + 1) *
             (vtkLagrangeTetra::MaximumOrder() + 2)/2);
   }
-  int CellBoundary(int subId, double pcoords[3], vtkIdList *pts) override;
-  int EvaluatePosition(double x[3], double* closestPoint,
+  int CellBoundary(int subId, const double pcoords[3], vtkIdList *pts) override;
+  int EvaluatePosition(const double x[3], double closestPoint[3],
                        int& subId, double pcoords[3],
-                       double& dist2, double *weights) override;
-  void EvaluateLocation(int& subId, double pcoords[3], double x[3],
+                       double& dist2, double weights[]) override;
+  void EvaluateLocation(int& subId, const double pcoords[3], double x[3],
                         double *weights) override;
   void Contour(double value, vtkDataArray *cellScalars,
                vtkIncrementalPointLocator *locator, vtkCellArray *verts,
@@ -82,19 +94,19 @@ public:
             vtkPointData *inPd, vtkPointData *outPd,
             vtkCellData *inCd, vtkIdType cellId, vtkCellData *outCd,
             int insideOut) override;
-  int IntersectWithLine(double p1[3], double p2[3], double tol, double& t,
+  int IntersectWithLine(const double p1[3], const double p2[3], double tol, double& t,
                         double x[3], double pcoords[3], int& subId) override;
   int Triangulate(int index, vtkIdList *ptIds, vtkPoints *pts) override;
-  void JacobianInverse(double pcoords[3], double** inverse, double* derivs);
-  void Derivatives(int subId, double pcoords[3], double *values,
+  void JacobianInverse(const double pcoords[3], double** inverse, double* derivs);
+  void Derivatives(int subId, const double pcoords[3], const double *values,
                    int dim, double *derivs) override;
   double* GetParametricCoords() override;
 
   int GetParametricCenter(double pcoords[3]) override;
-  double GetParametricDistance(double pcoords[3]) override;
+  double GetParametricDistance(const double pcoords[3]) override;
 
-  void InterpolateFunctions(double pcoords[3], double* weights) override;
-  void InterpolateDerivs(double pcoords[3], double* derivs) override;
+  void InterpolateFunctions(const double pcoords[3], double* weights) override;
+  void InterpolateDerivs(const double pcoords[3], double* derivs) override;
 
   vtkIdType GetOrder() const { return this->Order; }
   vtkIdType ComputeOrder();

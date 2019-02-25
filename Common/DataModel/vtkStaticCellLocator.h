@@ -95,10 +95,20 @@ public:
   void FindCellsWithinBounds(double *bbox, vtkIdList *cells) override;
 
   /**
+   * Given a finite line defined by the two points (p1,p2), return the list
+   * of unique cell ids in the buckets containing the line. It is possible
+   * that an empty cell list is returned. The user must provide the vtkIdList
+   * cell list to populate. This method returns data only after the locator
+   * has been built.
+   */
+  void FindCellsAlongLine(const double p1[3], const double p2[3],
+                          double tolerance, vtkIdList *cells) override;
+
+  /**
    * Return intersection point (if any) AND the cell which was intersected by
    * the finite line. The cell is returned as a cell id and as a generic cell.
    */
-  int IntersectWithLine(double a0[3], double a1[3], double tol,
+  int IntersectWithLine(const double a0[3], const double a1[3], double tol,
                         double& t, double x[3], double pcoords[3],
                         int &subId, vtkIdType &cellId,
                         vtkGenericCell *cell) override;
@@ -106,7 +116,7 @@ public:
   /**
    * Reimplemented from vtkAbstractCellLocator to support bad compilers.
    */
-  int IntersectWithLine(double p1[3], double p2[3], double tol,
+  int IntersectWithLine(const double p1[3], const double p2[3], double tol,
                         double& t, double x[3], double pcoords[3], int &subId) override
   {
     return this->Superclass::IntersectWithLine(p1, p2, tol, t, x, pcoords, subId);
@@ -115,7 +125,7 @@ public:
   /**
    * Reimplemented from vtkAbstractCellLocator to support bad compilers.
    */
-  int IntersectWithLine(double p1[3], double p2[3], double tol,
+  int IntersectWithLine(const double p1[3], const double p2[3], double tol,
                         double &t, double x[3], double pcoords[3],
                         int &subId, vtkIdType &cellId) override
   {

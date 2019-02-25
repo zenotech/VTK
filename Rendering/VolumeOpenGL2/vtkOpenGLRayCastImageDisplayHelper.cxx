@@ -25,6 +25,7 @@
 #include "vtkOpenGLRenderUtilities.h"
 #include "vtkOpenGLRenderWindow.h"
 #include "vtkOpenGLShaderCache.h"
+#include "vtkOpenGLState.h"
 #include "vtkOpenGLVertexArrayObject.h"
 #include "vtkShaderProgram.h"
 
@@ -153,7 +154,8 @@ void vtkOpenGLRayCastImageDisplayHelper::RenderTextureInternal( vtkVolume *vol,
   }
 
   // Don't write into the Zbuffer - just use it for comparisons
-  glDepthMask( 0 );
+  vtkOpenGLState *ostate = ctx->GetState();
+  ostate->vtkglDepthMask( 0 );
 
   this->TextureObject->SetMinificationFilter(vtkTextureObject::Linear);
   this->TextureObject->SetMagnificationFilter(vtkTextureObject::Linear);
@@ -211,7 +213,7 @@ void vtkOpenGLRayCastImageDisplayHelper::RenderTextureInternal( vtkVolume *vol,
     std::string FSSource =
       "//VTK::System::Dec\n"
       "//VTK::Output::Dec\n"
-      "varying vec2 tcoordVC;\n"
+      "in vec2 tcoordVC;\n"
       "uniform sampler2D source;\n"
       "uniform float scale;\n"
       "void main(void)\n"
@@ -240,22 +242,15 @@ void vtkOpenGLRayCastImageDisplayHelper::RenderTextureInternal( vtkVolume *vol,
     ctx->GetShaderCache()->ReadyShaderProgram(this->ShaderProgram->Program);
   }
 
-  glEnable(GL_BLEND);
+  ostate->vtkglEnable(GL_BLEND);
 
   // backup current GL blend state
-  GLint blendSrcA = GL_SRC_ALPHA;
-  GLint blendDstA = GL_ONE;
-  GLint blendSrcC = GL_SRC_ALPHA;
-  GLint blendDstC = GL_ONE;
-  glGetIntegerv(GL_BLEND_SRC_ALPHA, &blendSrcA);
-  glGetIntegerv(GL_BLEND_DST_ALPHA, &blendDstA);
-  glGetIntegerv(GL_BLEND_SRC_RGB, &blendSrcC);
-  glGetIntegerv(GL_BLEND_DST_RGB, &blendDstC);
+  vtkOpenGLState::ScopedglBlendFuncSeparate bfsaver(ostate);
 
   if (this->PreMultipliedColors)
   {
     // make the blend function correct for textures premultiplied by alpha.
-    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    ostate->vtkglBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
   }
 
   // bind and activate this texture
@@ -266,9 +261,6 @@ void vtkOpenGLRayCastImageDisplayHelper::RenderTextureInternal( vtkVolume *vol,
   vtkOpenGLRenderUtilities::RenderQuad(verts, tcoords, this->ShaderProgram->Program,
     this->ShaderProgram->VAO);
   this->TextureObject->Deactivate();
-
-  // restore GL blend state
-  glBlendFuncSeparate(blendSrcC,blendDstC,blendSrcA,blendDstA);
 
   vtkOpenGLCheckErrorMacro("failed after RenderTextureInternal");
 }

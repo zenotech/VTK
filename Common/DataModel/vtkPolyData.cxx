@@ -41,7 +41,7 @@ vtkStandardNewMacro(vtkPolyData);
 //----------------------------------------------------------------------------
 // Initialize static member.  This member is used to simplify traversal
 // of verts, lines, polygons, and triangle strips lists.  It basically
-// "marks" empty lists so that the traveral method "GetNextCell"
+// "marks" empty lists so that the traversal method "GetNextCell"
 // works properly.
 
 struct vtkPolyDataDummyContainter
@@ -566,7 +566,7 @@ void vtkPolyData::GetCellBounds(vtkIdType cellId, double bounds[6])
 //----------------------------------------------------------------------------
 void vtkPolyData::ComputeBounds()
 {
-  if (this->GetMTime() > this->ComputeTime)
+  if (this->GetMeshMTime() > this->ComputeTime)
   {
     // If there are no cells, but there are points, back to the
     // bounds of the points set.
@@ -1109,10 +1109,17 @@ void vtkPolyData::GetCellPoints(vtkIdType cellId, vtkIdList *ptIds)
   }
 
   this->vtkPolyData::GetCellPoints(cellId, npts, pts);
-  ptIds->InsertId (npts-1,pts[npts-1]);
-  for (i=0; i<npts-1; i++)
+  if ( npts < 1 )
   {
-    ptIds->SetId(i,pts[i]);
+    ptIds->Reset();
+  }
+  else
+  {
+    ptIds->InsertId(npts-1,pts[npts-1]);
+    for (i=0; i<npts-1; i++)
+    {
+      ptIds->SetId(i,pts[i]);
+    }
   }
 }
 
@@ -1241,7 +1248,7 @@ void vtkPolyData::Allocate(vtkPolyData *inPolyData, vtkIdType numCells,
 // the PolyData::Allocate() function has been called first or that vertex,
 // line, polygon, and triangle strip arrays have been supplied.
 // Note: will also insert VTK_PIXEL, but converts it to VTK_QUAD.
-vtkIdType vtkPolyData::InsertNextCell(int type, int npts, vtkIdType *pts)
+vtkIdType vtkPolyData::InsertNextCell(int type, int npts, const vtkIdType pts[])
 {
   vtkIdType id;
 
@@ -1478,7 +1485,7 @@ vtkIdType vtkPolyData::InsertNextLinkedPoint(double x[3], int numLinks)
 // Add a new cell to the cell data structure (after cell pointers have been
 // built). This method adds the cell and then updates the links from the points
 // to the cells. (Memory is allocated as necessary.)
-vtkIdType vtkPolyData::InsertNextLinkedCell(int type, int npts, vtkIdType *pts)
+vtkIdType vtkPolyData::InsertNextLinkedCell(int type, int npts, const vtkIdType pts[])
 {
   vtkIdType i, id;
 
@@ -1518,7 +1525,7 @@ void vtkPolyData::AddReferenceToCell(vtkIdType ptId, vtkIdType cellId)
 // operator is (typically) used when links from points to cells have not been
 // built (i.e., BuildLinks() has not been executed). Use the operator
 // ReplaceLinkedCell() to replace a cell when cell structure has been built.
-void vtkPolyData::ReplaceCell(vtkIdType cellId, int npts, vtkIdType *pts)
+void vtkPolyData::ReplaceCell(vtkIdType cellId, int npts, const vtkIdType pts[])
 {
   vtkIdType loc;
   int type;
@@ -1560,7 +1567,7 @@ void vtkPolyData::ReplaceCell(vtkIdType cellId, int npts, vtkIdType *pts)
 // RemoveCellReference() to delete all references from points to (old) cell.
 // You may also want to consider using the operator ResizeCellList() if the
 // link list is changing size.
-void vtkPolyData::ReplaceLinkedCell(vtkIdType cellId, int npts, vtkIdType *pts)
+void vtkPolyData::ReplaceLinkedCell(vtkIdType cellId, int npts, const vtkIdType pts[])
 {
   vtkIdType loc = this->Cells->GetCellLocation(cellId);
   int type = this->Cells->GetCellType(cellId);
@@ -2219,7 +2226,7 @@ int vtkPolyData::GetScalarFieldCriticalIndex (vtkIdType pointId,
     for(int i = 0; i < triangleNb; i++)
     {
       vtkCell *c = this->GetCell(triangleList->GetId(i));
-      pointList = c->GetPointIds();;
+      pointList = c->GetPointIds();
       int pointNb = pointList->GetNumberOfIds();
 
       if(pointList->IsId(pointId) >= 0)
@@ -2378,6 +2385,29 @@ int vtkPolyData::GetScalarFieldCriticalIndex (vtkIdType pointId, int fieldId)
 vtkMTimeType vtkPolyData::GetMeshMTime()
 {
   vtkMTimeType time = this->Points ? this->Points->GetMTime() : 0;
+  if (this->Verts)
+  {
+    time = vtkMath::Max(this->Verts->GetMTime(), time);
+  }
+  if (this->Lines)
+  {
+    time = vtkMath::Max(this->Lines->GetMTime(), time);
+  }
+  if (this->Polys)
+  {
+    time = vtkMath::Max(this->Polys->GetMTime(), time);
+  }
+  if (this->Strips)
+  {
+    time = vtkMath::Max(this->Strips->GetMTime(), time);
+  }
+  return time;
+}
+
+//----------------------------------------------------------------------------
+vtkMTimeType vtkPolyData::GetMTime()
+{
+  vtkMTimeType time = this->Superclass::GetMTime();
   if (this->Verts)
   {
     time = vtkMath::Max(this->Verts->GetMTime(), time);

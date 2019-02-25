@@ -314,6 +314,7 @@ void vtkPlaneWidget::SetEnabled(int enabling)
     this->ConeActor2->SetProperty(this->HandleProperty);
 
     this->SelectRepresentation();
+    this->RegisterPickers();
     this->InvokeEvent(vtkCommand::EnableEvent,nullptr);
   }
 
@@ -349,6 +350,7 @@ void vtkPlaneWidget::SetEnabled(int enabling)
     this->CurrentHandle = nullptr;
     this->InvokeEvent(vtkCommand::DisableEvent,nullptr);
     this->SetCurrentRenderer(nullptr);
+    this->UnRegisterPickers();
   }
 
   this->Interactor->Render();
@@ -357,8 +359,13 @@ void vtkPlaneWidget::SetEnabled(int enabling)
 //------------------------------------------------------------------------------
 void vtkPlaneWidget::RegisterPickers()
 {
-  this->Interactor->GetPickingManager()->AddPicker(this->HandlePicker, this);
-  this->Interactor->GetPickingManager()->AddPicker(this->PlanePicker, this);
+  vtkPickingManager* pm = this->GetPickingManager();
+  if (!pm)
+  {
+    return;
+  }
+  pm->AddPicker(this->HandlePicker, this);
+  pm->AddPicker(this->PlanePicker, this);
 }
 
 void vtkPlaneWidget::ProcessEvents(vtkObject* vtkNotUsed(object),
@@ -505,7 +512,7 @@ void vtkPlaneWidget::PositionHandles()
     this->PlaneOutline->GetPoints()->SetPoint(1,pt1);
     this->PlaneOutline->GetPoints()->SetPoint(2,x);
     this->PlaneOutline->GetPoints()->SetPoint(3,pt2);
-    this->PlaneOutline->Modified();
+    this->PlaneOutline->GetPoints()->Modified();
   }
   this->SelectRepresentation();
 

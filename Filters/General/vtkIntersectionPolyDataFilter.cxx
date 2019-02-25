@@ -115,9 +115,9 @@ protected:
 
   //Get individual polygon loop of splitting cell
   int GetSingleLoop(vtkPolyData *pd,simPolygon *loop, vtkIdType nextCell,
-                    bool *interPtBool, bool *lineBool);
+                    std::vector<bool> &interPtBool, std::vector<bool> &lineBool);
 
-  //Follow a loop orienation to iterate around a split polygon
+  //Follow a loop orientation to iterate around a split polygon
   int FollowLoopOrientation(vtkPolyData *pd, simPolygon *loop,
                             vtkIdType *nextCell,
                             vtkIdType nextPt, vtkIdType prevPt,
@@ -128,7 +128,7 @@ protected:
                           vtkIdType *nextCell, vtkIdType nextPt,
                           vtkIdType prevPt, vtkIdList *pointCells);
 
-  //Get the loop orienation is already given
+  //Get the loop orientation is already given
   int GetLoopOrientation(vtkPolyData *pd, vtkIdType cell, vtkIdType ptId1,
                          vtkIdType ptId2);
 
@@ -161,7 +161,7 @@ public:
 
   // Map from points to the cells that contain them. Used for point
   // data interpolation. For points on the edge between two cells, it
-  // does not matter which cell is recorded bcause the interpolation
+  // does not matter which cell is recorded because the interpolation
   // will be the same.  One array for each output surface.
   vtkIdTypeArray      *PointCellIds[2];
   vtkIntArray         *BoundaryPoints[2];
@@ -1418,23 +1418,13 @@ int vtkIntersectionPolyDataFilter::Impl
   vtkSmartPointer<vtkIdList> cellPoints = vtkSmartPointer<vtkIdList>::New();
   simPoint nextPt;
   vtkIdType nextCell;
-  bool *ptBool;
-  ptBool = new bool[pd->GetNumberOfPoints()];
-  bool *lineBool;
-  lineBool = new bool[pd->GetNumberOfCells()];
 
   int numPoints = pd->GetNumberOfPoints();
   int numCells = pd->GetNumberOfCells();
 
-  for (vtkIdType ptId = 0; ptId < numPoints; ptId++)
-  {
-    ptBool[ptId] = false;
-  }
-    vtkDebugWithObjectMacro(this->ParentFilter, <<"Number Of Cells: "<<numCells);
-  for (vtkIdType lineId = 0; lineId < numCells; lineId++)
-  {
-    lineBool[lineId] = false;
-  }
+  std::vector<bool> ptBool(numPoints, false);
+  // Add one for the cell that could be added in GetSingleLoop
+  std::vector<bool> lineBool(numCells+1, false);
 
   //For each point in triangle and additional lines
   for (vtkIdType ptId = 0; ptId < numPoints; ptId++)
@@ -1455,8 +1445,6 @@ int vtkIntersectionPolyDataFilter::Impl
       //Get one loop for untouched point
       if (this->GetSingleLoop(pd, &interloop, nextCell, ptBool, lineBool) != 1)
       {
-        delete [] ptBool;
-        delete [] lineBool;
         return 0;
       }
       //Add new loop
@@ -1481,17 +1469,12 @@ int vtkIntersectionPolyDataFilter::Impl
       //Get single loop if the line is still untouched
       if (this->GetSingleLoop(pd, &interloop, nextCell, ptBool, lineBool) != 1)
       {
-        delete [] ptBool;
-        delete [] lineBool;
         return 0;
       }
       //Add new loop to loops
       loops->push_back(interloop);
     }
   }
-
-  delete [] ptBool;
-  delete [] lineBool;
 
   return 1;
 }
@@ -1500,7 +1483,7 @@ int vtkIntersectionPolyDataFilter::Impl
 
 int vtkIntersectionPolyDataFilter::Impl
 ::GetSingleLoop(vtkPolyData *pd, simPolygon *loop, vtkIdType nextCell,
-    bool *interPtBool, bool *lineBool)
+    std::vector<bool> &interPtBool, std::vector<bool> &lineBool)
 {
   int intertype = 0;
   vtkSmartPointer<vtkIdList> pointCells = vtkSmartPointer<vtkIdList>::New();
@@ -2012,9 +1995,7 @@ vtkIntersectionPolyDataFilter::vtkIntersectionPolyDataFilter()
 }
 
 //----------------------------------------------------------------------------
-vtkIntersectionPolyDataFilter::~vtkIntersectionPolyDataFilter()
-{
-}
+vtkIntersectionPolyDataFilter::~vtkIntersectionPolyDataFilter() = default;
 
 //----------------------------------------------------------------------------
 void vtkIntersectionPolyDataFilter::PrintSelf(ostream &os, vtkIndent indent)

@@ -183,7 +183,7 @@ public:
   /**
    * Set/Get the bounds of the widget representation. PlaceWidget can also be
    * used to set the bounds of the widget but it may also have other effects
-   * on the internal state of the represenation. Use this function when only
+   * on the internal state of the representation. Use this function when only
    * the widget bounds are needs to be modified.
    */
   vtkSetVector6Macro(WidgetBounds, double);
@@ -404,6 +404,14 @@ public:
   vtkBooleanMacro(CropPlaneToBoundingBox,bool);
   //@}
 
+  //@{
+  /**
+   * For complex events should we snap orientations to
+   * be aligned with the x y z axes
+   */
+  vtkGetMacro(SnapToAxes, bool);
+  vtkSetMacro(SnapToAxes, bool);
+  //@}
 
 protected:
   vtkImplicitPlaneRepresentation();
@@ -420,6 +428,10 @@ protected:
   vtkTypeBool NormalToXAxis;
   vtkTypeBool NormalToYAxis;
   vtkTypeBool NormalToZAxis;
+
+  double SnappedEventOrientation[4];
+  bool SnappedOrientation;
+  bool SnapToAxes;
 
   // Locking normal to camera
   vtkTypeBool LockNormalToCamera;

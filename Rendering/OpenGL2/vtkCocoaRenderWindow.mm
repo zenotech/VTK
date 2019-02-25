@@ -21,6 +21,7 @@ PURPOSE.  See the above copyright notice for more information.
 
 #import "vtkOpenGL.h"
 #import "vtkCocoaRenderWindow.h"
+#import "vtkOpenGLVertexBufferObjectCache.h"
 #import "vtkRenderWindowInteractor.h"
 #import "vtkCommand.h"
 #import "vtkIdList.h"
@@ -1013,9 +1014,20 @@ void vtkCocoaRenderWindow::CreateGLContext()
         this->MultiSamples /= 2;
       }
     }
-    else
+  }
+
+  // do we have a shared render window?
+  NSOpenGLContext *sharedContext = nil;
+  if (this->SharedRenderWindow)
+  {
+    vtkCocoaRenderWindow *renWin =
+      vtkCocoaRenderWindow::SafeDownCast(this->SharedRenderWindow);
+    if (renWin && renWin->GetContextId())
     {
-      this->SetContextSupportsOpenGL32(true);
+      sharedContext = (NSOpenGLContext*)renWin->GetContextId();
+      this->VBOCache->Delete();
+      this->VBOCache = renWin->VBOCache;
+      this->VBOCache->Register(this);
     }
   }
 
@@ -1023,7 +1035,7 @@ void vtkCocoaRenderWindow::CreateGLContext()
   if (pixelFormat)
   {
     context = [[NSOpenGLContext alloc] initWithFormat:pixelFormat
-                                         shareContext:nil];
+                                         shareContext:sharedContext];
 
     // This syncs the OpenGL context to the VBL to prevent tearing
     GLint one = 1;
@@ -1511,7 +1523,7 @@ void vtkCocoaRenderWindow::SetCocoaManager(void *manager)
 }
 
 //----------------------------------------------------------------------------
-void vtkCocoaRenderWindow::SetWindowInfo(char *info)
+void vtkCocoaRenderWindow::SetWindowInfo(const char *info)
 {
   // The parameter is an ASCII string of a decimal number representing
   // a pointer to the window. Convert it back to a pointer.
@@ -1525,7 +1537,7 @@ void vtkCocoaRenderWindow::SetWindowInfo(char *info)
 }
 
 //----------------------------------------------------------------------------
-void vtkCocoaRenderWindow::SetParentInfo(char *info)
+void vtkCocoaRenderWindow::SetParentInfo(const char *info)
 {
   // The parameter is an ASCII string of a decimal number representing
   // a pointer to the window. Convert it back to a pointer.
@@ -1606,6 +1618,12 @@ void vtkCocoaRenderWindow::SetCurrentCursor(int shape)
     return;
   }
   this->Superclass::SetCurrentCursor(shape);
+
+  if (!this->Mapped)
+  {
+    return;
+  }
+
   NSCursor* cursor = nil;
   switch (shape)
   {

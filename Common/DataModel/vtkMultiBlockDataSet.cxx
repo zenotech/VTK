@@ -21,14 +21,10 @@
 
 vtkStandardNewMacro(vtkMultiBlockDataSet);
 //----------------------------------------------------------------------------
-vtkMultiBlockDataSet::vtkMultiBlockDataSet()
-{
-}
+vtkMultiBlockDataSet::vtkMultiBlockDataSet() = default;
 
 //----------------------------------------------------------------------------
-vtkMultiBlockDataSet::~vtkMultiBlockDataSet()
-{
-}
+vtkMultiBlockDataSet::~vtkMultiBlockDataSet() = default;
 
 //----------------------------------------------------------------------------
 vtkMultiBlockDataSet* vtkMultiBlockDataSet::GetData(vtkInformation* info)
@@ -67,7 +63,9 @@ vtkDataObject* vtkMultiBlockDataSet::GetBlock(unsigned int blockno)
 void vtkMultiBlockDataSet::SetBlock(unsigned int blockno, vtkDataObject* block)
 {
   if (block && block->IsA("vtkCompositeDataSet") &&
-    !block->IsA("vtkMultiBlockDataSet") && !block->IsA("vtkMultiPieceDataSet"))
+      !block->IsA("vtkMultiBlockDataSet") &&
+      !block->IsA("vtkMultiPieceDataSet") &&
+      !block->IsA("vtkPartitionedDataSet"))
   {
     vtkErrorMacro(<< block->GetClassName() << " cannot be added as a block.");
     return;

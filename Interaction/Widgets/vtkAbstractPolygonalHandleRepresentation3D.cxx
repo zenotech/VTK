@@ -121,8 +121,12 @@ vtkAbstractPolygonalHandleRepresentation3D
 //----------------------------------------------------------------------
 void vtkAbstractPolygonalHandleRepresentation3D::RegisterPickers()
 {
-  this->Renderer->GetRenderWindow()->GetInteractor()->GetPickingManager()
-    ->AddPicker(this->HandlePicker, this);
+  vtkPickingManager* pm = this->GetPickingManager();
+  if (!pm)
+  {
+    return;
+  }
+  pm->AddPicker(this->HandlePicker, this);
 }
 
 //----------------------------------------------------------------------
@@ -707,6 +711,10 @@ int vtkAbstractPolygonalHandleRepresentation3D::RenderOpaqueGeometry(vtkViewport
 int vtkAbstractPolygonalHandleRepresentation3D::RenderTranslucentPolygonalGeometry(
   vtkViewport *viewport)
 {
+  // The internal actor needs to share property keys. This allows depth peeling
+  // etc to work.
+  this->Actor->SetPropertyKeys(this->GetPropertyKeys());
+
   int count=0;
   if (this->HandleVisibility)
   {

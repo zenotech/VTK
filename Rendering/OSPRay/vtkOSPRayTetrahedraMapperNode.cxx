@@ -51,9 +51,9 @@ vtkOSPRayTetrahedraMapperNode::vtkOSPRayTetrahedraMapperNode()
 vtkOSPRayTetrahedraMapperNode::~vtkOSPRayTetrahedraMapperNode()
 {
   ospRelease(this->TransferFunction);
-  if (this->OSPRayVolume && this->Cache->GetSize() == 0)
+  if (this->Cache->GetSize() == 0)
   {
-    delete this->OSPRayVolume;
+    ospRelease(this->OSPRayVolume);
   }
   delete this->Cache;
 }
@@ -103,7 +103,7 @@ void vtkOSPRayTetrahedraMapperNode::Render(bool prepass)
     vtkRenderer *ren = vtkRenderer::SafeDownCast(orn->GetRenderable());
     this->Cache->SetSize(vtkOSPRayRendererNode::GetTimeCacheSize(ren));
 
-    osp::Model* OSPRayModel = orn->GetOModel();
+    OSPModel OSPRayModel = orn->GetOModel();
     if (!OSPRayModel)
     {
       return;
@@ -150,7 +150,7 @@ void vtkOSPRayTetrahedraMapperNode::Render(bool prepass)
       {
         if (this->OSPRayVolume && this->Cache->GetSize() == 0)
         {
-          delete this->OSPRayVolume;
+          ospRelease(this->OSPRayVolume);
         }
 #if OSPRAY_VERSION_MAJOR == 1 && OSPRAY_VERSION_MINOR >= 5
         this->OSPRayVolume = ospNewVolume("unstructured_volume");
@@ -195,6 +195,24 @@ void vtkOSPRayTetrahedraMapperNode::Render(bool prepass)
             {
               this->Cells.push_back(cell->GetPointId(j));
             }
+          }
+          else if (cell->GetCellType() == VTK_WEDGE)
+          {
+            for (int j = 0; j < 2; ++j)
+            {
+              this->Cells.push_back(-1);
+            }
+            for (int j = 0; j < 6; ++j)
+            {
+              this->Cells.push_back(cell->GetPointId(j));
+            }
+          }
+          else
+          {
+            vtkWarningMacro("Unsupported cell type encountered: "
+                            << cell->GetClassName() << " id="
+                            << cell->GetCellType()
+                            << ". Ignored.");
           }
 #endif
         }

@@ -30,14 +30,10 @@
 vtkStandardNewMacro(vtkFixedPointVolumeRayCastCompositeGOShadeHelper);
 
 // Construct a new vtkFixedPointVolumeRayCastCompositeGOShadeHelper with default values
-vtkFixedPointVolumeRayCastCompositeGOShadeHelper::vtkFixedPointVolumeRayCastCompositeGOShadeHelper()
-{
-}
+vtkFixedPointVolumeRayCastCompositeGOShadeHelper::vtkFixedPointVolumeRayCastCompositeGOShadeHelper() = default;
 
 // Destruct a vtkFixedPointVolumeRayCastCompositeGOShadeHelper - clean up any memory used
-vtkFixedPointVolumeRayCastCompositeGOShadeHelper::~vtkFixedPointVolumeRayCastCompositeGOShadeHelper()
-{
-}
+vtkFixedPointVolumeRayCastCompositeGOShadeHelper::~vtkFixedPointVolumeRayCastCompositeGOShadeHelper() = default;
 
 
 // This method is used when the interpolation type is nearest neighbor and
@@ -958,7 +954,7 @@ void vtkFixedPointVolumeRayCastCompositeGOShadeHelper::GenerateImage( int thread
         }
       }
     }
-    // Indepedent components (more than one)
+    // Independent components (more than one)
     else if ( vol->GetProperty()->GetIndependentComponents() )
     {
       switch ( scalarType )

@@ -62,8 +62,8 @@ public:
   std::vector< std::vector<double> > Storage;
 
 protected:
-  vtkGraphEdgePoints() { }
-  ~vtkGraphEdgePoints() override { }
+  vtkGraphEdgePoints() = default;
+  ~vtkGraphEdgePoints() override = default;
 
 private:
   vtkGraphEdgePoints(const vtkGraphEdgePoints&) = delete;
@@ -726,6 +726,7 @@ void vtkGraph::CopyInternal(vtkGraph *g, bool deep)
   }
 
   // Copy edge list
+  this->Internals->NumberOfEdges = g->Internals->NumberOfEdges;
   if (g->EdgeList && deep)
   {
     if (!this->EdgeList)
@@ -737,6 +738,10 @@ void vtkGraph::CopyInternal(vtkGraph *g, bool deep)
   else
   {
     this->SetEdgeList(g->EdgeList);
+    if (g->EdgeList)
+    {
+      this->BuildEdgeList();
+    }
   }
 
   // Propagate information used by distributed graphs
@@ -865,7 +870,7 @@ void vtkGraph::BuildEdgeList()
 }
 
 //----------------------------------------------------------------------------
-void vtkGraph::SetEdgePoints(vtkIdType e, vtkIdType npts, double* pts)
+void vtkGraph::SetEdgePoints(vtkIdType e, vtkIdType npts, const double pts[])
 {
   if (vtkDistributedGraphHelper *helper = this->GetDistributedGraphHelper())
   {
@@ -1015,7 +1020,7 @@ double* vtkGraph::GetEdgePoint(vtkIdType e, vtkIdType i)
 }
 
 //----------------------------------------------------------------------------
-void vtkGraph::SetEdgePoint(vtkIdType e, vtkIdType i, double x[3])
+void vtkGraph::SetEdgePoint(vtkIdType e, vtkIdType i, const double x[3])
 {
   if (vtkDistributedGraphHelper *helper = this->GetDistributedGraphHelper())
   {
@@ -1089,7 +1094,7 @@ void vtkGraph::ClearEdgePoints(vtkIdType e)
 }
 
 //----------------------------------------------------------------------------
-void vtkGraph::AddEdgePoint(vtkIdType e, double x[3])
+void vtkGraph::AddEdgePoint(vtkIdType e, const double x[3])
 {
   if (vtkDistributedGraphHelper *helper = this->GetDistributedGraphHelper())
   {
@@ -1818,7 +1823,7 @@ vtkIdType vtkGraph::GetNumberOfElements(int type)
     case EDGE:
       return this->GetNumberOfEdges();
   }
-  return this->Superclass::GetNumberOfElements(type);;
+  return this->Superclass::GetNumberOfElements(type);
 }
 
 //----------------------------------------------------------------------------

@@ -139,8 +139,12 @@ GetButtonProp(int i)
 //------------------------------------------------------------------------------
 void vtkProp3DButtonRepresentation::RegisterPickers()
 {
-  this->Renderer->GetRenderWindow()->GetInteractor()->GetPickingManager()
-    ->AddPicker(this->Picker, this);
+  vtkPickingManager* pm = this->GetPickingManager();
+  if (!pm)
+  {
+    return;
+  }
+  pm->AddPicker(this->Picker, this);
 }
 
 //-------------------------------------------------------------------------
@@ -167,8 +171,8 @@ void vtkProp3DButtonRepresentation::PlaceWidget(double bds[6])
 
     prop->GetBounds(aBds);
     aCenter[0] = (aBds[0]+aBds[1]) / 2.0;
-    aCenter[1] = (aBds[2]+aBds[3]) / 2.0;;
-    aCenter[2] = (aBds[4]+aBds[5]) / 2.0;;
+    aCenter[1] = (aBds[2]+aBds[3]) / 2.0;
+    aCenter[2] = (aBds[4]+aBds[5]) / 2.0;
 
     // Now fit the actor bounds in the place bounds by tampering with its
     // transform.

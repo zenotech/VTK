@@ -59,6 +59,9 @@ vtkImplicitPlaneRepresentation::vtkImplicitPlaneRepresentation()
   this->NormalToYAxis = 0;
   this->NormalToZAxis = 0;
 
+  this->SnappedOrientation = false;
+  this->SnapToAxes = false;
+
   this->LockNormalToCamera = 0;
 
   this->CropPlaneToBoundingBox = true;
@@ -397,7 +400,19 @@ int vtkImplicitPlaneRepresentation::ComputeComplexInteractionState(
   {
     double pos[3];
     edd->GetWorldPosition(pos);
-    vtkAssemblyPath* path = this->GetAssemblyPath3DPoint(pos, this->Picker);
+    if (this->DrawOutline)
+    {
+      this->Picker->DeletePickList(this->OutlineActor);
+    }
+     vtkAssemblyPath* path = this->GetAssemblyPath3DPoint(pos, this->Picker);
+    if (this->DrawOutline)
+    {
+      this->Picker->AddPickList(this->OutlineActor);
+      if (path == nullptr)
+      {
+        path = this->GetAssemblyPath3DPoint(pos, this->Picker);
+      }
+    }
 
     if ( path == nullptr ) // Not picking this widget
     {
@@ -541,6 +556,11 @@ void vtkImplicitPlaneRepresentation::StartComplexInteraction(
     edd->GetWorldOrientation(this->StartEventOrientation);
     std::copy(this->StartEventOrientation, this->StartEventOrientation + 4,
       this->LastEventOrientation);
+    if (this->SnappedOrientation)
+    {
+      std::copy(this->StartEventOrientation,
+        this->StartEventOrientation+4, this->SnappedEventOrientation);
+    }
   }
 }
 
@@ -793,6 +813,9 @@ int vtkImplicitPlaneRepresentation::HasTranslucentPolygonalGeometry()
 void vtkImplicitPlaneRepresentation::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os,indent);
+
+  os << indent << "Snap To Axes: "
+     << (this->SnapToAxes ? "On\n" : "Off\n");
 
   if ( this->NormalProperty )
   {
@@ -1103,6 +1126,34 @@ void vtkImplicitPlaneRepresentation::TranslateOrigin(double *p1, double *p2)
   this->BuildRepresentation();
 }
 
+namespace {
+  bool snapToAxis(vtkVector3d &in, vtkVector3d &out, double snapAngle)
+  {
+    int largest = 0;
+    if (fabs(in[1]) > fabs(in[0]))
+    {
+      largest = 1;
+    }
+    if (fabs(in[2]) > fabs(in[largest]))
+    {
+      largest = 2;
+    }
+    vtkVector3d axis(0,0,0);
+    axis[largest] = 1.0;
+    // 3 degrees of sticky
+    if (fabs(in.Dot(axis)) > cos(3.1415926*snapAngle/180.0))
+    {
+      if (in.Dot(axis) < 0)
+      {
+        axis[largest] = -1;
+      }
+      out = axis;
+      return true;
+    }
+    return false;
+  }
+}
+
 //----------------------------------------------------------------------------
 // Loop through all points and translate and rotate them
 void vtkImplicitPlaneRepresentation::UpdatePose(
@@ -1124,7 +1175,35 @@ void vtkImplicitPlaneRepresentation::UpdatePose(
   vtkMath::RotateVectorByWXYZ(normal, temp1, nNew);
   vtkMath::RotateVectorByWXYZ(nNew, temp2, nNew);
 
-  this->SetNormal(nNew);
+  if (this->SnapToAxes)
+  {
+    vtkVector3d basis(nNew);
+    double temp3[4];
+    if (this->SnappedOrientation)
+    {
+      double nNew2[3];
+      std::copy(this->SnappedEventOrientation,
+        this->SnappedEventOrientation+4,
+        temp3);
+      temp3[0] = vtkMath::RadiansFromDegrees(-temp3[0]);
+      vtkMath::RotateVectorByWXYZ(normal, temp3, nNew2);
+      vtkMath::RotateVectorByWXYZ(nNew2, temp2, basis.GetData());
+    }
+    // 14 degrees to snap in, 16 to snap out
+    // avoids noise on the boundary
+    bool newSnap = snapToAxis(basis, basis,
+      (this->SnappedOrientation ? 16 : 14));
+    if (newSnap && !this->SnappedOrientation)
+    {
+      std::copy(d2, d2+4, this->SnappedEventOrientation);
+    }
+    this->SnappedOrientation = newSnap;
+    this->SetNormal(basis.GetData());
+  }
+  else
+  {
+    this->SetNormal(nNew);
+  }
 
   // adjust center for rotation
   double v[3];
@@ -1726,6 +1805,10 @@ void vtkImplicitPlaneRepresentation::SetNormalToCamera()
 //----------------------------------------------------------------------
 void vtkImplicitPlaneRepresentation::RegisterPickers()
 {
-  this->Renderer->GetRenderWindow()->GetInteractor()->GetPickingManager()
-    ->AddPicker(this->Picker, this);
+  vtkPickingManager* pm = this->GetPickingManager();
+  if (!pm)
+  {
+    return;
+  }
+  pm->AddPicker(this->Picker, this);
 }

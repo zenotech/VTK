@@ -42,13 +42,32 @@ class VTKACCELERATORSVTKM_EXPORT vtkmCellSetExplicitAOS : public CellSet
 {
 public:
   vtkmCellSetExplicitAOS(const std::string& name = std::string())
-    : CellSet(name), Shapes(), Connectivity(), IndexOffsets(),
-      ReverseConnectivityBuilt(false),RConn(), RNumIndices(), RIndexOffsets(),
-      NumberOfPoints(0)
+    : CellSet(name)
+    , Shapes()
+    , Connectivity()
+    , IndexOffsets()
+    , ReverseConnectivityBuilt(false)
+    , RConn()
+    , RNumIndices()
+    , RIndexOffsets()
+    , NumberOfPoints(0)
   {
   }
 
   virtual ~vtkmCellSetExplicitAOS()
+  {
+  }
+
+  vtkmCellSetExplicitAOS(const vtkmCellSetExplicitAOS& src)
+    : CellSet(src)
+    , Shapes(src.Shapes)
+    , Connectivity(src.Connectivity)
+    , IndexOffsets(src.IndexOffsets)
+    , ReverseConnectivityBuilt(src.ReverseConnectivityBuilt)
+    , RConn(src.RConn)
+    , RNumIndices(src.RNumIndices)
+    , RIndexOffsets(src.RIndexOffsets)
+    , NumberOfPoints(src.NumberOfPoints)
   {
   }
 
@@ -66,19 +85,19 @@ public:
     return *this;
   }
 
-  vtkm::Id GetNumberOfCells() const
+  vtkm::Id GetNumberOfCells() const override
   {
     return this->Shapes.GetNumberOfValues();
   }
 
-  vtkm::Id GetNumberOfPoints() const
+  vtkm::Id GetNumberOfPoints() const override
   {
     return this->NumberOfPoints;
   }
 
-  virtual vtkm::Id GetNumberOfFaces() const { return -1; }
+  vtkm::Id GetNumberOfFaces() const override { return -1; }
 
-  virtual vtkm::Id GetNumberOfEdges() const { return -1; }
+  vtkm::Id GetNumberOfEdges() const override { return -1; }
 
 
   vtkm::Id GetSchedulingRange(vtkm::TopologyElementTagCell) const
@@ -152,7 +171,17 @@ public:
     return this->IndexOffsets;
   }
 
-  virtual void PrintSummary(std::ostream& out) const;
+  void PrintSummary(std::ostream& out) const override;
+
+  void ReleaseResourcesExecution() override
+  {
+    this->Shapes.ReleaseResourcesExecution();
+    this->Connectivity.ReleaseResourcesExecution();
+    this->IndexOffsets.ReleaseResourcesExecution();
+    this->RConn.ReleaseResourcesExecution();
+    this->RNumIndices.ReleaseResourcesExecution();
+    this->RIndexOffsets.ReleaseResourcesExecution();
+  }
 
 private:
   vtkm::cont::ArrayHandle<vtkm::UInt8, tovtkm::vtkAOSArrayContainerTag> Shapes;
@@ -193,6 +222,18 @@ extern template VTKACCELERATORSVTKM_TEMPLATE_EXPORT
 extern template VTKACCELERATORSVTKM_TEMPLATE_EXPORT
   vtkm::exec::ReverseConnectivityVTK<vtkm::cont::DeviceAdapterTagTBB>
     vtkmCellSetExplicitAOS::PrepareForInput(vtkm::cont::DeviceAdapterTagTBB,
+      vtkm::TopologyElementTagCell, vtkm::TopologyElementTagPoint) const;
+#endif
+
+#ifdef VTKM_ENABLE_OPENMP
+extern template VTKACCELERATORSVTKM_TEMPLATE_EXPORT
+  vtkm::exec::ConnectivityVTKAOS<vtkm::cont::DeviceAdapterTagOpenMP>
+    vtkmCellSetExplicitAOS::PrepareForInput(vtkm::cont::DeviceAdapterTagOpenMP,
+      vtkm::TopologyElementTagPoint, vtkm::TopologyElementTagCell) const;
+
+extern template VTKACCELERATORSVTKM_TEMPLATE_EXPORT
+  vtkm::exec::ReverseConnectivityVTK<vtkm::cont::DeviceAdapterTagOpenMP>
+    vtkmCellSetExplicitAOS::PrepareForInput(vtkm::cont::DeviceAdapterTagOpenMP,
       vtkm::TopologyElementTagCell, vtkm::TopologyElementTagPoint) const;
 #endif
 

@@ -24,13 +24,9 @@
 
 vtkStandardNewMacro(vtkCompositeDataDisplayAttributes)
 
-vtkCompositeDataDisplayAttributes::vtkCompositeDataDisplayAttributes()
-{
-}
+vtkCompositeDataDisplayAttributes::vtkCompositeDataDisplayAttributes() = default;
 
-vtkCompositeDataDisplayAttributes::~vtkCompositeDataDisplayAttributes()
-{
-}
+vtkCompositeDataDisplayAttributes::~vtkCompositeDataDisplayAttributes() = default;
 
 void vtkCompositeDataDisplayAttributes::SetBlockVisibility(vtkDataObject* data_object, bool visible)
 {
@@ -223,7 +219,7 @@ const std::string& vtkCompositeDataDisplayAttributes::GetBlockMaterial(vtkDataOb
     return iter->second;
   }
 
-  static const std::string nomat = "";
+  static const std::string nomat;
   return nomat;
 }
 
@@ -317,6 +313,14 @@ vtkDataObject* vtkCompositeDataDisplayAttributes::DataObjectFromIndex(
     return parent_obj;
   }
   current_flat_index++;
+
+  // for leaf types quick continue, otherwise it recurses which
+  // calls two more SafeDownCast which are expensive
+  int dotype = parent_obj->GetDataObjectType();
+  if (dotype < VTK_COMPOSITE_DATA_SET) // see vtkType.h
+  {
+    return nullptr;
+  }
 
   auto multiBlock = vtkMultiBlockDataSet::SafeDownCast(parent_obj);
   auto multiPiece = vtkMultiPieceDataSet::SafeDownCast(parent_obj);

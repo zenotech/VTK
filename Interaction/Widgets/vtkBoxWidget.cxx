@@ -267,6 +267,7 @@ void vtkBoxWidget::SetEnabled(int enabling)
       this->CurrentRenderer->AddActor(this->Handle[j]);
       this->Handle[j]->SetProperty(this->HandleProperty);
     }
+    this->RegisterPickers();
 
     this->InvokeEvent(vtkCommand::EnableEvent,nullptr);
   }
@@ -301,6 +302,7 @@ void vtkBoxWidget::SetEnabled(int enabling)
     this->CurrentHandle = nullptr;
     this->InvokeEvent(vtkCommand::DisableEvent,nullptr);
     this->SetCurrentRenderer(nullptr);
+    this->UnRegisterPickers();
   }
 
   this->Interactor->Render();
@@ -524,8 +526,8 @@ void vtkBoxWidget::HighlightFace(int cellId)
     vtkIdType *pts;
     vtkCellArray *cells = this->HexFacePolyData->GetPolys();
     this->HexPolyData->GetCellPoints(cellId, npts, pts);
-    this->HexFacePolyData->Modified();
     cells->ReplaceCell(0,npts,pts);
+    cells->Modified();
     this->CurrentHexFace = cellId;
     this->HexFace->SetProperty(this->SelectedFaceProperty);
     if ( !this->CurrentHandle )
@@ -1446,6 +1448,11 @@ void vtkBoxWidget::GenerateOutline()
 //------------------------------------------------------------------------------
 void vtkBoxWidget::RegisterPickers()
 {
-  this->Interactor->GetPickingManager()->AddPicker(this->HandlePicker, this);
-  this->Interactor->GetPickingManager()->AddPicker(this->HexPicker, this);
+  vtkPickingManager* pm = this->GetPickingManager();
+  if (!pm)
+  {
+    return;
+  }
+  pm->AddPicker(this->HandlePicker, this);
+  pm->AddPicker(this->HexPicker, this);
 }

@@ -4,6 +4,7 @@ vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
   TestCoincident.cxx
   TestCompositePolyDataMapper2NaNPartial.cxx,NO_DATA
   TestCompositePolyDataMapper2Pickability.cxx,NO_DATA
+  TestCompositePolyDataMapper2SharedArray.cxx,NO_DATA
   TestCompositePolyDataMapper2Spheres.cxx,NO_DATA
   TestCompositePolyDataMapper2Vertices.cxx,NO_DATA
   TestCubeMap.cxx
@@ -11,6 +12,7 @@ vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
   TestDepthPeelingPass.cxx
   TestDepthPeelingPassViewport.cxx
   TestEDLPass.cxx
+  TestFloor.cxx
   TestFramebufferPass.cxx
   TestFramebufferHDR.cxx
   TestFXAAFilter.cxx
@@ -24,6 +26,7 @@ vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
   TestMultiTexturing.cxx
   TestOffscreenRenderingResize.cxx
   TestPointFillPass.cxx
+  TestPointGaussianSelection.cxx,NO_DATA
   TestPropPicker2Renderers.cxx,NO_DATA
   TestPointGaussianMapper.cxx
   TestPointGaussianMapperOpacity.cxx
@@ -34,11 +37,13 @@ vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
   TestSetZBuffer.cxx
   TestShadowMapBakerPass.cxx
   TestShadowMapPass.cxx
+  TestSharedRenderWindow.cxx
   TestSimpleMotionBlur.cxx
   TestSobelGradientMagnitudePass.cxx
   TestSphereMap.cxx
   TestSpherePoints.cxx
   TestSphereVertex.cxx
+  TestToneMappingPass.cxx,NO_DATA
   TestUserShader.cxx
   TestUserShader2.cxx
   TestVBOPLYMapper.cxx

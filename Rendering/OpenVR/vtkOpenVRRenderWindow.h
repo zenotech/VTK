@@ -164,6 +164,11 @@ public:
   //@}
 
   /**
+   * Add a renderer to the list of renderers.
+   */
+  virtual void AddRenderer(vtkRenderer *) override;
+
+  /**
    * Begin the rendering process.
    */
   virtual void Start(void);
@@ -255,9 +260,9 @@ public:
     //@}
 
   // implement required virtual functions
-  void SetWindowInfo(char *) {};
-  void SetNextWindowInfo(char *) {};
-  void SetParentInfo(char *) {};
+  void SetWindowInfo(const char *) {};
+  void SetNextWindowInfo(const char *) {};
+  void SetParentInfo(const char *) {};
   virtual void *GetGenericDisplayId() {return (void *)this->HelperWindow->GetGenericDisplayId();};
   virtual void *GetGenericWindowId()  {return (void *)this->HelperWindow->GetGenericWindowId();};
   virtual void *GetGenericParentId()  {return (void *)nullptr;};
@@ -288,6 +293,10 @@ public:
    */
   vtkGetObjectMacro(HelperWindow, vtkOpenGLRenderWindow);
   void SetHelperWindow(vtkOpenGLRenderWindow *val);
+
+  // Get the state object used to keep track of
+  // OpenGL state
+  vtkOpenGLState *GetState() override;
 
 protected:
   vtkOpenVRRenderWindow();

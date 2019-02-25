@@ -16,6 +16,7 @@
 
 #include "vtkCompositeDataSet.h"
 #include "vtkCompositeDataPipeline.h"
+#include "vtkDataArraySelection.h"
 #include "vtkDataSet.h"
 #include "vtkInformation.h"
 #include "vtkInformationVector.h"
@@ -28,14 +29,10 @@
 vtkStandardNewMacro(vtkXMLMultiBlockDataReader);
 
 //----------------------------------------------------------------------------
-vtkXMLMultiBlockDataReader::vtkXMLMultiBlockDataReader()
-{
-}
+vtkXMLMultiBlockDataReader::vtkXMLMultiBlockDataReader() = default;
 
 //----------------------------------------------------------------------------
-vtkXMLMultiBlockDataReader::~vtkXMLMultiBlockDataReader()
-{
-}
+vtkXMLMultiBlockDataReader::~vtkXMLMultiBlockDataReader() = default;
 
 //----------------------------------------------------------------------------
 void vtkXMLMultiBlockDataReader::PrintSelf(ostream& os, vtkIndent indent)
@@ -170,7 +167,7 @@ void vtkXMLMultiBlockDataReader::ReadComposite(vtkXMLDataElement* element,
     else if (mblock != nullptr
              && strcmp(tagName, "Block") == 0)
     {
-      vtkMultiBlockDataSet* childDS = vtkMultiBlockDataSet::New();;
+      vtkMultiBlockDataSet* childDS = vtkMultiBlockDataSet::New();
       this->ReadComposite(childXML, childDS, filePath, dataSetIndex);
       const char* name = childXML->GetAttribute("name");
       mblock->SetBlock(index, childDS);
@@ -181,7 +178,7 @@ void vtkXMLMultiBlockDataReader::ReadComposite(vtkXMLDataElement* element,
     else if (mblock!=nullptr
              && strcmp(tagName, "Piece") == 0)
     {
-      vtkMultiPieceDataSet* childDS = vtkMultiPieceDataSet::New();;
+      vtkMultiPieceDataSet* childDS = vtkMultiPieceDataSet::New();
       this->ReadComposite(childXML, childDS, filePath, dataSetIndex);
       const char* name = childXML->GetAttribute("name");
       mblock->SetBlock(index, childDS);
@@ -221,6 +218,7 @@ namespace
 //----------------------------------------------------------------------------
 int vtkXMLMultiBlockDataReader::FillMetaData(vtkCompositeDataSet* metadata,
                                              vtkXMLDataElement* element,
+                                             const std::string &filePath,
                                              unsigned int &dataSetIndex)
 {
   vtkMultiBlockDataSet* mblock = vtkMultiBlockDataSet::SafeDownCast(metadata);
@@ -274,6 +272,10 @@ int vtkXMLMultiBlockDataReader::FillMetaData(vtkCompositeDataSet* metadata,
             extent, 6);
         }
       }
+      if (this->ShouldReadDataSet(dataSetIndex))
+      {
+        this->SyncDataArraySelections(this, childXML, filePath);
+      }
       dataSetIndex++;
     }
     // Child is a multiblock dataset itself. Create it.
@@ -281,7 +283,7 @@ int vtkXMLMultiBlockDataReader::FillMetaData(vtkCompositeDataSet* metadata,
              && strcmp(tagName, "Block") == 0)
     {
       vtkMultiBlockDataSet* childDS = vtkMultiBlockDataSet::New();
-      this->FillMetaData(childDS, childXML, dataSetIndex);
+      this->FillMetaData(childDS, childXML, filePath, dataSetIndex);
       if (mblock)
       {
         mblock->SetBlock(index, childDS);
@@ -297,8 +299,8 @@ int vtkXMLMultiBlockDataReader::FillMetaData(vtkCompositeDataSet* metadata,
     else if (mblock!=nullptr
              && strcmp(tagName, "Piece") == 0)
     {
-      vtkMultiPieceDataSet* childDS = vtkMultiPieceDataSet::New();;
-      this->FillMetaData(childDS, childXML, dataSetIndex);
+      vtkMultiPieceDataSet* childDS = vtkMultiPieceDataSet::New();
+      this->FillMetaData(childDS, childXML, filePath, dataSetIndex);
       mblock->SetBlock(index, childDS);
       childDS->Delete();
       int whole_extent[6];
@@ -332,11 +334,12 @@ int vtkXMLMultiBlockDataReader::RequestInformation(
     return 1;
   }
 
+  const std::string filePath = this->GetFilePath();
   vtkInformation* info = outputVector->GetInformationObject(0);
   vtkSmartPointer<vtkMultiBlockDataSet> metadata =
     vtkSmartPointer<vtkMultiBlockDataSet>::New();
   unsigned int dataSetIndex = 0;
-  if (!this->FillMetaData(metadata, this->GetPrimaryElement(), dataSetIndex))
+  if (!this->FillMetaData(metadata, this->GetPrimaryElement(), filePath, dataSetIndex))
   {
     return 0;
   }

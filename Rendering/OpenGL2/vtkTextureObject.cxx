@@ -26,6 +26,7 @@
 #include "vtkOpenGLRenderWindow.h"
 #include "vtkOpenGLResourceFreeCallback.h"
 #include "vtkOpenGLShaderCache.h"
+#include "vtkOpenGLState.h"
 #include "vtkOpenGLTexture.h"
 #include "vtkOpenGLVertexArrayObject.h"
 #include "vtkPixelBufferObject.h"
@@ -252,76 +253,6 @@ vtkTextureObject::~vtkTextureObject()
 }
 
 //----------------------------------------------------------------------------
-bool vtkTextureObject::IsSupported(vtkOpenGLRenderWindow* vtkNotUsed(win),
-      bool requireTexFloat,
-      bool requireDepthFloat,
-      bool requireTexInt)
-{
-#if GL_ES_VERSION_3_0 == 1
-  return true;
-#else
-  if (vtkOpenGLRenderWindow::GetContextSupportsOpenGL32())
-  {
-    return true;
-  }
-  bool texFloat = true;
-  if (requireTexFloat)
-  {
-    texFloat = (glewIsSupported("GL_ARB_texture_float") != 0
-     && glewIsSupported("GL_ARB_texture_rg") != 0);
-  }
-
-  bool depthFloat = true;
-  if (requireDepthFloat)
-  {
-    depthFloat = (glewIsSupported("GL_ARB_depth_buffer_float") != 0);
-  }
-
-  bool texInt = true;
-  if (requireTexInt)
-  {
-    texInt = (glewIsSupported("GL_EXT_texture_integer") != 0);
-  }
-
-  return texFloat && depthFloat && texInt;
-#endif
-}
-
-//----------------------------------------------------------------------------
-bool vtkTextureObject::LoadRequiredExtensions(vtkOpenGLRenderWindow *renWin)
-{
-#if GL_ES_VERSION_3_0 == 1
-  this->SupportsTextureInteger = true;
-  this->SupportsTextureFloat = true;
-  this->SupportsDepthBufferFloat = true;
-#else
-  if (vtkOpenGLRenderWindow::GetContextSupportsOpenGL32())
-  {
-    this->SupportsTextureInteger = true;
-    this->SupportsTextureFloat = true;
-    this->SupportsDepthBufferFloat = true;
-  }
-  else
-  {
-    this->SupportsTextureInteger =
-      (glewIsSupported("GL_EXT_texture_integer") != 0);
-
-    this->SupportsTextureFloat =
-      (glewIsSupported("GL_ARB_texture_float") != 0 &&
-       glewIsSupported("GL_ARB_texture_rg") != 0);
-
-    this->SupportsDepthBufferFloat =
-      (glewIsSupported("GL_ARB_depth_buffer_float") != 0);
-  }
-#endif
-
-  return this->IsSupported(renWin,
-    this->RequireTextureFloat,
-    this->RequireDepthBufferFloat,
-    this->RequireTextureInteger);
-}
-
-//----------------------------------------------------------------------------
 void vtkTextureObject::SetContext(vtkOpenGLRenderWindow* renWin)
 {
   this->ResourceCallback->RegisterGraphicsResources(renWin);
@@ -342,11 +273,6 @@ void vtkTextureObject::SetContext(vtkOpenGLRenderWindow* renWin)
     return;
   }
 
-  if (!this->LoadRequiredExtensions(renWin) )
-  {
-    vtkErrorMacro("Required OpenGL extensions not supported by the context.");
-    return;
-  }
   // initialize
   this->Context = renWin;
   this->Context->MakeCurrent();
@@ -1645,7 +1571,7 @@ bool vtkTextureObject::CreateDepthFromRaw(unsigned int width,
   if (!this->InternalFormat)
   {
     this->InternalFormat
-      = OpenGLDepthInternalFormat[internalFormat];;
+      = OpenGLDepthInternalFormat[internalFormat];
   }
 
   if (!this->InternalFormat || !this->Type)
@@ -1956,9 +1882,9 @@ void vtkTextureObject::CopyToFrameBuffer(
   float maxYTexCoord=static_cast<float>(
     static_cast<double>(srcYmax+0.5)/this->Height);
 
-  GLint saved_viewport[4];
-  glGetIntegerv(GL_VIEWPORT, saved_viewport);
-  glViewport(dstXmin, dstYmin, dstXmax - dstXmin + 1, dstYmax - dstYmin + 1);
+  vtkOpenGLState::ScopedglViewport vsaver(this->Context->GetState());
+  this->Context->GetState()->vtkglViewport(
+    dstXmin, dstYmin, dstXmax - dstXmin + 1, dstYmax - dstYmin + 1);
 
   float tcoords[] = {
     minXTexCoord, minYTexCoord,
@@ -1972,10 +1898,9 @@ void vtkTextureObject::CopyToFrameBuffer(
     1.0f, 1.0f, 0.0f,
     -1.f, 1.0f, 0.0f};
 
-    this->CopyToFrameBuffer(tcoords, verts, program, vao);
+  this->CopyToFrameBuffer(tcoords, verts, program, vao);
 
-    glViewport(saved_viewport[0], saved_viewport[1], saved_viewport[2],
-      saved_viewport[3]);
+  vtkOpenGLCheckErrorMacro("failed after CopyToFrameBuffer")
 }
 
 void vtkTextureObject::CopyToFrameBuffer(float *tcoords, float *verts,
@@ -2059,20 +1984,20 @@ void vtkTextureObject::CopyFromFrameBuffer(int srcXmin,
   assert("pre: is2D" && this->GetNumberOfDimensions()==2);
 
   this->Activate();
-  glCopyTexImage2D(this->Target,0,this->Format,srcXmin,srcYmin,width,height,0);
-  vtkOpenGLCheckErrorMacro("failed at glCopyTexImage2D " << this->Format);
+  glCopyTexImage2D(this->Target,0,this->InternalFormat,srcXmin,srcYmin,width,height,0);
+  vtkOpenGLCheckErrorMacro("failed at glCopyTexImage2D " << this->InternalFormat);
 }
 
 //----------------------------------------------------------------------------
 int vtkTextureObject::GetMaximumTextureSize(vtkOpenGLRenderWindow* context)
 {
-  GLint maxSize = -1;
-  if (context && context->IsCurrent())
+  int maxSize = -1;
+  if (context)
   {
-    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxSize);
+    context->GetState()->vtkglGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxSize);
   }
 
-  return static_cast<int>(maxSize);
+  return maxSize;
 }
 
 //----------------------------------------------------------------------------

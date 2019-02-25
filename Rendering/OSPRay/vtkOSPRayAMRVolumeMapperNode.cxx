@@ -30,8 +30,18 @@
 #include "vtkVolumeNode.h"
 #include "vtkVolumeProperty.h"
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#endif
 #include "ospcommon/box.h"
 #include "ospcommon/vec.h"
+// Undo disabling of warning.
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+
 #include "ospray/ospray.h"
 #include "ospray/version.h"
 
@@ -124,7 +134,7 @@ void vtkOSPRayAMRVolumeMapperNode::Render(bool prepass)
     vtkRenderer *ren = vtkRenderer::SafeDownCast(orn->GetRenderable());
     this->Cache->SetSize(vtkOSPRayRendererNode::GetTimeCacheSize(ren));
 
-    osp::Model* OSPRayModel = orn->GetOModel();
+    OSPModel OSPRayModel = orn->GetOModel();
     if (!OSPRayModel)
     {
       return;
@@ -152,9 +162,9 @@ void vtkOSPRayAMRVolumeMapperNode::Render(bool prepass)
       }
       else
       {
-        if (this->OSPRayVolume && this->Cache->GetSize() == 0)
+        if (this->Cache->GetSize() == 0)
         {
-          delete this->OSPRayVolume;
+          ospRelease(this->OSPRayVolume);
         }
         this->OSPRayVolume = ospNewVolume("amr_volume");
         this->Cache->AddToCache(tstep, this->OSPRayVolume);
@@ -173,7 +183,10 @@ void vtkOSPRayAMRVolumeMapperNode::Render(bool prepass)
              iter->GoToNextItem())
           {
           unsigned int level = iter->GetCurrentLevel();
-          assert(level >= lastLevel);  //ospray requires level info be ordered lowest to highest
+          if (!(level >= lastLevel))
+          {
+            vtkErrorMacro("ospray requires level info be ordered lowest to highest");
+          };
           lastLevel = level;
           unsigned int index = iter->GetCurrentIndex();
 
@@ -260,6 +273,7 @@ void vtkOSPRayAMRVolumeMapperNode::Render(bool prepass)
         double spacing[3];
         amr->GetAMRInfo()->GetSpacing(0,spacing);
         ospSet3f(this->OSPRayVolume, "gridOrigin", origin[0], origin[1], origin[2]);
+        ospSetString(this->OSPRayVolume, "voxelType", "float");
 
         OSPData brickDataData = ospNewData(brickDataArray.size(),OSP_OBJECT,&brickDataArray[0],0);
         ospSetData(this->OSPRayVolume,"brickData",brickDataData);

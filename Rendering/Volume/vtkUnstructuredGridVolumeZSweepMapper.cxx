@@ -69,9 +69,7 @@ enum
 class vtkPixelListEntry
 {
 public:
-  vtkPixelListEntry()
-  {
-  }
+  vtkPixelListEntry() = default;
 
   void Init(double values[VTK_VALUES_SIZE],
             double zView,
@@ -112,8 +110,8 @@ protected:
   // List structure: only for the pixel list (two-way)
   vtkPixelListEntry *Previous;
 private:
-  vtkPixelListEntry(const vtkPixelListEntry &other);
-  vtkPixelListEntry &operator=(const vtkPixelListEntry &other);
+  vtkPixelListEntry(const vtkPixelListEntry &other) = delete;
+  vtkPixelListEntry &operator=(const vtkPixelListEntry &other) = delete;
 };
 
 //-----------------------------------------------------------------------------
@@ -121,7 +119,7 @@ private:
 class vtkVertexEntry
 {
 public:
-  vtkVertexEntry() {}
+  vtkVertexEntry() = default;
 
   vtkVertexEntry(int screenX,
                  int screenY,
@@ -236,7 +234,7 @@ public:
   virtual double GetZview()=0;
 protected:
   // Destructor.
-  virtual ~vtkScreenEdge() {}
+  virtual ~vtkScreenEdge() = default;
 };
 
 //-----------------------------------------------------------------------------
@@ -3330,9 +3328,9 @@ void vtkUnstructuredGridVolumeZSweepMapper::MainLoop(vtkRenderWindow *renWin)
 #ifdef BACK_TO_FRONT
     if(currentZ<zTarget)
 #else
-      if(currentZ>zTarget)
+    if(currentZ>zTarget)
 #endif
-      {
+    {
       this->CompositeFunction(zTarget);
 
       // Update the zTarget
@@ -3362,7 +3360,7 @@ void vtkUnstructuredGridVolumeZSweepMapper::MainLoop(vtkRenderWindow *renWin)
         }
         ++it;
       }
-      }
+    }
     else
     {
       if(this->MaxPixelListSizeReached)
@@ -3700,10 +3698,10 @@ void  vtkUnstructuredGridVolumeZSweepMapper::RasterizeTriangle(
   {
     if(x>this->XBounds[1])
     {
-       if(x<this->ImageInUseSize[0])
-       {
+      if(x<this->ImageInUseSize[0])
+      {
         this->XBounds[1]=x;
-       }
+      }
       else
       {
         this->XBounds[1]=this->ImageInUseSize[0]-1;
@@ -3817,14 +3815,14 @@ void  vtkUnstructuredGridVolumeZSweepMapper::RasterizeTriangle(
        this->SimpleEdge->Init(v0,v2,dx20,dy20,0);
        leftEdge=this->SimpleEdge;
     }
-     else
-     {
+    else
+    {
        // v0v1 on left
        this->DoubleEdge->Init(v0,v1,v2,dx10,dy10,0); // true=on right
        leftEdge=this->DoubleEdge;
        this->SimpleEdge->Init(v0,v2,dx20,dy20,1);
        rightEdge=this->SimpleEdge;
-     }
+    }
   }
 
   int y=v0->GetScreenY();

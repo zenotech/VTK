@@ -92,9 +92,7 @@ vtkHandleWidget::vtkHandleWidget()
 }
 
 //----------------------------------------------------------------------------------
-vtkHandleWidget::~vtkHandleWidget()
-{
-}
+vtkHandleWidget::~vtkHandleWidget() = default;
 
 //----------------------------------------------------------------------
 void vtkHandleWidget::CreateDefaultRepresentation()
@@ -165,11 +163,7 @@ void vtkHandleWidget::SelectAction3D(vtkAbstractWidget *w)
     return;
   }
 
-  // We are definitely selected
-  if ( ! self->Parent )
-  {
-    self->GrabFocus(self->EventCallbackCommand);
-  }
+  self->EventCallbackCommand->SetAbortFlag(1);
   self->WidgetRep->StartComplexInteraction(
     self->Interactor, self, vtkWidgetEvent::Select3D, self->CallData);
 

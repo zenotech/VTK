@@ -5,13 +5,17 @@ vtk_add_test_cxx(vtkGUISupportQtCxxTests tests
   TestQtDebugLeaksView.cxx
   TestQtTableModelAdapter.cxx
   TestQtTreeModelAdapter.cxx
+  TestQVTKOpenGLNativeWidgetPicking.cxx
   TestQVTKOpenGLWidgetPicking.cxx
-  TestQtSwapWindows.cxx
+  TestQVTKOpenGLNativeWidgetSwapWindows.cxx
+  TestQVTKOpenGLWidgetSwapWindows.cxx
   )
 
 vtk_add_test_cxx(vtkGUISupportQtCxxTests tests
+  TestQVTKOpenGLNativeWidget.cxx
   TestQVTKOpenGLWidget.cxx
-  TestQVTKOpenGLWidgetWithDisabledInteractor.cxx
+  TestQVTKOpenGLNativeWidgetWithDisabledInteractor.cxx
+  TestQVTKOpenGLNativeWidgetWithMSAA.cxx
   TestQVTKOpenGLWidgetWithMSAA.cxx
   )
 
@@ -33,3 +37,6 @@ vtk_test_cxx_executable(vtkGUISupportQtCxxTests tests
 
 set_target_properties(vtkGUISupportQtCxxTests PROPERTIES
   COMPILE_FLAGS "${Qt5Widgets_EXECUTABLE_COMPILE_FLAGS}")
+
+set_tests_properties(vtkGUISupportQtCxx-TestQVTKOpenGLWidgetPicking
+ PROPERTIES RUN_SERIAL ON)

@@ -307,11 +307,11 @@ void vtkLabeledContourMapper::Render(vtkRenderer *ren, vtkActor *act)
 
   if (!this->RenderPolyData(ren, act))
   {
-    this->RemoveStencil();
+    this->RemoveStencil(ren);
     return;
   }
 
-  if (!this->RemoveStencil())
+  if (!this->RemoveStencil(ren))
   {
     return;
   }
@@ -423,7 +423,7 @@ void vtkLabeledContourMapper::PrintSelf(ostream& os, vtkIndent indent)
   this->Superclass::PrintSelf(os,indent);
 
   os << indent << "SkipDistance: " << this->SkipDistance << "\n"
-     << indent << "LabelVisiblity: " << (this->LabelVisibility ? "On\n"
+     << indent << "LabelVisibility: " << (this->LabelVisibility ? "On\n"
                                                                : "Off\n")
      << indent << "NumberOfTextActors: " << this->NumberOfTextActors << "\n"
      << indent << "NumberOfUsedTextActors: "
@@ -869,7 +869,7 @@ bool vtkLabeledContourMapper::RenderPolyData(vtkRenderer *ren, vtkActor *act)
 }
 
 //------------------------------------------------------------------------------
-bool vtkLabeledContourMapper::RemoveStencil()
+bool vtkLabeledContourMapper::RemoveStencil(vtkRenderer *)
 {
   // Handled in backend override.
   return true;

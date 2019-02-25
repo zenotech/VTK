@@ -43,6 +43,7 @@
 #include "vtkOpenGLRenderUtilities.h"
 #include "vtkOpenGLRenderWindow.h"
 #include "vtkOpenGLShaderCache.h"
+#include "vtkOpenGLState.h"
 #include "vtkOpenGLVertexArrayObject.h"
 #include "vtkOpenGLVertexBufferObject.h"
 #include "vtkPointData.h"
@@ -148,24 +149,7 @@ bool vtkOpenGLProjectedTetrahedraMapper::IsSupported(vtkRenderWindow *rwin)
   this->CanDoFloatingPointFrameBuffer = false;
   if (this->UseFloatingPointFrameBuffer)
   {
-#if GL_ES_VERSION_3_0 != 1
-    if (vtkOpenGLRenderWindow::GetContextSupportsOpenGL32())
-    {
-      this->CanDoFloatingPointFrameBuffer = true;
-      return true;
-    }
-    this->CanDoFloatingPointFrameBuffer
-      = (glewIsSupported("GL_ARB_texture_float") != 0);
-#else
-    this->CanDoFloatingPointFrameBuffer
-      = true;
-#endif
-
-    if (!this->CanDoFloatingPointFrameBuffer)
-    {
-      vtkWarningMacro(
-        "Missing FBO support. The algorithm may produce visual artifacts.");
-    }
+    this->CanDoFloatingPointFrameBuffer = true;
   }
 
   return true;
@@ -683,24 +667,19 @@ void vtkOpenGLProjectedTetrahedraMapper::ProjectTetrahedra(
     return;
   }
 
-  glDepthMask(GL_FALSE);
+  vtkOpenGLState *ostate =
+    static_cast<vtkOpenGLRenderWindow *>(renderer->GetRenderWindow())->GetState();
+  ostate->vtkglDepthMask(GL_FALSE);
 
-  glDisable(GL_CULL_FACE);
+  ostate->vtkglDisable(GL_CULL_FACE);
+  vtkOpenGLState::ScopedglBlendFuncSeparate bfsaver(ostate);
 
-  GLint blendSrcA = GL_ONE;
-  GLint blendDstA = GL_ONE_MINUS_SRC_ALPHA;
-  GLint blendSrcC = GL_SRC_ALPHA;
-  GLint blendDstC = GL_ONE_MINUS_SRC_ALPHA;
-  glGetIntegerv(GL_BLEND_SRC_ALPHA, &blendSrcA);
-  glGetIntegerv(GL_BLEND_DST_ALPHA, &blendDstA);
-  glGetIntegerv(GL_BLEND_SRC_RGB, &blendSrcC);
-  glGetIntegerv(GL_BLEND_DST_RGB, &blendDstC);
-  glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
+  ostate->vtkglBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
     GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
   float unit_distance = volume->GetProperty()->GetScalarOpacityUnitDistance();
 
-  // build the VBO and IBOs,  we so these in chuncks as based on
+  // build the VBO and IBOs, we do these in chunks as based on
   // the settings of the VisibilitySort tclass
   this->VBO->SetStride(6*sizeof(float));
 
@@ -1122,8 +1101,7 @@ void vtkOpenGLProjectedTetrahedraMapper::ProjectTetrahedra(
   // Restore the blend function.
   vtkOpenGLCheckErrorMacro("failed at glPopAttrib");
 
-  glDepthMask(GL_TRUE);
-  glBlendFuncSeparate(blendSrcC, blendDstC, blendSrcA, blendDstA);
+  ostate->vtkglDepthMask(GL_TRUE);
 
   vtkOpenGLCheckErrorMacro("failed after ProjectTetrahedra");
   this->GLSafeUpdateProgress(1.0, window);
