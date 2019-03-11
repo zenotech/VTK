@@ -138,9 +138,9 @@ void vtkSTLWriter::WriteAsciiSTL(
 
     fprintf(fp, " facet normal %.6g %.6g %.6g\n  outer loop\n",
              n[0], n[1], n[2]);
-    fprintf(fp, "   vertex %.6g %.6g %.6g\n", v1[0], v1[1], v1[2]);
-    fprintf(fp, "   vertex %.6g %.6g %.6g\n", v2[0], v2[1], v2[2]);
-    fprintf(fp, "   vertex %.6g %.6g %.6g\n", v3[0], v3[1], v3[2]);
+    fprintf(fp, "   vertex %.9g %.9g %.9g\n", v1[0], v1[1], v1[2]);
+    fprintf(fp, "   vertex %.9g %.9g %.9g\n", v2[0], v2[1], v2[2]);
+    fprintf(fp, "   vertex %.9g %.9g %.9g\n", v3[0], v3[1], v3[2]);
     fprintf(fp, "  endloop\n endfacet\n");
   }
 
@@ -159,9 +159,9 @@ void vtkSTLWriter::WriteAsciiSTL(
 
       fprintf(fp, " facet normal %.6g %.6g %.6g\n  outer loop\n",
                n[0], n[1], n[2]);
-      fprintf(fp, "   vertex %.6g %.6g %.6g\n", v1[0], v1[1], v1[2]);
-      fprintf(fp, "   vertex %.6g %.6g %.6g\n", v2[0], v2[1], v2[2]);
-      fprintf(fp, "   vertex %.6g %.6g %.6g\n", v3[0], v3[1], v3[2]);
+      fprintf(fp, "   vertex %.9g %.9g %.9g\n", v1[0], v1[1], v1[2]);
+      fprintf(fp, "   vertex %.9g %.9g %.9g\n", v2[0], v2[1], v2[2]);
+      fprintf(fp, "   vertex %.9g %.9g %.9g\n", v3[0], v3[1], v3[2]);
       fprintf(fp, "  endloop\n endfacet\n");
     }
     else if (npts > 3)
@@ -194,7 +194,7 @@ void vtkSTLWriter::WriteAsciiSTL(
         {
           vtkIdType ptId = ptIds->GetId(3*i + j);
           poly->GetPoints()->GetPoint(ptId, v1);
-          fprintf(fp, "   vertex %.6g %.6g %.6g\n", v1[0], v1[1], v1[2]);
+          fprintf(fp, "   vertex %.9g %.9g %.9g\n", v1[0], v1[1], v1[2]);
         }
         fprintf(fp, "  endloop\n endfacet\n");
       }
