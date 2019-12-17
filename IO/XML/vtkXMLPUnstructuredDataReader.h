@@ -89,7 +89,7 @@ protected:
   virtual vtkIdType GetNumberOfCellsInPiece(int piece);
 
   // The update request.
-  int UpdatePiece;
+  int UpdatePieceId;
   int UpdateNumberOfPieces;
   int UpdateGhostLevel;
 
