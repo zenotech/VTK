@@ -1555,7 +1555,8 @@ _vtk_module_write_import_prefix(<file> <destination>)
 ```
 
 The prefix is available as the `_vtk_module_import_prefix` variable and may be
-used in property values which require it.
+used in property values which require it. Note that the function clears the
+content of the passed path, so this always appears at the top of the file.
 #]==]
 
 function (_vtk_module_set_module_property module)
@@ -1682,7 +1683,7 @@ function (_vtk_module_write_import_prefix file destination)
       "installation prefix.")
   endif ()
 
-  file(APPEND "${file}"
+  file(WRITE "${file}"
     "set(_vtk_module_import_prefix \"\${CMAKE_CURRENT_LIST_DIR}\")\n")
   while (destination)
     get_filename_component(destination "${destination}" DIRECTORY)
@@ -2208,7 +2209,6 @@ function (vtk_module_build)
     set(_vtk_build_properties_build_file "${CMAKE_BINARY_DIR}/${_vtk_build_CMAKE_DESTINATION}/${_vtk_build_properties_filename}")
 
     file(WRITE "${_vtk_build_properties_build_file}")
-    file(WRITE "${_vtk_build_properties_install_file}")
 
     _vtk_module_write_import_prefix(
       "${_vtk_build_properties_install_file}"
@@ -2291,7 +2291,7 @@ function (vtk_module_build)
     export(
       EXPORT    "${_vtk_build_INSTALL_EXPORT}"
       ${_vtk_build_namespace}
-      FILE      "${_vtk_build_CMAKE_DESTINATION}/${_vtk_build_PACKAGE}-targets.cmake")
+      FILE      "${CMAKE_BINARY_DIR}/${_vtk_build_CMAKE_DESTINATION}/${_vtk_build_PACKAGE}-targets.cmake")
     install(
       EXPORT      "${_vtk_build_INSTALL_EXPORT}"
       DESTINATION "${_vtk_build_CMAKE_DESTINATION}"
@@ -2677,13 +2677,12 @@ $<$<BOOL:${_vtk_hierarchy_genex_include_directories}>:\n-I\'$<JOIN:${_vtk_hierar
       "${_vtk_hierarchy_depend_hierarchy}")
 
     # Find the hierarchy target of the module.
-    get_property(_vtk_hierarchy_module_is_alias
+    get_property(_vtk_hierarchy_module_is_imported
       TARGET    "${_vtk_hierarchy_depend}"
-      PROPERTY  ALIASED_TARGET
-      SET)
-    # Non-alias target modules are external and should already have their file
+      PROPERTY  IMPORTED)
+    # Imported target modules are external and should already have their file
     # generated.
-    if (NOT _vtk_hierarchy_module_is_alias)
+    if (_vtk_hierarchy_module_is_imported)
       continue ()
     endif ()
 
@@ -3800,7 +3799,7 @@ set(_vtk_module_find_package_components_required)
 while (_vtk_module_find_package_components_to_check)
   list(GET _vtk_module_find_package_components_to_check 0 _vtk_module_component)
   list(REMOVE_AT _vtk_module_find_package_components_to_check 0)
-  if (\"${_vtk_module_component}\" IN_LIST _vtk_module_find_package_components_checked)
+  if (_vtk_module_component IN_LIST _vtk_module_find_package_components_checked)
     continue ()
   endif ()
   list(APPEND _vtk_module_find_package_components_checked
