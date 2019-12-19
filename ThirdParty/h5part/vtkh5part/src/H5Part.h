@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <hdf5.h>
+#ifdef H5_HAVE_PARALLEL
+#define PARALLEL_IO
+#endif
 
 // XXX(kitware) include mangling header
 #include "vtk_h5part_mangle.h"
@@ -57,7 +60,7 @@ extern "C" {
 
 /* data types */
 #define H5PART_INT64		((h5part_int64_t)H5T_NATIVE_INT64)
-#define H5PART_INT32		((h5part_int64_t)H5T_NATIVE_INT32) 
+#define H5PART_INT32		((h5part_int64_t)H5T_NATIVE_INT32)
 #define H5PART_FLOAT64		((h5part_int64_t)H5T_NATIVE_DOUBLE)
 #define H5PART_FLOAT32		((h5part_int64_t)H5T_NATIVE_FLOAT)
 #define H5PART_CHAR		((h5part_int64_t)H5T_NATIVE_CHAR)
@@ -125,8 +128,8 @@ H5PartDefineStepName (
 
 VTKH5PART_EXPORT
 h5part_int64_t
-H5PartSetNumParticles ( 
-	H5PartFile *f, 
+H5PartSetNumParticles (
+	H5PartFile *f,
 	const h5part_int64_t nparticles
 	);
 
@@ -320,7 +323,7 @@ H5PartReadParticleStep (
 
 /**********==============Attributes Interface============***************/
 /* currently there is file attributes:  Attributes bound to the file
-   and step attributes which are bound to the current timestep.  You 
+   and step attributes which are bound to the current timestep.  You
    must set the timestep explicitly before writing the attributes (just
    as you must do when you write a new dataset.  Currently there are no
    attributes that are bound to a particular data array, but this could
@@ -356,7 +359,7 @@ H5PartWriteFileAttribString (
 
 VTKH5PART_EXPORT
 h5part_int64_t
-H5PartWriteStepAttribString ( 
+H5PartWriteStepAttribString (
 	H5PartFile *f,
 	const char *name,
 	const char *value
