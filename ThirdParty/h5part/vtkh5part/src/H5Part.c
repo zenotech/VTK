@@ -5,7 +5,7 @@ six dimensional phase space, generate vast amounts of data. Even
 though a subset of statistical information regarding phase space or
 analysis needs to be preserved, reading and writing such enormous
 restart files on massively parallel supercomputing systems remains
-challenging. 
+challenging.
 
 H5Part consists of Particles and Block structured Fields.
 
@@ -23,7 +23,7 @@ Developed by:
 </UL>
 
 
-Papers: 
+Papers:
 
 <UL>
 <LI> A. Adelmann, R.D. Ryne, C. Siegerist, J. Shalf,"From Visualization to Data Mining with Large Data Sets," <i>
@@ -54,11 +54,11 @@ For further information contact: <a href="mailto:h5part@lists.psi.ch">h5part</a>
 /*!
   \ingroup h5part_c_api
   \defgroup h5part_model	Setting up the Data Model
-*/  
+*/
 /*!
   \ingroup h5part_c_api
   \defgroup h5part_data		Readind and Writing Datasets
-*/  
+*/
 /*!
   \ingroup h5part_c_api
   \defgroup h5part_attrib	Reading and Writing Attributes
@@ -69,7 +69,7 @@ For further information contact: <a href="mailto:h5part@lists.psi.ch">h5part</a>
 */
 /*!
   \internal
-  \defgroup h5partkernel H5Part private functions 
+  \defgroup h5partkernel H5Part private functions
 */
 
 
@@ -244,13 +244,7 @@ _H5Part_open_file (
 		}
 
 		/* select the HDF5 VFD */
-		if (flags & H5PART_VFD_MPIPOSIX) {
-			_H5Part_print_info ( "Selecting MPI-POSIX VFD" );
-			if (H5Pset_fapl_mpiposix ( f->access_prop, comm, 0 ) < 0) {
-				HANDLE_H5P_SET_FAPL_ERR;
-				goto error_cleanup;
-			}
-		} else if (flags & H5PART_VFD_CORE) {
+		if (flags & H5PART_VFD_CORE) {
 			_H5Part_print_info ( "Selecting CORE VFD" );
 			if (H5Pset_fapl_core ( f->access_prop, align, 1 ) < 0) {
 				HANDLE_H5P_SET_FAPL_ERR;
@@ -285,7 +279,7 @@ _H5Part_open_file (
 		f->comm = 0;
 		f->nprocs = 1;
 		f->myproc = 0;
-		f->pnparticles = 
+		f->pnparticles =
 			(h5part_int64_t*) malloc (f->nprocs * sizeof (h5part_int64_t));
 	}
 
@@ -375,7 +369,7 @@ _H5Part_open_file (
 /*!
   \ingroup h5part_open
 
-  Opens file with specified filename. 
+  Opens file with specified filename.
 
   Flags are bit values that can be combined with the bit operator \c |
   and include:
@@ -388,10 +382,10 @@ _H5Part_open_file (
   - \c H5PART_VFD_MPIO_IND - use MPI-IO in indepedent mode
 
   The typical file extension is \c .h5.
-  
+
   H5PartFile should be treated as an essentially opaque
   datastructure.  It acts as the file handle, but internally
-  it maintains several key state variables associated with 
+  it maintains several key state variables associated with
   the file.
 
   \return	File handle or \c NULL
@@ -428,10 +422,10 @@ H5PartOpenFileParallel (
   - \c H5PART_VFD_MPIO_IND - use MPI-IO in indepedent mode
 
   The typical file extension is \c .h5.
-  
+
   H5PartFile should be treated as an essentially opaque
   datastructure.  It acts as the file handle, but internally
-  it maintains several key state variables associated with 
+  it maintains several key state variables associated with
   the file.
 
   \return	File handle or \c NULL
@@ -455,7 +449,7 @@ H5PartOpenFileParallelAlign (
 /*!
   \ingroup  h5part_open
 
-  Opens file with specified filename. 
+  Opens file with specified filename.
 
   Flags are bit values that can be combined with the bit operator \c |
   and include:
@@ -465,10 +459,10 @@ H5PartOpenFileParallelAlign (
   - \c H5PART_READ - open file read-only
 
   The typical file extension is \c .h5.
-  
+
   H5PartFile should be treated as an essentially opaque
   datastructure.  It acts as the file handle, but internally
-  it maintains several key state variables associated with 
+  it maintains several key state variables associated with
   the file.
 
   \return	File handle or \c NULL
@@ -502,10 +496,10 @@ H5PartOpenFile (
   - \c H5PART_READ - open file read-only
 
   The typical file extension is \c .h5.
-  
+
   H5PartFile should be treated as an essentially opaque
   datastructure.  It acts as the file handle, but internally
-  it maintains several key state variables associated with 
+  it maintains several key state variables associated with
   the file.
 
   \return	File handle or \c NULL
@@ -616,7 +610,7 @@ H5PartCloseFile (
 		r = H5Pclose( f->access_prop );
 		if ( r < 0 ) HANDLE_H5P_CLOSE_ERR ( "f->access_prop" );
 		f->access_prop = H5P_DEFAULT;
-	}  
+	}
 	if( f->fcreate_prop != H5P_DEFAULT ) {
 		r = H5Pclose( f->fcreate_prop );
 		if ( r < 0 ) HANDLE_H5P_CLOSE_ERR ( "f->fcreate_prop" );
@@ -685,7 +679,7 @@ H5PartDefineStepName (
 	f->stepno_width = (int)width;
 
 	_H5Part_print_debug ( "Step name defined as '%s'", f->groupname_step );
-	
+
 	return H5PART_SUCCESS;
 }
 
@@ -720,7 +714,7 @@ _set_num_particles (
 #endif
 		return HANDLE_H5PART_INVALID_ERR ( "nparticles", nparticles );
 
-	/* prevent invalid stride value */	
+	/* prevent invalid stride value */
 	if (_stride < 1)
 	{
 		_H5Part_print_warn (
@@ -794,7 +788,7 @@ _set_num_particles (
 	  data structure the same way we do for the serial case.  But
 	  then we must have additional "DataSpace" structures to define
 	  our in-memory layout of our domain-decomposed portion of the particle
-	  list as well as a "selection" of a subset of the on-disk 
+	  list as well as a "selection" of a subset of the on-disk
 	  data layout that will be written in parallel to mutually exclusive
 	  regions by all of the processors during a parallel I/O operation.
 	  These are f->shape, f->memshape and f->diskshape respectively.
@@ -811,7 +805,7 @@ _set_num_particles (
 	if ( ret != MPI_SUCCESS) return HANDLE_MPI_ALLGATHER_ERR;
 
 	if ( f->myproc == 0 ) {
-		for ( i=0; i<f->nprocs; i++ ) 
+		for ( i=0; i<f->nprocs; i++ )
 			_H5Part_print_debug_detail (
 				"[%d] np=%lld",
 				i, (long long) f->pnparticles[i] );
@@ -824,7 +818,7 @@ _set_num_particles (
 	}
 	f->viewstart = start;
 	f->viewend   = start + f->nparticles - 1; // view range is *inclusive*
-	
+
 	/* compute total nparticles */
 	total = 0;
 	for (i=0; i < f->nprocs; i++) {
@@ -862,7 +856,7 @@ _set_num_particles (
   \ingroup h5part_model
 
   Set the number of particles for the current time-step.
-  After you call this subroutine, all subsequent 
+  After you call this subroutine, all subsequent
   operations will assume this number of particles will be written.
 
   For the parallel library, the \c nparticles value is the number of
@@ -878,7 +872,7 @@ _set_num_particles (
   contiguous 1D arrays.
   For instance, the fields \e x and \e y for your particles are stored
   in separate arrays \c x[] and \c y[].
-  
+
   If instead you store your particles as tuples, so that the values
   are arranged \f$ x_1,y_1,x_2,y_2\f$... than you need to setup striding
   (in this case with value 2) using \ref H5PartSetNumParticlesStrided.
@@ -907,7 +901,7 @@ H5PartSetNumParticles (
   \ingroup h5part_model
 
   Set the number of particles for the current time-step.
-  After you call this subroutine, all subsequent 
+  After you call this subroutine, all subsequent
   operations will assume this number of particles will be written.
 
   For the parallel library, the \c nparticles value is the number of
@@ -923,7 +917,7 @@ H5PartSetNumParticles (
   stored tuples. For instance, the fields \e x and \e y of your
   particles are arranged \f$x_1,y_1,x_2,y_2\f$... in a single data
   array. In this example, the stride value would be 2.
-  
+
   If you instead have a separate array for each fields,
   such as \c x[] and \c y[],
   use \ref H5PartSetNumParticles.
@@ -1046,7 +1040,7 @@ _write_data (
 			"Dataset[%s] at timestep %lld "
 			"already exists", name2, (long long)f->timestep );
 	} else {
-		dataset_id = H5Dcreate ( 
+		dataset_id = H5Dcreate (
 			f->timegroup,
 			name2,
 			type,
@@ -1334,7 +1328,7 @@ _H5Part_normalize_h5_type (
 	default:
 		;/* NOP */
 	}
-	
+
 	return HANDLE_H5PART_TYPE_ERR;
 }
 
@@ -1556,13 +1550,13 @@ _H5Part_get_attrib_info (
   Writes an attribute \c name with the string \c value to
   the file root ("/").
 
-  \return	\c H5PART_SUCCESS or error code   
+  \return	\c H5PART_SUCCESS or error code
 */
 h5part_int64_t
 H5PartWriteFileAttribString (
 	H5PartFile *f,		/*!< [in] Handle to open file */
 	const char *name,	/*!< [in] Name of attribute to create */
-	const char *value	/*!< [in] Value of attribute */ 
+	const char *value	/*!< [in] Value of attribute */
 	) {
 
 	SET_FNAME ( "H5PartWriteFileAttribString" );
@@ -1587,13 +1581,13 @@ H5PartWriteFileAttribString (
   Writes an attribute \c name with the string \c value to
   the current timestep.
 
-  \return	\c H5PART_SUCCESS or error code   
+  \return	\c H5PART_SUCCESS or error code
 */
 h5part_int64_t
 H5PartWriteStepAttribString (
 	H5PartFile *f,		/*!< [in] Handle to open file */
 	const char *name,	/*!< [in] Name of attribute to create */
-	const char *value	/*!< [in] Value of attribute */ 
+	const char *value	/*!< [in] Value of attribute */
 	) {
 
 	SET_FNAME ( "H5PartWriteStepAttribString" );
@@ -1629,14 +1623,14 @@ H5PartWriteStepAttribString (
   - \c H5PART_CHAR (for \c char)
   - \c H5PART_STRING (for \c char*)
 
-  \return	\c H5PART_SUCCESS or error code   
+  \return	\c H5PART_SUCCESS or error code
 */
 h5part_int64_t
 H5PartWriteStepAttrib (
 	H5PartFile *f,			/*!< [in] Handle to open file */
 	const char *name,		/*!< [in] Name of attribute */
 	const h5part_int64_t type,	/*!< [in] Type of values */
-	const void *data,		/*!< [in] Array of attribute values */ 
+	const void *data,		/*!< [in] Array of attribute values */
 	const h5part_int64_t nelem	/*!< [in] Number of array elements */
 	){
 
@@ -1674,14 +1668,14 @@ H5PartWriteStepAttrib (
   - \c H5PART_CHAR (for \c char)
   - \c H5PART_STRING (for \c char*)
 
-  \return	\c H5PART_SUCCESS or error code   
+  \return	\c H5PART_SUCCESS or error code
 */
 h5part_int64_t
 H5PartWriteFileAttrib (
 	H5PartFile *f,			/*!< [in] Handle to open file */
 	const char *name,		/*!< [in] Name of attribute */
 	const h5part_int64_t type,	/*!< [in] Type of values */
-	const void *data,		/*!< [in] Array of attribute values */ 
+	const void *data,		/*!< [in] Array of attribute values */
 	const h5part_int64_t nelem	/*!< [in] Number of array elements */
 	) {
 
@@ -1771,7 +1765,7 @@ H5PartGetNumFileAttribs (
   time-step can be queried by calling the function
   \c H5PartGetNumStepAttribs().
 
-  \return	\c H5PART_SUCCESS or error code 
+  \return	\c H5PART_SUCCESS or error code
 */
 h5part_int64_t
 H5PartGetStepAttribInfo (
@@ -1784,7 +1778,7 @@ H5PartGetStepAttribInfo (
 	h5part_int64_t *attrib_type,	/*!< [out] Type of value. */
 	h5part_int64_t *attrib_nelem	/*!< [out] Number of elements */
 	) {
-	
+
 	SET_FNAME ( "H5PartGetStepAttribInfo" );
 	h5part_int64_t herr;
 
@@ -1813,7 +1807,7 @@ H5PartGetStepAttribInfo (
   one.  The number of attributes bound to file \c f can be queried
   by calling the function \c H5PartGetNumFileAttribs().
 
-  \return	\c H5PART_SUCCESS or error code 
+  \return	\c H5PART_SUCCESS or error code
 */
 
 h5part_int64_t
@@ -1862,7 +1856,7 @@ H5PartGetFileAttribInfo (
 
   Reads an attribute bound to current time-step.
 
-  \return \c H5PART_SUCCESS or error code 
+  \return \c H5PART_SUCCESS or error code
 */
 h5part_int64_t
 H5PartReadStepAttrib (
@@ -1887,10 +1881,10 @@ H5PartReadStepAttrib (
 
   Reads an attribute bound to file \c f.
 
-  \return \c H5PART_SUCCESS or error code 
+  \return \c H5PART_SUCCESS or error code
 */
 h5part_int64_t
-H5PartReadFileAttrib ( 
+H5PartReadFileAttrib (
 	H5PartFile *f,
 	const char *attrib_name,
 	void *attrib_value
@@ -1975,7 +1969,7 @@ _H5Part_set_step (
 	}
 	else {
 		_H5Part_print_debug (
-			"Proc[%d]: Create step #%lld for file %lld", 
+			"Proc[%d]: Create step #%lld for file %lld",
 			f->myproc,
 			(long long)step,
 			(long long)(size_t) f );
@@ -2002,7 +1996,7 @@ _H5Part_set_step (
 					  );
 	H5E_END_TRY
 
-	
+
 	if ( f->timegroup < 0 )
 	{
 		f->timegroup = H5Gcreate( f->file, stepname, 0
@@ -2033,7 +2027,7 @@ _H5Part_set_step (
   In read-mode you can use this function to random-access the file for a
   particular timestep.
 
-  \return \c H5PART_SUCCESS or error code 
+  \return \c H5PART_SUCCESS or error code
 */
 h5part_int64_t
 H5PartSetStep (
@@ -2136,7 +2130,7 @@ _H5Part_iteration_operator2 (
 
           free(targbuf);
 
-          // Open the linked object. 
+          // Open the linked object.
           H5O_info_t objinfo;
           hid_t obj_id = H5Oopen(group_id, member_name, H5P_DEFAULT);
           if ( obj_id < 0 ) {
@@ -2146,7 +2140,7 @@ _H5Part_iteration_operator2 (
 	    return (herr_t)HANDLE_H5G_GET_OBJINFO_ERR ( member_name );
           }
           else {
-	    
+
 	    H5Oclose( obj_id );
 
 	    switch(objinfo.type)
@@ -2157,7 +2151,7 @@ _H5Part_iteration_operator2 (
 						 member_name,
 						 operator_data );
 	      break;
-	      
+
 	    default:
 	      return (herr_t)HANDLE_H5G_GET_OBJINFO_ERR ( member_name );
 	      break;
@@ -2226,7 +2220,7 @@ _H5Part_iteration_operator (
 	{
 		memset ( data->name, 0, data->len );
 		strncpy ( data->name, member_name, data->len-1 );
-		
+
 		return 1;	/* stop iteration */
 	}
 
@@ -2370,7 +2364,7 @@ H5PartHasStep (
 	H5PartFile *f,		/*!< [in]  Handle to open file */
 	h5part_int64_t step	/*!< [in]  Step number to query */
 	) {
-  
+
 	SET_FNAME ( "H5PartHasStep" );
 
 	CHECK_FILEHANDLE( f );
@@ -2425,7 +2419,7 @@ H5PartGetNumDatasets (
 	SET_FNAME ( "H5PartGetNumDatasets" );
 
 	CHECK_FILEHANDLE( f );
-	
+
 	char stepname[H5PART_STEPNAME_LEN];
 	_H5Part_get_step_name(f, f->timestep, stepname);
 
@@ -2633,7 +2627,7 @@ _H5Part_get_num_particles (
 			return nparticles;
 		}
 		else {
-			_H5Part_print_warn ( 
+			_H5Part_print_warn (
 				"There are no datasets in timestep %s "
 				"or existing views: "
 				"reporting 0 particles.", stepname );
@@ -2653,7 +2647,7 @@ _H5Part_get_num_particles (
 #endif
 				 );
 
-		if ( dataset_id < 0 ) 
+		if ( dataset_id < 0 )
 			return HANDLE_H5D_OPEN_ERR ( dataset_name );
 
 		space_id = H5Dget_space ( dataset_id );
@@ -2789,7 +2783,7 @@ _set_view (
 	  View has been reset so H5PartGetNumParticles will tell
 	  us the total number of particles.
 
-	  For now, we interpret start=-1 to mean 0 and 
+	  For now, we interpret start=-1 to mean 0 and
 	  end==-1 to mean end of file
 	*/
 	total = (hsize_t) _H5Part_get_num_particles ( f );
@@ -2803,7 +2797,7 @@ _set_view (
 	if ( start == -1 ) start = 0;
 	if ( end == -1 )   end = total - 1; // range is *inclusive*
 
-	/* so, is this selection inclusive or exclusive? 
+	/* so, is this selection inclusive or exclusive?
 	   it appears to be inclusive for both ends of the range.
 	*/
 	if ( end < start ) {
@@ -2817,7 +2811,7 @@ _set_view (
 	f->viewstart =  start;
 	f->viewend =    end;
 	f->nparticles = end - start + 1;
-	
+
 	_H5Part_print_debug ( "nparticles=%lld", (long long)f->nparticles );
 
 	/* declare overall data size but then select a subset */
@@ -2827,7 +2821,7 @@ _set_view (
 
 	total = (hsize_t)f->nparticles;
 	hstart = (size_t)start;
-	herr = H5Sselect_hyperslab ( 
+	herr = H5Sselect_hyperslab (
 		f->diskshape,
 		H5S_SELECT_SET,
 		&hstart,
@@ -2868,7 +2862,7 @@ _set_view_indices (
 	  View has been reset so H5PartGetNumParticles will tell
 	  us the total number of particles.
 
-	  For now, we interpret start=-1 to mean 0 and 
+	  For now, we interpret start=-1 to mean 0 and
 	  end==-1 to mean end of file
 	*/
 	total = (hsize_t) _H5Part_get_num_particles ( f );
@@ -2897,7 +2891,7 @@ _set_view_indices (
 		return HANDLE_H5S_CREATE_SIMPLE_ERR ( f->nparticles );
 
 	if ( nelems > 0 ) {
-		herr = H5Sselect_elements ( 
+		herr = H5Sselect_elements (
 			f->diskshape,
 			H5S_SELECT_SET,
 			nelems,
@@ -3080,7 +3074,7 @@ H5PartSetCanonicalView (
 	h5part_int64_t total = 0;
 	h5part_int64_t pertask = 0;
 	int i = 0;
-	
+
 	if ( f->timegroup < 0 ) {
 		herr = _H5Part_set_step ( f, 0 );
 		if ( herr < 0 ) return herr;
@@ -3226,7 +3220,7 @@ _read_data (
 		type,
 		memspace_id,		/* shape/size of data in memory (the
 					   complement to disk hyperslab) */
-		space_id,		/* shape/size of data on disk 
+		space_id,		/* shape/size of data on disk
 					   (get hyperslab if needed) */
 		f->xfer_prop,		/* ignore... its for parallel reads */
 		array );
@@ -3244,7 +3238,7 @@ _read_data (
 
 	herr = H5Dclose ( dataset_id );
 	if ( herr < 0 ) return HANDLE_H5D_CLOSE_ERR;
-	
+
 	return H5PART_SUCCESS;
 }
 
@@ -3509,7 +3503,7 @@ _H5Part_end_throttle (
 		int ret;
 		int token;
 		if (f->myproc + f->throttle < f->nprocs) {
-			// pass token to next proc 
+			// pass token to next proc
 			_H5Part_print_debug_detail (
 				"[%d] throttle: passing token to %d",
 				f->myproc, f->myproc + f->throttle);
@@ -3664,7 +3658,7 @@ _h5_error_handler ( hid_t estack, void* unused ) {
 #else
 _h5_error_handler ( void* unused ) {
 #endif
-	
+
 	if ( _debug >= 1 ) {
 #ifndef H5_USE_16_API
 		H5Eprint (H5E_DEFAULT,stderr);
@@ -3684,7 +3678,7 @@ _vprint (
 	) {
 	char *fmt2 = (char*)malloc( strlen ( prefix ) +strlen ( fmt ) + strlen ( __funcname ) + 16 );
 	if ( fmt2 == NULL ) return;
-	sprintf ( fmt2, "%s: %s: %s\n", prefix, __funcname, fmt ); 
+	sprintf ( fmt2, "%s: %s: %s\n", prefix, __funcname, fmt );
 	vfprintf ( stderr, fmt2, ap );
 	free ( fmt2 );
 }
