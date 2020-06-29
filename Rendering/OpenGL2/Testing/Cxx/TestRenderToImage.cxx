@@ -8,9 +8,9 @@
 #include <vtkPolyData.h>
 #include <vtkPolyDataMapper.h>
 #include <vtkRegressionTestImage.h>
-#include <vtkRenderer.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
+#include <vtkRenderer.h>
 #include <vtkSphereSource.h>
 #include <vtkTestUtilities.h>
 #include <vtkUnsignedCharArray.h>
@@ -39,30 +39,19 @@ int TestRenderToImage(int argc, char* argv[])
   renderWindow->Render();
 
   // Render to the image
-  vtkOpenGLRenderWindow* glRenderWindow =
-    vtkOpenGLRenderWindow::SafeDownCast(renderWindow);
+  vtkOpenGLRenderWindow* glRenderWindow = vtkOpenGLRenderWindow::SafeDownCast(renderWindow);
 
-  if (!glRenderWindow->SetUseOffScreenBuffers(true))
-  {
-    // Hardware off screen buffer failed to be created.
-    // Turn debug mode on to write the errors on the output.
-    glRenderWindow->DebugOn();
-    glRenderWindow->SetUseOffScreenBuffers(true);
-    glRenderWindow->DebugOff();
-    std::cout << "Unable to create a hardware frame buffer, the graphic board "
-      "or driver can be too old:\n"
-      << glRenderWindow->ReportCapabilities() << std::endl;
-
-    return EXIT_FAILURE;
-  }
+  glRenderWindow->SetShowWindow(false);
+  glRenderWindow->SetUseOffScreenBuffers(true);
   renderWindow->Render();
   // Create an (empty) image at the window size
-  int *size = renderWindow->GetSize();
+  int* size = renderWindow->GetSize();
   vtkNew<vtkImageData> image;
   image->SetDimensions(size[0], size[1], 1);
   image->AllocateScalars(VTK_UNSIGNED_CHAR, 3);
   renderWindow->GetPixelData(0, 0, size[0] - 1, size[1] - 1, 0,
     vtkArrayDownCast<vtkUnsignedCharArray>(image->GetPointData()->GetScalars()));
+  glRenderWindow->SetShowWindow(true);
   glRenderWindow->SetUseOffScreenBuffers(false);
 
   // Now add the actor
@@ -70,11 +59,13 @@ int TestRenderToImage(int argc, char* argv[])
   renderer->ResetCamera();
   renderWindow->Render();
 
+  glRenderWindow->SetShowWindow(false);
   glRenderWindow->SetUseOffScreenBuffers(true);
   renderWindow->Render();
   // Capture the framebuffer to the image, again
-  renderWindow->GetPixelData(0, 0, size[0]-1, size[1]-1, 0,
+  renderWindow->GetPixelData(0, 0, size[0] - 1, size[1] - 1, 0,
     vtkArrayDownCast<vtkUnsignedCharArray>(image->GetPointData()->GetScalars()));
+  glRenderWindow->SetShowWindow(true);
   glRenderWindow->SetUseOffScreenBuffers(false);
 
   // Create a new image actor and remove the geometry one

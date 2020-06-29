@@ -19,7 +19,9 @@
 
 #include <cassert>
 
-void vtkContextKeyEvent::SetInteractor(vtkRenderWindowInteractor *interactor)
+vtkContextKeyEvent::vtkContextKeyEvent() {}
+
+void vtkContextKeyEvent::SetInteractor(vtkRenderWindowInteractor* interactor)
 {
   this->Interactor = interactor;
 }

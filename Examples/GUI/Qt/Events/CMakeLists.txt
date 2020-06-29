@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.3 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.3...3.12 FATAL_ERROR)
 foreach(p
     CMP0071 # 3.10: Let AUTOMOC and AUTOUIC process GENERATED files
     )
@@ -42,5 +42,5 @@ qt5_wrap_ui(UI_Srcs ${UIs})
 
 add_executable(qtevents
   MACOSX_BUNDLE  ${Srcs} ${Hdrs} ${UI_Srcs} ${MOC_Hdrs})
-qt5_use_modules(qtevents Core Gui Widgets)
+target_link_libraries(qtevents Qt5::Core Qt5::Gui Qt5::Widgets)
 target_link_libraries(qtevents ${VTK_LIBRARIES})

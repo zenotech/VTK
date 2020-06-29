@@ -3,9 +3,10 @@
 class vtkCompositeMapperHelperData
 {
 public:
-  vtkPolyData *Data;
+  vtkPolyData* Data;
   unsigned int FlatIndex;
   double Opacity;
+  bool IsOpaque;
   bool Visibility;
   bool Pickability;
   bool OverridesColor;
@@ -21,28 +22,8 @@ public:
   unsigned int StartIndex[vtkOpenGLPolyDataMapper::PrimitiveEnd];
   unsigned int NextIndex[vtkOpenGLPolyDataMapper::PrimitiveEnd];
 
-  // Point Line Poly Strip end
-  size_t PrimOffsets[5];
-
-  bool Different(
-    vtkCompositeMapperHelperData *next,
-    vtkHardwareSelector *selector,
-    int primType)
-  {
-    return
-      (selector &&
-        selector->GetCurrentPass() ==
-            vtkHardwareSelector::COMPOSITE_INDEX_PASS) ||
-      this->Opacity != next->Opacity ||
-      this->Visibility != next->Visibility ||
-      this->Pickability != next->Pickability ||
-      this->OverridesColor != next->OverridesColor ||
-      this->AmbientColor != next->AmbientColor ||
-      this->DiffuseColor != next->DiffuseColor ||
-      (primType >= 0 && primType <= 3 &&
-        this->PrimOffsets[primType+1] != next->PrimOffsets[primType]);
-  }
-
+  // stores the mapping from vtk cells to gl_PrimitiveId
+  vtkNew<vtkOpenGLCellToVTKCellMap> CellCellMap;
 };
 
 //===================================================================
@@ -53,14 +34,13 @@ public:
   static vtkCompositeMapperHelper2* New();
   vtkTypeMacro(vtkCompositeMapperHelper2, vtkOpenGLPolyDataMapper);
 
-  void SetParent(vtkCompositePolyDataMapper2 *p) {
-    this->Parent = p; }
+  void SetParent(vtkCompositePolyDataMapper2* p) { this->Parent = p; }
 
-  vtkCompositeMapperHelperData *AddData(vtkPolyData *pd, unsigned int flatIndex);
+  vtkCompositeMapperHelperData* AddData(vtkPolyData* pd, unsigned int flatIndex);
 
   // Description:
   // Implemented by sub classes. Actual rendering is done here.
-  void RenderPiece(vtkRenderer *ren, vtkActor *act) override;
+  void RenderPiece(vtkRenderer* ren, vtkActor* act) override;
 
   // keep track of what data is being used as the multiblock
   // can change
@@ -72,51 +52,51 @@ public:
   /**
    * Accessor to the ordered list of PolyData that we last drew.
    */
-  std::vector<vtkPolyData*> GetRenderedList(){ return this->RenderedList; }
+  std::vector<vtkPolyData*> GetRenderedList() { return this->RenderedList; }
+
+  /**
+   * allows a mapper to update a selections color buffers
+   * Called from a prop which in turn is called from the selector
+   */
+  void ProcessSelectorPixelBuffers(
+    vtkHardwareSelector* sel, std::vector<unsigned int>& pixeloffsets, vtkProp* prop) override;
+
+  virtual void ProcessCompositePixelBuffers(vtkHardwareSelector* sel, vtkProp* prop,
+    vtkCompositeMapperHelperData* hdata, std::vector<unsigned int>& mypixels);
 
 protected:
-  vtkCompositePolyDataMapper2 *Parent;
-  std::map<vtkPolyData *, vtkCompositeMapperHelperData *> Data;
+  vtkCompositePolyDataMapper2* Parent;
+  std::map<vtkPolyData*, vtkCompositeMapperHelperData*> Data;
 
   bool Marked;
 
-  vtkCompositeMapperHelper2()
-  {
-    this->Parent = nullptr;
-  };
+  vtkCompositeMapperHelper2() { this->Parent = nullptr; };
   ~vtkCompositeMapperHelper2() override;
 
-  void DrawIBO(
-    vtkRenderer* ren, vtkActor *actor,
-    int primType,
-    vtkOpenGLHelper &CellBO,
-    GLenum mode,
-    int pointSize);
+  void DrawIBO(vtkRenderer* ren, vtkActor* actor, int primType, vtkOpenGLHelper& CellBO,
+    GLenum mode, int pointSize);
 
   virtual void SetShaderValues(
-    vtkShaderProgram *prog,
-    vtkCompositeMapperHelperData *hdata,
-    size_t primOffset);
+    vtkShaderProgram* prog, vtkCompositeMapperHelperData* hdata, size_t primOffset);
+
+  /**
+   * Make sure appropriate shaders are defined, compiled and bound.  This method
+   * orchistrates the process, much of the work is done in other methods
+   */
+  virtual void UpdateShaders(vtkOpenGLHelper& cellBO, vtkRenderer* ren, vtkActor* act) override;
 
   // Description:
   // Perform string replacements on the shader templates, called from
   // ReplaceShaderValues
   void ReplaceShaderColor(
-    std::map<vtkShader::Type, vtkShader *> shaders,
-    vtkRenderer *ren, vtkActor *act) override;
-
-  // Description:
-  // Determine if the buffer objects need to be rebuilt
-  bool GetNeedToRebuildBufferObjects(vtkRenderer *ren, vtkActor *act) override;
+    std::map<vtkShader::Type, vtkShader*> shaders, vtkRenderer* ren, vtkActor* act) override;
 
   // Description:
   // Build the VBO/IBO, called by UpdateBufferObjects
-  void BuildBufferObjects(vtkRenderer *ren, vtkActor *act) override;
-  virtual void AppendOneBufferObject(vtkRenderer *ren,
-    vtkActor *act, vtkCompositeMapperHelperData *hdata,
-    unsigned int &flat_index,
-    std::vector<unsigned char> &colors,
-    std::vector<float> &norms);
+  void BuildBufferObjects(vtkRenderer* ren, vtkActor* act) override;
+  virtual void AppendOneBufferObject(vtkRenderer* ren, vtkActor* act,
+    vtkCompositeMapperHelperData* hdata, vtkIdType& flat_index, std::vector<unsigned char>& colors,
+    std::vector<float>& norms);
 
   // Description:
   // Returns if we can use texture maps for scalar coloring. Note this doesn't
@@ -129,16 +109,20 @@ protected:
   // vert line poly strip edge stripedge
   std::vector<unsigned int> IndexArray[PrimitiveEnd];
 
-  void RenderPieceDraw(vtkRenderer *ren, vtkActor *act) override;
+  void RenderPieceDraw(vtkRenderer* ren, vtkActor* act) override;
 
   bool PrimIDUsed;
   bool OverideColorUsed;
 
-  vtkHardwareSelector *CurrentSelector;
-  double CurrentAmbientIntensity;
-  double CurrentDiffuseIntensity;
+  vtkHardwareSelector* CurrentSelector;
 
+  // bookkeeping required by vtkValuePass
   std::vector<vtkPolyData*> RenderedList;
+
+  // used by the hardware selector
+  std::vector<std::vector<unsigned int> > PickPixels;
+
+  std::map<vtkAbstractArray*, vtkDataArray*> ColorArrayMap;
 
 private:
   vtkCompositeMapperHelper2(const vtkCompositeMapperHelper2&) = delete;

@@ -25,27 +25,28 @@
  *
  * @warning
  * Uses the XDMF API (http://www.xdmf.org)
-*/
+ */
 
 #ifndef vtkXdmf3Reader_h
 #define vtkXdmf3Reader_h
 
+#include "vtkDataObjectAlgorithm.h"
 #include "vtkIOXdmf3Module.h" // For export macro
-#include "vtkDataReader.h"
 
 class vtkXdmf3ArraySelection;
+class vtkGraph;
 
-class VTKIOXDMF3_EXPORT vtkXdmf3Reader : public vtkDataReader
+class VTKIOXDMF3_EXPORT vtkXdmf3Reader : public vtkDataObjectAlgorithm
 {
 public:
   static vtkXdmf3Reader* New();
-  vtkTypeMacro(vtkXdmf3Reader, vtkDataReader);
+  vtkTypeMacro(vtkXdmf3Reader, vtkDataObjectAlgorithm);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
   /**
    * Set tells the reader the name of a single top level xml file to read.
    */
-  void SetFileName(const char* filename) override;
+  void SetFileName(const char* filename);
 
   //@{
   /**
@@ -61,7 +62,7 @@ public:
   /**
    * When true (the default) the reader treats a series of files as a temporal
    * collection. When false it treats it as a spatial partition and uses
-   * an optimized top level paritioning strategy.
+   * an optimized top level partitioning strategy.
    */
   vtkSetMacro(FileSeriesAsTime, bool);
   vtkGetMacro(FileSeriesAsTime, bool);
@@ -146,10 +147,8 @@ public:
    * These methods are provided to make it easier to use the Sets in ParaView.
    */
   int GetNumberOfSetArrays() { return this->GetNumberOfSets(); }
-  const char* GetSetArrayName(int index)
-    { return this->GetSetName(index); }
-  int GetSetArrayStatus(const char* name)
-    { return this->GetSetStatus(name); }
+  const char* GetSetArrayName(int index) { return this->GetSetName(index); }
+  int GetSetArrayStatus(const char* name) { return this->GetSetStatus(name); }
 
   /**
    * SIL describes organization of/relationships between classifications
@@ -164,27 +163,28 @@ public:
 
 protected:
   vtkXdmf3Reader();
-  ~vtkXdmf3Reader();
+  ~vtkXdmf3Reader() override;
 
-  //Overridden to announce that we make general DataObjects.
-  int FillOutputPortInformation(int port, vtkInformation *info) override;
+  const char* FileNameInternal;
+  vtkSetStringMacro(FileNameInternal);
 
-  //Overridden to handle RDO requests the way we need to
-  int ProcessRequest(vtkInformation *, vtkInformationVector **,
-    vtkInformationVector *) override;
+  // Overridden to announce that we make general DataObjects.
+  int FillOutputPortInformation(int port, vtkInformation* info) override;
 
-  //Overridden to create the correct vtkDataObject subclass for the file.
-  virtual int RequestDataObject(
-    vtkInformationVector *);
+  // Overridden to handle RDO requests the way we need to
+  vtkTypeBool ProcessRequest(
+    vtkInformation*, vtkInformationVector**, vtkInformationVector*) override;
 
-  //Overridden to announce temporal information and to participate in
-  //structured extent splitting.
-  virtual int RequestInformation(vtkInformation *, vtkInformationVector **,
-    vtkInformationVector *) override;
+  // Overridden to create the correct vtkDataObject subclass for the file.
+  virtual int RequestDataObjectInternal(vtkInformationVector*);
 
-  //Read the XDMF and HDF input files and fill in vtk data objects.
-  virtual int RequestData(vtkInformation *, vtkInformationVector **,
-    vtkInformationVector *) override;
+  // Overridden to announce temporal information and to participate in
+  // structured extent splitting.
+  virtual int RequestInformation(
+    vtkInformation*, vtkInformationVector**, vtkInformationVector*) override;
+
+  // Read the XDMF and HDF input files and fill in vtk data objects.
+  virtual int RequestData(vtkInformation*, vtkInformationVector**, vtkInformationVector*) override;
 
   vtkXdmf3ArraySelection* GetFieldArraySelection();
   vtkXdmf3ArraySelection* GetCellArraySelection();
@@ -204,7 +204,7 @@ private:
   bool FileSeriesAsTime;
 
   class Internals;
-  Internals *Internal;
+  Internals* Internal;
 };
 
 #endif

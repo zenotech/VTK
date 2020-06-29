@@ -31,8 +31,10 @@
  * @par Thanks:
  * This class was written by Guenole Harel and Jacques-Bernard Lekien 2014
  * This class was modified by Philippe Pebay, 2016
- * This work was supported by Commissariat a l'Energie Atomique (CEA/DIF)
-*/
+ * This class was modified by Jacques-Bernard Lekien, 2018
+ * This work was supported by Commissariat a l'Energie Atomique
+ * CEA, DAM, DIF, F-91297 Arpajon, France.
+ */
 
 #ifndef vtkHyperTreeGridAxisCut_h
 #define vtkHyperTreeGridAxisCut_h
@@ -41,16 +43,16 @@
 #include "vtkHyperTreeGridAlgorithm.h"
 
 class vtkBitArray;
-class vtkHyperTreeCursor;
 class vtkHyperTreeGrid;
-class vtkHyperTreeGridCursor;
+class vtkHyperTreeGridNonOrientedCursor;
+class vtkHyperTreeGridNonOrientedGeometryCursor;
 
 class VTKFILTERSHYPERTREE_EXPORT vtkHyperTreeGridAxisCut : public vtkHyperTreeGridAlgorithm
 {
 public:
   static vtkHyperTreeGridAxisCut* New();
-  vtkTypeMacro( vtkHyperTreeGridAxisCut, vtkHyperTreeGridAlgorithm );
-  void PrintSelf( ostream&, vtkIndent ) override;
+  vtkTypeMacro(vtkHyperTreeGridAxisCut, vtkHyperTreeGridAlgorithm);
+  void PrintSelf(ostream&, vtkIndent) override;
 
   //@{
   /**
@@ -73,19 +75,18 @@ protected:
   ~vtkHyperTreeGridAxisCut() override;
 
   // For this algorithm the output is a vtkHyperTreeGrid instance
-  int FillOutputPortInformation( int, vtkInformation* ) override;
+  int FillOutputPortInformation(int, vtkInformation*) override;
 
   /**
    * Main routine to generate hyper tree grid cut
    */
-  int ProcessTrees( vtkHyperTreeGrid*, vtkDataObject* ) override;
+  int ProcessTrees(vtkHyperTreeGrid*, vtkDataObject*) override;
 
   /**
    * Recursively descend into tree down to leaves
    */
-  void RecursivelyProcessTree( vtkHyperTreeGridCursor*,
-                               vtkHyperTreeCursor*,
-                               vtkBitArray* );
+  void RecursivelyProcessTree(vtkHyperTreeGridNonOrientedGeometryCursor* inCursor,
+    vtkHyperTreeGridNonOrientedCursor* outCursor);
 
   /**
    * Direction of plane normal
@@ -96,11 +97,13 @@ protected:
    * Intercept of plane along normal
    */
   double PlanePosition;
+  double PlanePositionRealUse;
 
   /**
    * Output material mask constructed by this filter
    */
-  vtkBitArray* MaterialMask;
+  vtkBitArray* InMask;
+  vtkBitArray* OutMask;
 
   /**
    * Keep track of current index in output hyper tree grid
@@ -112,4 +115,4 @@ private:
   void operator=(const vtkHyperTreeGridAxisCut&) = delete;
 };
 
-#endif /* vtkHyperTreeGridAxisCut_h */
+#endif // vtkHyperTreeGridAxisCut_h

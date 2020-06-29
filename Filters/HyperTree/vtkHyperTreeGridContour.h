@@ -29,24 +29,24 @@
  * @par Thanks:
  * This class was written by Guenole Harel and Jacques-Bernard Lekien 2014
  * This class was revised by Philippe Pebay, 2016
- * This work was supported by Commissariat a l'Energie Atomique (CEA/DIF)
-*/
+ * This class was modified by Jacques-Bernard Lekien, 2018
+ * This work was supported by Commissariat a l'Energie Atomique
+ * CEA, DAM, DIF, F-91297 Arpajon, France.
+ */
 
 #ifndef vtkHyperTreeGridContour_h
 #define vtkHyperTreeGridContour_h
 
+#include "vtkContourValues.h"          // Needed for inline methods
 #include "vtkFiltersHyperTreeModule.h" // For export macro
 #include "vtkHyperTreeGridAlgorithm.h"
-#include "vtkContourValues.h" // Needed for inline methods
 
 #include <vector> // For STL
 
 class vtkBitArray;
 class vtkContourHelper;
 class vtkDataArray;
-class vtkHyperTreeCursor;
 class vtkHyperTreeGrid;
-class vtkHyperTreeGridCursor;
 class vtkIdList;
 class vtkIncrementalPointLocator;
 class vtkLine;
@@ -54,21 +54,23 @@ class vtkPixel;
 class vtkPointData;
 class vtkUnsignedCharArray;
 class vtkVoxel;
+class vtkHyperTreeGridNonOrientedCursor;
+class vtkHyperTreeGridNonOrientedMooreSuperCursor;
 
 class VTKFILTERSHYPERTREE_EXPORT vtkHyperTreeGridContour : public vtkHyperTreeGridAlgorithm
 {
 public:
   static vtkHyperTreeGridContour* New();
-  vtkTypeMacro( vtkHyperTreeGridContour, vtkHyperTreeGridAlgorithm );
-  void PrintSelf( ostream&, vtkIndent ) override;
+  vtkTypeMacro(vtkHyperTreeGridContour, vtkHyperTreeGridAlgorithm);
+  void PrintSelf(ostream&, vtkIndent) override;
 
   //@{
   /**
    * Set / get a spatial locator for merging points. By default,
    * an instance of vtkMergePoints is used.
    */
-  void SetLocator(vtkIncrementalPointLocator* );
-  vtkGetObjectMacro(Locator,vtkIncrementalPointLocator);
+  void SetLocator(vtkIncrementalPointLocator*);
+  vtkGetObjectMacro(Locator, vtkIncrementalPointLocator);
   //@}
 
   /**
@@ -86,14 +88,14 @@ public:
   /**
    * Methods (inlined) to set / get contour values.
    */
-  void SetValue( int, double );
-  double GetValue( int );
-  double *GetValues();
-  void GetValues( double* );
-  void SetNumberOfContours( int) ;
-  int GetNumberOfContours();
-  void GenerateValues( int, double[2] );
-  void GenerateValues( int, double, double);
+  void SetValue(int, double);
+  double GetValue(int);
+  double* GetValues();
+  void GetValues(double*);
+  void SetNumberOfContours(int);
+  vtkIdType GetNumberOfContours();
+  void GenerateValues(int, double[2]);
+  void GenerateValues(int, double, double);
   //@}
 
 protected:
@@ -103,22 +105,22 @@ protected:
   /**
    * For this algorithm the output is a vtkPolyData instance
    */
-  int FillOutputPortInformation( int, vtkInformation* ) override;
+  int FillOutputPortInformation(int, vtkInformation*) override;
 
   /**
    * Main routine to generate isocontours of hyper tree grid.
    */
-  int ProcessTrees( vtkHyperTreeGrid*, vtkDataObject* ) override;
+  int ProcessTrees(vtkHyperTreeGrid*, vtkDataObject*) override;
 
   /**
    * Recursively decide whether a cell is intersected by a contour
    */
-  bool RecursivelyPreProcessTree( vtkHyperTreeGridCursor* );
+  bool RecursivelyPreProcessTree(vtkHyperTreeGridNonOrientedCursor*);
 
   /**
    * Recursively descend into tree down to leaves
    */
-  void RecursivelyProcessTree( vtkHyperTreeGridCursor*, vtkBitArray* );
+  void RecursivelyProcessTree(vtkHyperTreeGridNonOrientedMooreSuperCursor*);
 
   /**
    * Storage for contour values.
@@ -165,7 +167,10 @@ protected:
   /**
    * Keep track of selected input scalars
    */
- vtkDataArray* InScalars;
+  vtkDataArray* InScalars;
+
+  vtkBitArray* InMask;
+  vtkUnsignedCharArray* InGhostArray;
 
 private:
   vtkHyperTreeGridContour(const vtkHyperTreeGridContour&) = delete;
@@ -176,59 +181,73 @@ private:
  * Set a particular contour value at contour number i. The index i ranges
  * between 0<=i<NumberOfContours.
  */
-inline void vtkHyperTreeGridContour::SetValue( int i, double value )
-  { this->ContourValues->SetValue( i, value ); }
+inline void vtkHyperTreeGridContour::SetValue(int i, double value)
+{
+  this->ContourValues->SetValue(i, value);
+}
 
 /**
  * Get the ith contour value.
  */
-inline double vtkHyperTreeGridContour::GetValue( int i )
-  { return this->ContourValues->GetValue( i );}
+inline double vtkHyperTreeGridContour::GetValue(int i)
+{
+  return this->ContourValues->GetValue(i);
+}
 
 /**
  * Get a pointer to an array of contour values. There will be
  * GetNumberOfContours() values in the list.
  */
-inline double *vtkHyperTreeGridContour::GetValues()
-  { return this->ContourValues->GetValues(); }
+inline double* vtkHyperTreeGridContour::GetValues()
+{
+  return this->ContourValues->GetValues();
+}
 
 /**
  * Fill a supplied list with contour values. There will be
  * GetNumberOfContours() values in the list. Make sure you allocate
  * enough memory to hold the list.
  */
-inline void vtkHyperTreeGridContour::GetValues( double* contourValues )
-  { this->ContourValues->GetValues( contourValues ); }
+inline void vtkHyperTreeGridContour::GetValues(double* contourValues)
+{
+  this->ContourValues->GetValues(contourValues);
+}
 
 /**
  * Set the number of contours to place into the list. You only really
  * need to use this method to reduce list size. The method SetValue()
  * will automatically increase list size as needed.
  */
-inline void vtkHyperTreeGridContour::SetNumberOfContours( int number )
-  { this->ContourValues->SetNumberOfContours( number ); }
+inline void vtkHyperTreeGridContour::SetNumberOfContours(int number)
+{
+  this->ContourValues->SetNumberOfContours(number);
+}
 
 /**
  * Get the number of contours in the list of contour values.
  */
-inline int vtkHyperTreeGridContour::GetNumberOfContours()
-  { return this->ContourValues->GetNumberOfContours(); }
+inline vtkIdType vtkHyperTreeGridContour::GetNumberOfContours()
+{
+  return this->ContourValues->GetNumberOfContours();
+}
 
 /**
  * Generate numContours equally spaced contour values between specified
  * range. Contour values will include min/max range values.
  */
-inline void vtkHyperTreeGridContour::GenerateValues( int numContours,
-                                                     double range[2] )
-  { this->ContourValues->GenerateValues( numContours, range ); }
+inline void vtkHyperTreeGridContour::GenerateValues(int numContours, double range[2])
+{
+  this->ContourValues->GenerateValues(numContours, range);
+}
 
 /**
  * Generate numContours equally spaced contour values between specified
  * range. Contour values will include min/max range values.
  */
-inline void vtkHyperTreeGridContour::GenerateValues( int numContours,
-                                                     double rangeStart,
-                                                     double rangeEnd )
-  { this->ContourValues->GenerateValues( numContours, rangeStart, rangeEnd ); }
+inline void vtkHyperTreeGridContour::GenerateValues(
+  int numContours, double rangeStart, double rangeEnd)
+{
+  this->ContourValues->GenerateValues(numContours, rangeStart, rangeEnd);
+}
 
-#endif /* vtkHyperTreeGridContour_h */
+#endif // vtkHyperTreeGridContour_h

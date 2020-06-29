@@ -545,7 +545,7 @@ H5Pset_sym_k(hid_t plist_id, unsigned ik, unsigned lk)
 	    HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "istore IK value exceeds maximum B-tree entries");
 
         if(H5P_get(plist, H5F_CRT_BTREE_RANK_NAME, btree_k) < 0)
-            HGOTO_ERROR(H5E_PLIST, H5E_CANTGET, FAIL, "can't get rank for btree interanl nodes");
+            HGOTO_ERROR(H5E_PLIST, H5E_CANTGET, FAIL, "can't get rank for btree internal nodes");
         btree_k[H5B_SNODE_ID] = ik;
         if(H5P_set(plist, H5F_CRT_BTREE_RANK_NAME, btree_k) < 0)
             HGOTO_ERROR(H5E_PLIST, H5E_CANTSET, FAIL, "can't set rank for btree nodes");
@@ -650,10 +650,10 @@ H5Pset_istore_k(hid_t plist_id, unsigned ik)
 
     /* Set value */
     if(H5P_get(plist, H5F_CRT_BTREE_RANK_NAME, btree_k) < 0)
-        HGOTO_ERROR(H5E_PLIST, H5E_CANTGET, FAIL, "can't get rank for btree interanl nodes");
+        HGOTO_ERROR(H5E_PLIST, H5E_CANTGET, FAIL, "can't get rank for btree internal nodes");
     btree_k[H5B_CHUNK_ID] = ik;
     if(H5P_set(plist, H5F_CRT_BTREE_RANK_NAME, btree_k) < 0)
-        HGOTO_ERROR(H5E_PLIST, H5E_CANTSET, FAIL, "can't set rank for btree interanl nodes");
+        HGOTO_ERROR(H5E_PLIST, H5E_CANTSET, FAIL, "can't set rank for btree internal nodes");
 
 done:
     FUNC_LEAVE_API(ret_value)
@@ -698,7 +698,7 @@ H5Pget_istore_k(hid_t plist_id, unsigned *ik /*out */ )
     /* Get value */
     if(ik) {
         if(H5P_get(plist, H5F_CRT_BTREE_RANK_NAME, btree_k) < 0)
-            HGOTO_ERROR(H5E_PLIST, H5E_CANTGET, FAIL, "can't get rank for btree interanl nodes");
+            HGOTO_ERROR(H5E_PLIST, H5E_CANTGET, FAIL, "can't get rank for btree internal nodes");
         *ik = btree_k[H5B_CHUNK_ID];
     } /* end if */
 
@@ -1471,6 +1471,9 @@ H5Pset_file_space_page_size(hid_t plist_id, hsize_t fsp_size)
 
     if(fsp_size < H5F_FILE_SPACE_PAGE_SIZE_MIN)
         HGOTO_ERROR(H5E_ATOM, H5E_BADATOM, FAIL, "cannot set file space page size to less than 512")
+
+    if(fsp_size > H5F_FILE_SPACE_PAGE_SIZE_MAX)
+        HGOTO_ERROR(H5E_ATOM, H5E_BADATOM, FAIL, "cannot set file space page size to more than 1GB")
 
     /* Set the value*/
     if(H5P_set(plist, H5F_CRT_FILE_SPACE_PAGE_SIZE_NAME, &fsp_size) < 0)

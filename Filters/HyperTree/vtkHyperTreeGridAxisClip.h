@@ -26,9 +26,10 @@
  * vtkHyperTreeGrid vtkHyperTreeGridAlgorithm
  *
  * @par Thanks:
- * This class was written by Philippe Pebay on a idea of Guénolé Harel and Jacques-Bernard Lekien, 2016
- * This work was supported by Commissariat a l'Energie Atomique (CEA/DIF)
-*/
+ * This class was written by Philippe Pebay on a idea of Guenole Harel and Jacques-Bernard Lekien,
+ * 2016 This class was modified by Jacques-Bernard Lekien, 2018 This work was supported by
+ * Commissariat a l'Energie Atomique CEA, DAM, DIF, F-91297 Arpajon, France.
+ */
 
 #ifndef vtkHyperTreeGridAxisClip_h
 #define vtkHyperTreeGridAxisClip_h
@@ -37,17 +38,17 @@
 #include "vtkHyperTreeGridAlgorithm.h"
 
 class vtkBitArray;
-class vtkHyperTreeCursor;
 class vtkHyperTreeGrid;
-class vtkHyperTreeGridCursor;
 class vtkQuadric;
+class vtkHyperTreeGridNonOrientedCursor;
+class vtkHyperTreeGridNonOrientedGeometryCursor;
 
 class VTKFILTERSHYPERTREE_EXPORT vtkHyperTreeGridAxisClip : public vtkHyperTreeGridAlgorithm
 {
 public:
   static vtkHyperTreeGridAxisClip* New();
-  vtkTypeMacro( vtkHyperTreeGridAxisClip, vtkHyperTreeGridAlgorithm );
-  void PrintSelf( ostream&, vtkIndent ) override;
+  vtkTypeMacro(vtkHyperTreeGridAxisClip, vtkHyperTreeGridAlgorithm);
+  void PrintSelf(ostream&, vtkIndent) override;
 
   /**
    * Methods by which the hyper tree grid input may be clipped:
@@ -69,9 +70,9 @@ public:
    */
   vtkSetClampMacro(ClipType, int, 0, 2);
   vtkGetMacro(ClipType, int);
-  void SetClipTypeToPlane() { this->SetClipType( vtkHyperTreeGridAxisClip::PLANE); }
-  void SetClipTypeToBox() { this->SetClipType( vtkHyperTreeGridAxisClip::BOX); }
-  void SetClipTypeToQuadric() { this->SetClipType( vtkHyperTreeGridAxisClip::QUADRIC); }
+  void SetClipTypeToPlane() { this->SetClipType(vtkHyperTreeGridAxisClip::PLANE); }
+  void SetClipTypeToBox() { this->SetClipType(vtkHyperTreeGridAxisClip::BOX); }
+  void SetClipTypeToQuadric() { this->SetClipType(vtkHyperTreeGridAxisClip::QUADRIC); }
   //@}
 
   //@{
@@ -96,10 +97,10 @@ public:
   /**
    * Set/get bounds of clipping box.
    */
-  vtkSetVector6Macro(Bounds,double);
-  vtkGetVectorMacro(Bounds,double,6);
-  void GetMinimumBounds( double[3] );
-  void GetMaximumBounds( double[3] );
+  vtkSetVector6Macro(Bounds, double);
+  vtkGetVectorMacro(Bounds, double, 6);
+  void GetMinimumBounds(double[3]);
+  void GetMaximumBounds(double[3]);
   //@}
 
   //@{
@@ -110,16 +111,16 @@ public:
    * When on, a cell is clipped out when its origin + size is below said
    * said plane intercept along the considered direction.
    */
-  vtkSetMacro(InsideOut,int);
-  vtkGetMacro(InsideOut,int);
-  vtkBooleanMacro(InsideOut,int);
+  vtkSetMacro(InsideOut, bool);
+  vtkGetMacro(InsideOut, bool);
+  vtkBooleanMacro(InsideOut, bool);
   //@}
 
   //@{
   /**
    * Set/Get the clipping quadric function.
    */
-  virtual void SetQuadric( vtkQuadric* );
+  virtual void SetQuadric(vtkQuadric*);
   vtkGetObjectMacro(Quadric, vtkQuadric);
   //@}
 
@@ -127,8 +128,14 @@ public:
   /**
    * Helpers to set/get the 10 coefficients of the quadric function
    */
-  void SetQuadricCoefficients( double[10] );
-  void GetQuadricCoefficients( double[10] );
+  void SetQuadricCoefficients(double a, double b, double c, double d, double e, double f, double g,
+    double h, double i, double j)
+  {
+    double array[10] = { a, b, c, d, e, f, g, h, i, j };
+    this->SetQuadricCoefficients(array);
+  }
+  void SetQuadricCoefficients(double[10]);
+  void GetQuadricCoefficients(double[10]);
   double* GetQuadricCoefficients();
   //@}
 
@@ -142,24 +149,23 @@ protected:
   ~vtkHyperTreeGridAxisClip() override;
 
   // For this algorithm the output is a vtkHyperTreeGrid instance
-  int FillOutputPortInformation( int, vtkInformation* ) override;
+  int FillOutputPortInformation(int, vtkInformation*) override;
 
   /**
    * Decide whether the cell is clipped out
    */
-  bool IsClipped( vtkHyperTreeGridCursor* );
+  bool IsClipped(vtkHyperTreeGridNonOrientedGeometryCursor*);
 
   /**
    * Main routine to generate hyper tree grid clip
    */
-  int ProcessTrees( vtkHyperTreeGrid*, vtkDataObject* ) override;
+  int ProcessTrees(vtkHyperTreeGrid*, vtkDataObject*) override;
 
   /**
    * Recursively descend into tree down to leaves
    */
-  void RecursivelyProcessTree( vtkHyperTreeGridCursor*,
-                               vtkHyperTreeCursor*,
-                               vtkBitArray* );
+  void RecursivelyProcessTree(vtkHyperTreeGridNonOrientedGeometryCursor* inCursor,
+    vtkHyperTreeGridNonOrientedCursor* outCursor);
 
   /**
    * Type of clip to be performed
@@ -175,6 +181,7 @@ protected:
    * Intercept of clipping plane along normal
    */
   double PlanePosition;
+  double PlanePositionRealUse;
 
   /**
    * Bounds of axis-aligned clipping box
@@ -189,12 +196,13 @@ protected:
   /**
    * Decide what is inside versus what is out
    */
-  int InsideOut;
+  bool InsideOut;
 
   /**
    * Output material mask constructed by this filter
    */
-  vtkBitArray* MaterialMask;
+  vtkBitArray* InMask;
+  vtkBitArray* OutMask;
 
   /**
    * Keep track of current index in output hyper tree grid
@@ -206,4 +214,4 @@ private:
   void operator=(const vtkHyperTreeGridAxisClip&) = delete;
 };
 
-#endif /* vtkHyperTreeGridAxisClip_h */
+#endif // vtkHyperTreeGridAxisClip_h

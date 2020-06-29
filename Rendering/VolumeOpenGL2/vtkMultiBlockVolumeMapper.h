@@ -28,20 +28,18 @@
  * it falls back to using a single mapper instance and reloading data for each block.
  *
  * Jittering is used to alleviate seam artifacts at the block edges due to the
- * discontinuous resolution between blocks.  Jittering is disabled by default until
- * valid resolution is set (e.g. x > 0 && y > 0).  Jittering is only supported in
- * GPURenderMode.
+ * discontinuous resolution between blocks.  Jittering is enabled by default.
+ * Jittering is only supported in GPURenderMode.
  *
  */
 #ifndef vtkMultiBlockVolumeMapper_h
 #define vtkMultiBlockVolumeMapper_h
 
-#include <vector>                            // For DataBlocks
+#include <vector> // For DataBlocks
 
-#include "vtkTimeStamp.h"                    // For BlockLoadingTime
 #include "vtkRenderingVolumeOpenGL2Module.h" // For export macro
+#include "vtkTimeStamp.h"                    // For BlockLoadingTime
 #include "vtkVolumeMapper.h"
-
 
 class vtkDataObjectTree;
 class vtkDataSet;
@@ -49,12 +47,11 @@ class vtkImageData;
 class vtkMultiBlockDataSet;
 class vtkSmartVolumeMapper;
 
-class VTKRENDERINGVOLUMEOPENGL2_EXPORT vtkMultiBlockVolumeMapper :
-  public vtkVolumeMapper
+class VTKRENDERINGVOLUMEOPENGL2_EXPORT vtkMultiBlockVolumeMapper : public vtkVolumeMapper
 {
 public:
-  static vtkMultiBlockVolumeMapper *New();
-  vtkTypeMacro(vtkMultiBlockVolumeMapper,vtkVolumeMapper);
+  static vtkMultiBlockVolumeMapper* New();
+  vtkTypeMacro(vtkMultiBlockVolumeMapper, vtkVolumeMapper);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
   //@{
@@ -95,15 +92,6 @@ public:
   vtkGetMacro(VectorComponent, int);
   //@}
 
-  /**
-   * Set the resolution of the noise texture used for ray jittering (viewport's
-   * resolution is normally a good choice).  In this mapper jittering is used to
-   * alleviate seam artifacts at the block edges due to discontinuous resolution
-   * between blocks.  Jittering is disabled by default until valid resolution is
-   * set (e.g. x > 0 && y > 0).
-   */
-  void SetJitteringResolution(int x, int y);
-
   //@{
   /**
    * Blending mode API from vtkVolumeMapper
@@ -122,9 +110,9 @@ public:
   /**
    * \sa vtkVolumeMapper::SetCroppingRegionPlanes
    */
-  void SetCroppingRegionPlanes(double arg1, double arg2, double arg3,
-    double arg4, double arg5, double arg6) override;
-  void SetCroppingRegionPlanes(double *planes) override;
+  void SetCroppingRegionPlanes(
+    double arg1, double arg2, double arg3, double arg4, double arg5, double arg6) override;
+  void SetCroppingRegionPlanes(const double* planes) override;
 
   /**
    * \sa vtkVolumeMapper::SetCroppingRegionFlags
@@ -163,8 +151,6 @@ private:
    */
   void CreateMappers(vtkDataObjectTree* input, vtkRenderer* ren, vtkVolume* vol);
 
-  void ApplyJitteringResolution(vtkSmartVolumeMapper* mapper);
-
   vtkDataObjectTree* GetDataObjectTreeInput();
 
   /**
@@ -195,9 +181,6 @@ private:
 
   vtkTimeStamp BlockLoadingTime;
   vtkTimeStamp BoundsComputeTime;
-
-  int JitteringSizeX;
-  int JitteringSizeY;
 
   int VectorMode;
   int VectorComponent;

@@ -642,14 +642,14 @@ vtkFiberSurface::vtkFiberSurface()
 
 //----------------------------------------------------------------------------
 
-void vtkFiberSurface::SetField1(char* nm)
+void vtkFiberSurface::SetField1(const char* nm)
 {
   this->Fields[0] = nm;
 }
 
 //----------------------------------------------------------------------------
 
-void vtkFiberSurface::SetField2(char* nm)
+void vtkFiberSurface::SetField2(const char* nm)
 {
   this->Fields[1] = nm;
 }
@@ -944,7 +944,7 @@ int vtkFiberSurface::RequestData(vtkInformation* vtkNotUsed(request),
               //    alpha = signedDistance(u) / (signedDistance(u) - signedDistance(v))
               const double alpha = distancesToLine[edge2endpoints[type - bv_edge_01][0]] /
                 (distancesToLine[edge2endpoints[type - bv_edge_01][0]] -
-                                     distancesToLine[edge2endpoints[type - bv_edge_01][1]]);
+                  distancesToLine[edge2endpoints[type - bv_edge_01][1]]);
 
               // convert enum to pair of endpoints and get their id in the point set
               const vtkIdType pointIds[2] = { tet->GetPointId(edge2endpoints[type - bv_edge_01][0]),
@@ -1005,8 +1005,7 @@ int vtkFiberSurface::RequestData(vtkInformation* vtkNotUsed(request),
         // clip or cull the triangle from the base fiber surface.
         int counter = 0;
         vtkIdType pts[3];
-        for (int tindex = 0; tindex != nClipTriangles[triangleCaseNumber];
-             ++tindex)
+        for (int tindex = 0; tindex != nClipTriangles[triangleCaseNumber]; ++tindex)
         {
           for (int vertexIndex = 0; vertexIndex != 3; ++vertexIndex)
           {

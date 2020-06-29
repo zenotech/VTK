@@ -28,7 +28,7 @@ All rights reserve
  *
  * @sa
  * vtkActor vtkAxisActor vtkPolarAxesActor
-*/
+ */
 
 #ifndef vtkPolarAxesActor_h
 #define vtkPolarAxesActor_h
@@ -43,6 +43,7 @@ All rights reserve
 #include "vtkAxisActor.h"                 // access to enum values
 #include "vtkRenderingAnnotationModule.h" // For export macro
 #include <list>                           // To process exponent list as reference
+#include <string>                         // used for ivar
 
 class vtkCamera;
 class vtkPolyData;
@@ -69,7 +70,7 @@ public:
    */
   int RenderOpaqueGeometry(vtkViewport*) override;
   int RenderOverlay(vtkViewport*) override;
-  int RenderTranslucentPolygonalGeometry(vtkViewport*) override { return 0; };
+  int RenderTranslucentPolygonalGeometry(vtkViewport*) override { return 0; }
   //@}
 
   //@{
@@ -734,7 +735,7 @@ protected:
 
   /**
    * Set Range and PolarAxis members value to build axis ticks
-   * this fonction doesn't actually build PolarAxis ticks, it set the DeltaRangeMajor and DeltaMajor
+   * this function doesn't actually build PolarAxis ticks, it set the DeltaRangeMajor and DeltaMajor
    * attributes
    * then PolarAxis itself is in charge of ticks drawing
    */

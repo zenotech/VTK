@@ -53,6 +53,14 @@ struct vtkXMLCompositeDataReaderEntry
 
 struct vtkXMLCompositeDataReaderInternals
 {
+  vtkXMLCompositeDataReaderInternals()
+  {
+    this->Piece = 0;
+    this->NumPieces = 1;
+    this->NumDataSets = 1;
+    this->HasUpdateRestriction = false;
+  }
+
   vtkSmartPointer<vtkXMLDataElement> Root;
   typedef std::map<std::string, vtkSmartPointer<vtkXMLReader> > ReadersType;
   ReadersType Readers;
@@ -60,12 +68,6 @@ struct vtkXMLCompositeDataReaderInternals
   unsigned int Piece;
   unsigned int NumPieces;
   unsigned int NumDataSets;
-  vtkXMLCompositeDataReaderInternals()
-  {
-    this->Piece = 0;
-    this->NumPieces = 1;
-    this->NumDataSets = 1;
-  }
   std::set<int> UpdateIndices;
   bool HasUpdateRestriction;
 };
@@ -118,8 +120,7 @@ void vtkXMLCompositeDataReader::SetupEmptyOutput()
 }
 
 //----------------------------------------------------------------------------
-int vtkXMLCompositeDataReader::FillOutputPortInformation(
-  int vtkNotUsed(port), vtkInformation* info)
+int vtkXMLCompositeDataReader::FillOutputPortInformation(int vtkNotUsed(port), vtkInformation* info)
 {
   info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkCompositeDataSet");
   return 1;
@@ -132,6 +133,23 @@ vtkExecutive* vtkXMLCompositeDataReader::CreateDefaultExecutive()
 }
 
 //----------------------------------------------------------------------------
+std::string vtkXMLCompositeDataReader::GetFilePath()
+{
+  std::string filePath = this->FileName;
+  std::string::size_type pos = filePath.find_last_of("/\\");
+  if (pos != filePath.npos)
+  {
+    filePath = filePath.substr(0, pos);
+  }
+  else
+  {
+    filePath = "";
+  }
+
+  return filePath;
+}
+
+//----------------------------------------------------------------------------
 vtkCompositeDataSet* vtkXMLCompositeDataReader::GetOutput()
 {
   return this->GetOutput(0);
@@ -141,8 +159,7 @@ vtkCompositeDataSet* vtkXMLCompositeDataReader::GetOutput()
 vtkCompositeDataSet* vtkXMLCompositeDataReader::GetOutput(int port)
 {
   vtkDataObject* output =
-    vtkCompositeDataPipeline::SafeDownCast(this->GetExecutive())->
-    GetCompositeOutputData(port);
+    vtkCompositeDataPipeline::SafeDownCast(this->GetExecutive())->GetCompositeOutputData(port);
   return vtkCompositeDataSet::SafeDownCast(output);
 }
 
@@ -177,6 +194,31 @@ vtkXMLDataElement* vtkXMLCompositeDataReader::GetPrimaryElement()
 }
 
 //----------------------------------------------------------------------------
+std::string vtkXMLCompositeDataReader::GetFileNameFromXML(
+  vtkXMLDataElement* xmlElem, const std::string& filePath)
+{
+  // Construct the name of the internal file.
+  const char* file = xmlElem->GetAttribute("file");
+  if (!file)
+  {
+    return std::string();
+  }
+
+  std::string fileName;
+  if (!(file[0] == '/' || file[1] == ':'))
+  {
+    fileName = filePath;
+    if (fileName.length())
+    {
+      fileName += "/";
+    }
+  }
+  fileName += file;
+
+  return fileName;
+}
+
+//----------------------------------------------------------------------------
 vtkXMLReader* vtkXMLCompositeDataReader::GetReaderOfType(const char* type)
 {
   if (!type)
@@ -196,27 +238,27 @@ vtkXMLReader* vtkXMLCompositeDataReader::GetReaderOfType(const char* type)
   {
     reader = vtkXMLImageDataReader::New();
   }
-  else if (strcmp(type,"vtkXMLUnstructuredGridReader") == 0)
+  else if (strcmp(type, "vtkXMLUnstructuredGridReader") == 0)
   {
     reader = vtkXMLUnstructuredGridReader::New();
   }
-  else if (strcmp(type,"vtkXMLPolyDataReader") == 0)
+  else if (strcmp(type, "vtkXMLPolyDataReader") == 0)
   {
     reader = vtkXMLPolyDataReader::New();
   }
-  else if (strcmp(type,"vtkXMLRectilinearGridReader") == 0)
+  else if (strcmp(type, "vtkXMLRectilinearGridReader") == 0)
   {
     reader = vtkXMLRectilinearGridReader::New();
   }
-  else if (strcmp(type,"vtkXMLStructuredGridReader") == 0)
+  else if (strcmp(type, "vtkXMLStructuredGridReader") == 0)
   {
     reader = vtkXMLStructuredGridReader::New();
   }
-  else if (strcmp(type,"vtkXMLTableReader") == 0)
+  else if (strcmp(type, "vtkXMLTableReader") == 0)
   {
     reader = vtkXMLTableReader::New();
   }
-  else if (strcmp(type,"vtkXMLHyperTreeGridReader") == 0)
+  else if (strcmp(type, "vtkXMLHyperTreeGridReader") == 0)
   {
     reader = vtkXMLHyperTreeGridReader::New();
   }
@@ -239,18 +281,43 @@ vtkXMLReader* vtkXMLCompositeDataReader::GetReaderOfType(const char* type)
 }
 
 //----------------------------------------------------------------------------
+vtkXMLReader* vtkXMLCompositeDataReader::GetReaderForFile(const std::string& fileName)
+{
+  // Get the file extension.
+  std::string ext = vtksys::SystemTools::GetFilenameLastExtension(fileName);
+  if (!ext.empty())
+  {
+    // remove "." from the extension.
+    ext.erase(0, 1);
+  }
+
+  // Search for the reader matching this extension.
+  const char* rname = nullptr;
+  for (const vtkXMLCompositeDataReaderEntry* readerEntry = this->Internal->ReaderList;
+       !rname && readerEntry->extension; ++readerEntry)
+  {
+    if (ext == readerEntry->extension)
+    {
+      rname = readerEntry->name;
+    }
+  }
+
+  return this->GetReaderOfType(rname);
+}
+
+//----------------------------------------------------------------------------
 unsigned int vtkXMLCompositeDataReader::CountLeaves(vtkXMLDataElement* elem)
 {
   unsigned int count = 0;
   if (elem)
   {
     unsigned int max = elem->GetNumberOfNestedElements();
-    for (unsigned int cc=0; cc < max; ++cc)
+    for (unsigned int cc = 0; cc < max; ++cc)
     {
       vtkXMLDataElement* child = elem->GetNestedElement(cc);
       if (child && child->GetName())
       {
-        if (strcmp(child->GetName(), "DataSet")==0)
+        if (strcmp(child->GetName(), "DataSet") == 0)
         {
           count++;
         }
@@ -269,16 +336,14 @@ void vtkXMLCompositeDataReader::ReadXMLData()
 {
   vtkInformation* info = this->GetCurrentOutputInformation();
 
-  this->Internal->Piece = static_cast<unsigned int>(
-    info->Get(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER()));
-  this->Internal->NumPieces =  static_cast<unsigned int>(
+  this->Internal->Piece =
+    static_cast<unsigned int>(info->Get(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER()));
+  this->Internal->NumPieces = static_cast<unsigned int>(
     info->Get(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES()));
   this->Internal->NumDataSets = this->CountLeaves(this->GetPrimaryElement());
 
-  vtkDataObject* doOutput =
-    info->Get(vtkDataObject::DATA_OBJECT());
-  vtkCompositeDataSet* composite =
-    vtkCompositeDataSet::SafeDownCast(doOutput);
+  vtkDataObject* doOutput = info->Get(vtkDataObject::DATA_OBJECT());
+  vtkCompositeDataSet* composite = vtkCompositeDataSet::SafeDownCast(doOutput);
   if (!composite)
   {
     return;
@@ -288,16 +353,7 @@ void vtkXMLCompositeDataReader::ReadXMLData()
 
   // Find the path to this file in case the internal files are
   // specified as relative paths.
-  std::string filePath = this->FileName;
-  std::string::size_type pos = filePath.find_last_of("/\\");
-  if (pos != filePath.npos)
-  {
-    filePath = filePath.substr(0, pos);
-  }
-  else
-  {
-    filePath = "";
-  }
+  std::string filePath = this->GetFilePath();
 
   vtkInformation* outInfo = this->GetCurrentOutputInformation();
   if (outInfo->Has(vtkCompositeDataPipeline::UPDATE_COMPOSITE_INDICES()))
@@ -308,7 +364,7 @@ void vtkXMLCompositeDataReader::ReadXMLData()
     if (length > 0)
     {
       int* idx = outInfo->Get(vtkCompositeDataPipeline::UPDATE_COMPOSITE_INDICES());
-      this->Internal->UpdateIndices = std::set<int>(idx, idx+length);
+      this->Internal->UpdateIndices = std::set<int>(idx, idx + length);
 
       // Change the total number of datasets so that we'll properly load
       // balance across the valid datasets.
@@ -322,7 +378,7 @@ void vtkXMLCompositeDataReader::ReadXMLData()
 
   // All processes create the entire tree structure however, but each one only
   // reads the datasets assigned to it.
-  unsigned int dataSetIndex=0;
+  unsigned int dataSetIndex = 0;
   this->ReadComposite(this->GetPrimaryElement(), composite, filePath.c_str(), dataSetIndex);
 }
 
@@ -355,8 +411,7 @@ int vtkXMLCompositeDataReader::ShouldReadDataSet(unsigned int idx)
       break;
 
     default:
-      vtkErrorMacro("Invalid PieceDistribution setting: "
-                    << this->PieceDistribution);
+      vtkErrorMacro("Invalid PieceDistribution setting: " << this->PieceDistribution);
       break;
   }
 
@@ -406,8 +461,7 @@ bool vtkXMLCompositeDataReader::DataSetIsValidForBlockStrategy(unsigned int idx)
 }
 
 //------------------------------------------------------------------------------
-bool vtkXMLCompositeDataReader::
-DataSetIsValidForInterleaveStrategy(unsigned int idx)
+bool vtkXMLCompositeDataReader::DataSetIsValidForInterleaveStrategy(unsigned int idx)
 {
   // Use signed integers for the modulus -- otherwise weird things like
   // (-1 % 3) == 0 will happen!
@@ -419,58 +473,25 @@ DataSetIsValidForInterleaveStrategy(unsigned int idx)
 }
 
 //----------------------------------------------------------------------------
-vtkDataObject* vtkXMLCompositeDataReader::ReadDataObject(vtkXMLDataElement* xmlElem,
-  const char* filePath)
+vtkDataObject* vtkXMLCompositeDataReader::ReadDataObject(
+  vtkXMLDataElement* xmlElem, const char* filePath)
 {
-  // Construct the name of the internal file.
-  const char* file = xmlElem->GetAttribute("file");
-  if (!file)
-  {
+  // Get the reader for this file
+  std::string fileName = this->GetFileNameFromXML(xmlElem, filePath);
+  if (fileName.empty())
+  { // No filename in XML element. Not necessarily an error.
     return nullptr;
   }
-
-  std::string fileName;
-  if (!(file[0] == '/' || file[1] == ':'))
-  {
-    fileName = filePath;
-    if (fileName.length())
-    {
-      fileName += "/";
-    }
-  }
-  fileName += file;
-
-  // Get the file extension.
-  std::string ext = vtksys::SystemTools::GetFilenameLastExtension(fileName);
-  if (!ext.empty())
-  {
-    // remote "." from the extension.
-    ext = &(ext.c_str()[1]);
-  }
-
-  // Search for the reader matching this extension.
-  const char* rname = nullptr;
-  for(const vtkXMLCompositeDataReaderEntry* readerEntry =
-    this->Internal->ReaderList;
-    !rname && readerEntry->extension; ++readerEntry)
-  {
-    if (ext == readerEntry->extension)
-    {
-      rname = readerEntry->name;
-    }
-  }
-  vtkXMLReader* reader = this->GetReaderOfType(rname);
+  vtkXMLReader* reader = this->GetReaderForFile(fileName);
   if (!reader)
   {
-    vtkErrorMacro("Could not create reader for " << rname);
+    vtkErrorMacro("Could not create reader for " << fileName);
     return nullptr;
   }
   reader->SetFileName(fileName.c_str());
-  // initialize array selection so we don't have any residual array selections
-  // from previous use of the reader.
-  reader->GetPointDataArraySelection()->RemoveAllArrays();
-  reader->GetCellDataArraySelection()->RemoveAllArrays();
-  reader->GetColumnArraySelection()->RemoveAllArrays();
+  reader->GetPointDataArraySelection()->CopySelections(this->PointDataArraySelection);
+  reader->GetCellDataArraySelection()->CopySelections(this->CellDataArraySelection);
+  reader->GetColumnArraySelection()->CopySelections(this->ColumnArraySelection);
   reader->Update();
   vtkDataObject* output = reader->GetOutputDataObject(0);
   if (!output)
@@ -483,39 +504,58 @@ vtkDataObject* vtkXMLCompositeDataReader::ReadDataObject(vtkXMLDataElement* xmlE
   return outputCopy;
 }
 
-
 //----------------------------------------------------------------------------
-vtkDataSet* vtkXMLCompositeDataReader::ReadDataset(vtkXMLDataElement* xmlElem,
-  const char* filePath)
+vtkDataSet* vtkXMLCompositeDataReader::ReadDataset(vtkXMLDataElement* xmlElem, const char* filePath)
 {
   return vtkDataSet::SafeDownCast(ReadDataObject(xmlElem, filePath));
 }
 
 //----------------------------------------------------------------------------
 int vtkXMLCompositeDataReader::RequestInformation(
-  vtkInformation *request,
-  vtkInformationVector **inputVector,
-  vtkInformationVector *outputVector)
+  vtkInformation* request, vtkInformationVector** inputVector, vtkInformationVector* outputVector)
 {
   this->Superclass::RequestInformation(request, inputVector, outputVector);
 
   vtkInformation* info = outputVector->GetInformationObject(0);
-   info->Set(
-     CAN_HANDLE_PIECE_REQUEST(), 1);
+  info->Set(CAN_HANDLE_PIECE_REQUEST(), 1);
 
   return 1;
 }
 
 //----------------------------------------------------------------------------
-const vtkXMLCompositeDataReaderEntry
-  vtkXMLCompositeDataReaderInternals::ReaderList[] =
+void vtkXMLCompositeDataReader::SyncDataArraySelections(
+  vtkXMLReader* accum, vtkXMLDataElement* xmlElem, const std::string& filePath)
 {
-  {"vtp", "vtkXMLPolyDataReader"},
-  {"vtu", "vtkXMLUnstructuredGridReader"},
-  {"vti", "vtkXMLImageDataReader"},
-  {"vtr", "vtkXMLRectilinearGridReader"},
-  {"vts", "vtkXMLStructuredGridReader"},
-  {"vtt", "vtkXMLTableReader"},
-  {"htg", "vtkXMLHyperTreeGridReader"},
-  {nullptr, nullptr}
+  // Get the reader for this file
+  std::string fileName = this->GetFileNameFromXML(xmlElem, filePath);
+  if (fileName.empty())
+  { // No filename in XML element. Not necessarily an error.
+    return;
+  }
+  vtkXMLReader* reader = this->GetReaderForFile(fileName);
+  if (!reader)
+  {
+    vtkErrorMacro("Could not create reader for " << fileName);
+    return;
+  }
+  reader->SetFileName(fileName.c_str());
+  // initialize array selection so we don't have any residual array selections
+  // from previous use of the reader.
+  reader->GetPointDataArraySelection()->RemoveAllArrays();
+  reader->GetCellDataArraySelection()->RemoveAllArrays();
+  reader->GetColumnArraySelection()->RemoveAllArrays();
+  reader->UpdateInformation();
+
+  // Merge the arrays:
+  accum->GetPointDataArraySelection()->Union(reader->GetPointDataArraySelection());
+  accum->GetCellDataArraySelection()->Union(reader->GetCellDataArraySelection());
+  accum->GetColumnArraySelection()->Union(reader->GetColumnArraySelection());
+}
+
+//----------------------------------------------------------------------------
+const vtkXMLCompositeDataReaderEntry vtkXMLCompositeDataReaderInternals::ReaderList[] = {
+  { "vtp", "vtkXMLPolyDataReader" }, { "vtu", "vtkXMLUnstructuredGridReader" },
+  { "vti", "vtkXMLImageDataReader" }, { "vtr", "vtkXMLRectilinearGridReader" },
+  { "vts", "vtkXMLStructuredGridReader" }, { "vtt", "vtkXMLTableReader" },
+  { "htg", "vtkXMLHyperTreeGridReader" }, { nullptr, nullptr }
 };

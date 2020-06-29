@@ -41,6 +41,7 @@ int TestPDALReader_@VTK_PDAL_READER_POSTFIX@(int argc, char **argv)
   vtkNew<vtkPDALReader> reader;
   //Select source file
   reader->SetFileName(path);
+  delete [] path;
 
   //Read the output
   reader->Update();
@@ -117,7 +118,7 @@ int TestPDALReader_@VTK_PDAL_READER_POSTFIX@(int argc, char **argv)
   vtkCamera *camera=renderer->GetActiveCamera();
   camera->Elevation(@VTK_PDAL_READER_ELEVATION@);
 
-  int retVal = vtkRegressionTestImage (renderWindow);
+  int retVal = vtkRegressionTestImageThreshold (renderWindow, 0.2);
   if (retVal == vtkRegressionTester::DO_INTERACTOR)
   {
     renderWindowInteractor->Start ();

@@ -22,27 +22,26 @@
  * To be effective, one must register an observer for WindowMakeCurrentEvent,
  * WindowIsCurrentEvent and WindowFrameEvent.  When this class sends a WindowIsCurrentEvent,
  * the call data is an bool* which one can use to return whether the context is current.
-*/
+ */
 
 #ifndef vtkGenericOpenGLRenderWindow_h
 #define vtkGenericOpenGLRenderWindow_h
 
-#include "vtkRenderingOpenGL2Module.h" // For export macro
 #include "vtkOpenGLRenderWindow.h"
+#include "vtkRenderingOpenGL2Module.h" // For export macro
 
-class VTKRENDERINGOPENGL2_EXPORT vtkGenericOpenGLRenderWindow :
-  public vtkOpenGLRenderWindow
+class VTKRENDERINGOPENGL2_EXPORT vtkGenericOpenGLRenderWindow : public vtkOpenGLRenderWindow
 {
 public:
   static vtkGenericOpenGLRenderWindow* New();
   vtkTypeMacro(vtkGenericOpenGLRenderWindow, vtkOpenGLRenderWindow);
   void PrintSelf(ostream& os, vtkIndent indent) override;
+
 protected:
   vtkGenericOpenGLRenderWindow();
   ~vtkGenericOpenGLRenderWindow() override;
 
 public:
-
   //! Cleans up graphics resources allocated in the context for this VTK scene.
   void Finalize() override;
 
@@ -71,13 +70,14 @@ public:
 
   // {@
   //! set the drawing buffers to use
-  void SetFrontBuffer(unsigned int);
   void SetFrontLeftBuffer(unsigned int);
   void SetFrontRightBuffer(unsigned int);
-  void SetBackBuffer(unsigned int);
   void SetBackLeftBuffer(unsigned int);
   void SetBackRightBuffer(unsigned int);
   // }@
+
+  void SetDefaultFrameBufferId(unsigned int);
+  void SetOwnContext(int);
 
   //! no-op (for API compat with OpenGL1).
   void PushState() {}
@@ -94,17 +94,16 @@ public:
   void* GetGenericParentId() override;
   void* GetGenericContext() override;
   void* GetGenericDrawable() override;
-  void SetWindowInfo(char*) override;
-  void SetParentInfo(char*) override;
+  void SetWindowInfo(const char*) override;
+  void SetParentInfo(const char*) override;
   int* GetScreenSize() VTK_SIZEHINT(2) override;
-  void Start() override;
   void HideCursor() override;
   void ShowCursor() override;
   void SetFullScreen(vtkTypeBool) override;
   void WindowRemap() override;
-  int  GetEventPending() override;
+  int GetEventPending() override;
   void SetNextWindowId(void*) override;
-  void SetNextWindowInfo(char*) override;
+  void SetNextWindowInfo(const char*) override;
   void CreateAWindow() override;
   void DestroyWindow() override;
   // }@
@@ -135,7 +134,7 @@ public:
 
   //@{
   /**
-   * Specificy a non-zero line width to force the hardware line width determined
+   * Specify a non-zero line width to force the hardware line width determined
    * by the window.
    */
   vtkSetClampMacro(ForceMaximumHardwareLineWidth, float, 0, VTK_FLOAT_MAX);
@@ -154,15 +153,36 @@ public:
   /**
    * Set the size of the screen in pixels.
    */
-  vtkSetVector2Macro(ScreenSize,int);
+  vtkSetVector2Macro(ScreenSize, int);
 
   /**
-  * Overridden to invoke vtkCommand::StartPickEvent and
-  * vtkCommand::EndPickEvent.
-  */
-  void SetIsPicking(vtkTypeBool isPicking) override;
+   * Overridden to invoke vtkCommand::CursorChangedEvent
+   */
+  void SetCurrentCursor(int cShape) override;
+
+  // since we are using an external context it must
+  // specify if the window is mapped or not.
+  vtkSetMacro(Mapped, vtkTypeBool);
+
+  /**
+   * Overridden to simply call `GetReadyForRendering`
+   */
+  bool IsDrawable() override { return this->ReadyForRendering; }
 
 protected:
+  /**
+   * Overridden to not attempt to read pixels if `this->ReadyForRendering` is
+   * false. In that case, this method will simply return `VTK_ERROR`. Otherwise,
+   * the superclass' implementation will be called.
+   */
+  int ReadPixels(
+    const vtkRecti& rect, int front, int glFormat, int glType, void* data, int right) override;
+
+  int SetRGBACharPixelData(
+    int x1, int y1, int x2, int y2, unsigned char* data, int front, int blend, int right) override;
+  int SetRGBACharPixelData(int x, int y, int x2, int y2, vtkUnsignedCharArray* data, int front,
+    int blend = 0, int right = 0) override;
+
   int DirectStatus;
   int SupportsOpenGLStatus;
   bool CurrentStatus;

@@ -1,10 +1,11 @@
+#include "vtkLogger.h"
 #include "vtkNew.h"
 #include "vtkResourceFileLocator.h"
 #include "vtkVersion.h"
 
 #include <vtksys/SystemTools.hxx>
 
-int TestResourceFileLocator(int, char* [])
+int TestResourceFileLocator(int, char*[])
 {
   auto vtklib = vtkGetLibraryPathForSymbol(GetVTKVersion);
   if (vtklib.empty())
@@ -15,7 +16,7 @@ int TestResourceFileLocator(int, char* [])
   const std::string vtkdir = vtksys::SystemTools::GetFilenamePath(vtklib);
 
   vtkNew<vtkResourceFileLocator> locator;
-  locator->PrintDebugInformationOn();
+  locator->SetLogVerbosity(vtkLogger::VERBOSITY_INFO);
   auto path = locator->Locate(vtkdir, "Testing/Temporary");
   if (path.empty())
   {

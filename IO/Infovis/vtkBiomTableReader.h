@@ -20,7 +20,7 @@
  * The output of this reader is a single vtkTable data object.
  * @sa
  * vtkTable vtkTableReader vtkDataReader
-*/
+ */
 
 #ifndef vtkBiomTableReader_h
 #define vtkBiomTableReader_h
@@ -34,31 +34,27 @@ class vtkVariant;
 class VTKIOINFOVIS_EXPORT vtkBiomTableReader : public vtkTableReader
 {
 public:
-  static vtkBiomTableReader *New();
-  vtkTypeMacro(vtkBiomTableReader,vtkTableReader);
+  static vtkBiomTableReader* New();
+  vtkTypeMacro(vtkBiomTableReader, vtkTableReader);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
   //@{
   /**
    * Get the output of this reader.
    */
-  vtkTable *GetOutput();
-  vtkTable *GetOutput(int idx);
-  void SetOutput(vtkTable *output);
+  vtkTable* GetOutput();
+  vtkTable* GetOutput(int idx);
+  void SetOutput(vtkTable* output);
   //@}
+
+  /**
+   * Actual reading happens here
+   */
+  int ReadMeshSimple(const std::string& fname, vtkDataObject* output) override;
 
 protected:
   vtkBiomTableReader();
   ~vtkBiomTableReader() override;
-
-  int RequestData(vtkInformation *, vtkInformationVector **,
-                          vtkInformationVector *) override;
-
-  // Since the Outputs[0] has the same UpdateExtent format
-  // as the generic DataObject we can copy the UpdateExtent
-  // as a default behavior.
-  int RequestUpdateExtent(vtkInformation *, vtkInformationVector **,
-                                  vtkInformationVector *) override;
 
   int FillOutputPortInformation(int, vtkInformation*) override;
   void ParseShape();

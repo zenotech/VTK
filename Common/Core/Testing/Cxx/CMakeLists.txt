@@ -9,9 +9,10 @@ function(add_data_array_test test_name array_header array_valuetype array_type)
   set(VTK_TESTDATAARRAYAPI_TESTNAME "TestDataArrayAPI_${test_name}")
   set(test_source "${VTK_TESTDATAARRAYAPI_TESTNAME}.cxx")
 
-  configure_file(TestDataArrayAPI.cxx.in "${test_source}")
+  configure_file(TestDataArrayAPI.cxx.in "${CMAKE_CURRENT_BINARY_DIR}/${test_source}")
 
-  set(data_array_tests ${data_array_tests} "${test_source}.cxx" PARENT_SCOPE)
+  #specify a custom test name as these files exist in the build directory
+  list(APPEND data_array_tests "${VTK_TESTDATAARRAYAPI_TESTNAME},${CMAKE_CURRENT_BINARY_DIR}/${test_source}" PARENT_SCOPE)
 endfunction()
 
 # Legacy -- test that the vtkDataArrayTemplate interface still works:
@@ -69,6 +70,19 @@ foreach(value_type ${value_types})
     vtkSOADataArrayTemplate.h
     "${value_type}"
     "vtkSOADataArrayTemplate<${value_type}>")
+
+  if(VTK_BUILD_SCALED_SOA_ARRAYS)
+    add_data_array_test(
+      "ScaleAoS_${pretty_value_type}"
+      vtkScaleAOSDataArrayTemplate.h
+      "${value_type}"
+      "vtkScaleAOSDataArrayTemplate<${value_type}>")
+    add_data_array_test(
+      "ScaleSoA_${pretty_value_type}"
+      vtkScaledSOADataArrayTemplate.h
+      "${value_type}"
+      "vtkScaledSOADataArrayTemplate<${value_type}>")
+  endif()
 endforeach()
 
 # Tell TestSystemInformation where to find the build trees.
@@ -77,8 +91,15 @@ set(TestSystemInformation_ARGS ${CMAKE_BINARY_DIR})
 # Tell TestXMLFileOutputWindow where to write test file
 set(TestXMLFileOutputWindow_ARGS ${CMAKE_BINARY_DIR}/Testing/Temporary/XMLFileOutputWindow.txt)
 
+if (VTK_BUILD_SCALED_SOA_ARRAYS)
+  set(scale_soa_test TestScaledSOADataArrayTemplate.cxx)
+endif ()
+
+
 vtk_add_test_cxx(vtkCommonCoreCxxTests tests
   NO_DATA NO_VALID NO_OUTPUT
+  ExampleDataArrayRangeAPI.cxx
+  ExampleDataArrayRangeDispatch.cxx
   UnitTestMath.cxx
   TestArrayAPI.cxx
   TestArrayAPIConvenience.cxx
@@ -90,6 +111,7 @@ vtk_add_test_cxx(vtkCommonCoreCxxTests tests
   TestScalarsToColors.cxx
   # TestArrayCasting.cxx # Uses Boost in its own separate test.
   TestArrayExtents.cxx
+  TestArrayFreeFunctions.cxx
   TestArrayInterpolationDense.cxx
   TestArrayLookup.cxx
   TestArrayNullValues.cxx
@@ -104,9 +126,12 @@ vtk_add_test_cxx(vtkCommonCoreCxxTests tests
   TestDataArrayComponentNames.cxx
   TestDataArrayIterators.cxx
   TestDataArraySelection.cxx
+  TestDataArrayTupleRange.cxx
+  TestDataArrayValueRange.cxx
   TestGarbageCollector.cxx
   TestGenericDataArrayAPI.cxx
   TestInformationKeyLookup.cxx
+  TestLogger.cxx
   TestLookupTable.cxx
   TestLookupTableThreaded.cxx
   TestMath.cxx
@@ -140,6 +165,8 @@ vtk_add_test_cxx(vtkCommonCoreCxxTests tests
   otherStringArray.cxx
 
   ${data_array_tests}
+
+  ${scale_soa_test}
   )
 
 vtk_test_cxx_executable(vtkCommonCoreCxxTests tests

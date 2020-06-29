@@ -143,7 +143,7 @@ class vtkWebViewPort(vtkWebProtocol):
         RPC callback to reset camera.
         """
         view = self.getView(viewId)
-        camera = view.GetRenderer().GetActiveCamera()
+        camera = view.GetRenderers().GetFirstRenderer().GetActiveCamera()
         camera.ResetCamera()
         try:
             # FIXME seb: view.CenterOfRotation = camera.GetFocalPoint()
@@ -183,16 +183,17 @@ class vtkWebViewPort(vtkWebProtocol):
         return str(self.getGlobalId(view))
 
     @exportRpc("viewport.camera.update")
-    def updateCamera(self, view_id, focal_point, view_up, position):
+    def updateCamera(self, view_id, focal_point, view_up, position, forceUpdate = True):
         view = self.getView(view_id)
 
-        camera = view.GetRenderer().GetActiveCamera()
+        camera = view.GetRenderers().GetFirstRenderer().GetActiveCamera()
         camera.SetFocalPoint(focal_point)
-        camera.SetCameraViewUp(view_up)
-        camera.SetCameraPosition(position)
-        self.getApplication().InvalidateCache(view)
+        camera.SetViewUp(view_up)
+        camera.SetPosition(position)
 
-        self.getApplication().InvokeEvent('UpdateEvent')
+        if forceUpdate:
+            self.getApplication().InvalidateCache(view)
+            self.getApplication().InvokeEvent('UpdateEvent')
 
 # =============================================================================
 #
@@ -282,7 +283,7 @@ class vtkWebPublishImageDelivery(vtkWebProtocol):
             return
 
         if "originalSize" not in self.trackingViews[vId]:
-            view = self.getView(realViewId)
+            view = self.getView(vId)
             self.trackingViews[vId]["originalSize"] = list(view.GetSize());
 
         if "ratio" not in self.trackingViews[vId]:
@@ -293,7 +294,7 @@ class vtkWebPublishImageDelivery(vtkWebProtocol):
         quality = self.trackingViews[vId]["quality"]
         size = [int(s * ratio) for s in self.trackingViews[vId]["originalSize"]]
 
-        reply = self.stillRender({ "view": realViewId, "mtime": mtime, "quality": quality, "size": size })
+        reply = self.stillRender({ "view": vId, "mtime": mtime, "quality": quality, "size": size })
         stale = reply["stale"]
         if reply["image"]:
             # depending on whether the app has encoding enabled:
@@ -342,6 +343,8 @@ class vtkWebPublishImageDelivery(vtkWebProtocol):
             self.targetFrameRate = self.maxFrameRate
 
         if nextAnimateTime < 0:
+            if nextAnimateTime < -1.0:
+                self.targetFrameRate = 1
             if self.targetFrameRate > self.minFrameRate:
                 self.targetFrameRate -= 1.0
             reactor.callLater(0.001, lambda: self.animate())
@@ -366,10 +369,9 @@ class vtkWebPublishImageDelivery(vtkWebProtocol):
         sView = self.getView(viewId)
         realViewId = str(self.getGlobalId(sView))
 
-        if realViewId not in self.viewsInAnimations:
-            self.viewsInAnimations.append(realViewId)
-            if len(self.viewsInAnimations) == 1:
-                self.animate()
+        self.viewsInAnimations.append(realViewId)
+        if len(self.viewsInAnimations) == 1:
+            self.animate()
 
 
     @exportRpc("viewport.image.animation.stop")
@@ -382,18 +384,26 @@ class vtkWebPublishImageDelivery(vtkWebProtocol):
 
 
     @exportRpc("viewport.image.push")
+    def imagePush(self, options):
+        sView = self.getView(options["view"])
+        realViewId = str(self.getGlobalId(sView))
+         # Make sure an image is pushed
+        self.getApplication().InvalidateCache(sView)
+        self.pushRender(realViewId)
+
+    # Internal function since the reply[image] is not
+    # JSON(serializable) it can not be an RPC one
     def stillRender(self, options):
         """
         RPC Callback to render a view and obtain the rendered image.
         """
         beginTime = int(round(time.time() * 1000))
         view = self.getView(options["view"])
-        size = [view.GetSize()[0], view.GetSize()[1]]
-        # use existing size, overridden only if options["size"] is set.
+        size = view.GetSize()[0:2]
         resize = size != options.get("size", size)
         if resize:
             size = options["size"]
-            if size[0] > 0 and size[1] > 0:
+            if size[0] > 10 and size[1] > 10:
               view.SetSize(size)
         t = 0
         if options and "mtime" in options:
@@ -414,7 +424,7 @@ class vtkWebPublishImageDelivery(vtkWebProtocol):
             stillRender = app.StillRenderToBuffer
         reply_image = stillRender(view, t, quality)
 
-        # Check that we are getting image size we have set. If not, wait until we
+        # Check that we are getting image size we have set if not wait until we
         # do. The render call will set the actual window size.
         tries = 10;
         while resize and list(view.GetSize()) != size \
@@ -445,6 +455,7 @@ class vtkWebPublishImageDelivery(vtkWebProtocol):
 
         return reply
 
+
     @exportRpc("viewport.image.push.observer.add")
     def addRenderObserver(self, viewId):
         sView = self.getView(viewId)
@@ -454,16 +465,21 @@ class vtkWebPublishImageDelivery(vtkWebProtocol):
         realViewId = str(self.getGlobalId(sView))
 
         if not realViewId in self.trackingViews:
-            observerCallback = lambda *args, **kwargs: pushRender()
+            observerCallback = lambda *args, **kwargs: self.pushRender(realViewId)
+            startCallback = lambda *args, **kwargs: self.startViewAnimation()
+            stopCallback = lambda *args, **kwargs: self.stopViewAnimation()
             tag = self.getApplication().AddObserver('UpdateEvent', observerCallback)
+            tagStart = self.getApplication().AddObserver('StartInteractionEvent', startCallback)
+            tagStop = self.getApplication().AddObserver('EndInteractionEvent', stopCallback)
             # TODO do we need self.getApplication().AddObserver('ResetActiveView', resetActiveView())
-            self.trackingViews[realViewId] = { 'tags': [tag], 'observerCount': 1, 'mtime': 0, 'enabled': True, 'quality': 100 }
+            self.trackingViews[realViewId] = { 'tags': [tag, tagStart, tagStop], 'observerCount': 1, 'mtime': 0, 'enabled': True, 'quality': 100 }
         else:
             # There is an observer on this view already
             self.trackingViews[realViewId]['observerCount'] += 1
 
-        self.publish('viewport.image.push.subscription', pushRender())
+        self.pushRender(realViewId)
         return { 'success': True, 'viewId': realViewId }
+
 
     @exportRpc("viewport.image.push.observer.remove")
     def removeRenderObserver(self, viewId):
@@ -489,6 +505,7 @@ class vtkWebPublishImageDelivery(vtkWebProtocol):
 
         return { 'result': 'success' }
 
+
     @exportRpc("viewport.image.push.quality")
     def setViewQuality(self, viewId, quality, ratio = 1):
         sView = self.getView(viewId)
@@ -507,14 +524,15 @@ class vtkWebPublishImageDelivery(vtkWebProtocol):
         observerInfo['ratio'] = ratio
 
         # Update image size right now!
-        if "originalSize" in self.trackingViews[viewId]:
-            size = [int(s * ratio) for s in self.trackingViews[viewId]["originalSize"]]
-            if 'SetSize' in sView:
+        if "originalSize" in self.trackingViews[realViewId]:
+            size = [int(s * ratio) for s in self.trackingViews[realViewId]["originalSize"]]
+            if hasattr(sView, 'SetSize'):
                 sView.SetSize(size)
             else:
                 sView.ViewSize = size
 
         return { 'result': 'success' }
+
 
     @exportRpc("viewport.image.push.original.size")
     def setViewSize(self, viewId, width, height):
@@ -561,6 +579,7 @@ class vtkWebPublishImageDelivery(vtkWebProtocol):
         self.getApplication().InvalidateCache(sView)
         self.getApplication().InvokeEvent('UpdateEvent')
         return { 'result': 'success' }
+
 
 # =============================================================================
 #

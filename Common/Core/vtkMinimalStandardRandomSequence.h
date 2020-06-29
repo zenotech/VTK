@@ -30,7 +30,7 @@
  *
  * Correctness test is described in first column, page 1195:
  * A seed of 1 at step 1 should give a seed of 1043618065 at step 10001.
-*/
+ */
 
 #ifndef vtkMinimalStandardRandomSequence_h
 #define vtkMinimalStandardRandomSequence_h
@@ -38,14 +38,23 @@
 #include "vtkCommonCoreModule.h" // For export macro
 #include "vtkRandomSequence.h"
 
-class VTKCOMMONCORE_EXPORT vtkMinimalStandardRandomSequence
-  : public vtkRandomSequence
+class VTKCOMMONCORE_EXPORT vtkMinimalStandardRandomSequence : public vtkRandomSequence
 {
 public:
-  vtkTypeMacro(vtkMinimalStandardRandomSequence,vtkRandomSequence);
-  void PrintSelf(ostream& os, vtkIndent indent) override;
-
+  //@{
+  /**
+   * Standard methods for instantiation, type information, and printing.
+   */
   static vtkMinimalStandardRandomSequence* New();
+  vtkTypeMacro(vtkMinimalStandardRandomSequence, vtkRandomSequence);
+  void PrintSelf(ostream& os, vtkIndent indent) override;
+  //@}
+
+  /**
+   * Satisfy general API of vtkRandomSequence superclass. Initialize the
+   * sequence with a seed.
+   */
+  void Initialize(vtkTypeUInt32 seed) override { this->SetSeed(seed); }
 
   /**
    * Set the seed of the random sequence.
@@ -65,7 +74,7 @@ public:
 
   /**
    * Set the seed of the random sequence. There is no extra internal
-   * ajustment. Only useful for writing correctness test.
+   * adjustment. Only useful for writing correctness test.
    * The following pre-condition is stated page 1197, second column
    * 2147483646=(2^31)-2
    * This method does not have this criterium as a pre-condition (ie it will
@@ -105,13 +114,14 @@ public:
    * (rangeMin<=rangeMax && result>=rangeMin && result<=rangeMax)
    * || (rangeMax<=rangeMin && result>=rangeMax && result<=rangeMin)
    */
-  virtual double GetRangeValue(double rangeMin,
-                               double rangeMax);
+  virtual double GetRangeValue(double rangeMin, double rangeMax);
 
 protected:
   vtkMinimalStandardRandomSequence();
   ~vtkMinimalStandardRandomSequence() override;
+
   int Seed;
+
 private:
   vtkMinimalStandardRandomSequence(const vtkMinimalStandardRandomSequence&) = delete;
   void operator=(const vtkMinimalStandardRandomSequence&) = delete;

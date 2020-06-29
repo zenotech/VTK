@@ -1,9 +1,0 @@
-vtk_module(vtkFiltersMomentInvariants
-  TEST_DEPENDS
-    vtkIOXML
-  DEPENDS
-    vtkFiltersCore
-    vtkImagingCore
-  PRIVATE_DEPENDS
-    vtkeigen
-  )

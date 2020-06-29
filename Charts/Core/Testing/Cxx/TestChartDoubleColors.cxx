@@ -13,23 +13,24 @@
 
 =========================================================================*/
 
-#include "vtkRenderWindow.h"
+#include "vtkAxis.h"
 #include "vtkChartXY.h"
-#include "vtkPlotPoints.h"
+#include "vtkContextScene.h"
+#include "vtkContextView.h"
+#include "vtkDoubleArray.h"
+#include "vtkLookupTable.h"
+#include "vtkMath.h"
+#include "vtkNew.h"
+#include "vtkPen.h"
 #include "vtkPlotBar.h"
 #include "vtkPlotLine.h"
-#include "vtkLookupTable.h"
-#include "vtkTable.h"
-#include "vtkDoubleArray.h"
-#include "vtkContextView.h"
-#include "vtkContextScene.h"
-#include "vtkPen.h"
+#include "vtkPlotPoints.h"
+#include "vtkRenderWindow.h"
 #include "vtkRenderWindowInteractor.h"
-#include "vtkNew.h"
-#include "vtkAxis.h"
+#include "vtkTable.h"
 
 //----------------------------------------------------------------------------
-int TestChartDoubleColors(int, char *[])
+int TestChartDoubleColors(int, char*[])
 {
   // Set up a 2D scene, add an XY chart to it
   vtkNew<vtkContextView> view;
@@ -62,7 +63,7 @@ int TestChartDoubleColors(int, char *[])
   {
     double x(i * inc + 0.2);
     table->SetValue(i, 0, x);
-    table->SetValue(i, 1, 1.0e-80 * (cos(x - 1.0) + sin(x - 3.14 / 4.0)));
+    table->SetValue(i, 1, 1.0e-80 * (cos(x - 1.0) + sin(x - vtkMath::Pi() / 4.0)));
     table->SetValue(i, 2, 1.0e-80 * sin(x) * 1e-12);
     table->SetValue(i, 3, 1.0e-80 * sin(x - 1.0));
     table->SetValue(i, 4, cos(i * inc));

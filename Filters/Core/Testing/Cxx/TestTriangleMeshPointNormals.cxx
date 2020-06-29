@@ -20,32 +20,23 @@
 #include "vtkNew.h"
 #include "vtkPolyDataMapper.h"
 #include "vtkRegressionTestImage.h"
-#include "vtkRenderer.h"
 #include "vtkRenderWindow.h"
 #include "vtkRenderWindowInteractor.h"
-#include "vtkTesting.h"
+#include "vtkRenderer.h"
+#include "vtkTestUtilities.h"
 #include "vtkTriangleFilter.h"
 #include "vtkTriangleMeshPointNormals.h"
 #include "vtkXMLPolyDataReader.h"
 
 int TestTriangleMeshPointNormals(int argc, char* argv[])
 {
-  vtkSmartPointer<vtkTesting> testHelper =
-    vtkSmartPointer<vtkTesting>::New();
-  testHelper->AddArguments(argc, argv);
-  if (!testHelper->IsFlagSpecified("-D"))
-  {
-    std::cerr << "Error: -D /path/to/data was not specified.";
-    return EXIT_FAILURE;
-  }
-
-  std::string dataRoot = testHelper->GetDataRoot();
-  std::string fileName = dataRoot + "/Data/cow.vtp";
+  char* fileName = vtkTestUtilities::ExpandDataFileName(argc, argv, "Data/cow.vtp");
   std::cout << fileName << std::endl;
 
   // reader
   vtkNew<vtkXMLPolyDataReader> reader;
-  reader->SetFileName(fileName.c_str());
+  reader->SetFileName(fileName);
+  delete[] fileName;
 
   // triangle filter
   vtkNew<vtkTriangleFilter> triFilter;
@@ -87,9 +78,9 @@ int TestTriangleMeshPointNormals(int argc, char* argv[])
   renderer->ResetCamera();
 
   // renderwindow, interactor
-  vtkNew<vtkRenderWindow> renWin ;
+  vtkNew<vtkRenderWindow> renWin;
   renWin->AddRenderer(renderer);
-  renWin->SetSize(300,300);
+  renWin->SetSize(300, 300);
   renWin->SetMultiSamples(0);
   vtkNew<vtkRenderWindowInteractor> iren;
   iren->SetRenderWindow(renWin);
@@ -102,7 +93,7 @@ int TestTriangleMeshPointNormals(int argc, char* argv[])
   {
     vtkNew<vtkInteractorStyleTrackballCamera> iStyle;
     iren->SetInteractorStyle(iStyle);
-    renWin->SetSize(1000,1000);
+    renWin->SetSize(1000, 1000);
     iren->Start();
   }
 

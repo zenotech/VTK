@@ -21,22 +21,22 @@
  *
  * @sa
  * vtkMPICommunicator
-*/
+ */
 
 #ifndef vtkMPI4PyCommunicator_h
 #define vtkMPI4PyCommunicator_h
+#if !defined(__VTK_WRAP__) || defined(__VTK_WRAP_PYTHON__)
 
 #include "vtkPython.h" // For PyObject*; must be first
 
-#include "vtkParallelMPI4PyModule.h" // For export macro
 #include "vtkObject.h"
+#include "vtkParallelMPI4PyModule.h" // For export macro
 
 class vtkMPICommunicator;
 
 class VTKPARALLELMPI4PY_EXPORT vtkMPI4PyCommunicator : public vtkObject
 {
 public:
-
   vtkTypeMacro(vtkMPI4PyCommunicator, vtkObject);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
@@ -58,4 +58,5 @@ private:
   void operator=(const vtkMPI4PyCommunicator&) = delete;
 };
 
+#endif
 #endif

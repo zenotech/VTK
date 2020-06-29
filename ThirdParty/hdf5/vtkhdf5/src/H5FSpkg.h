@@ -104,7 +104,6 @@ typedef struct H5FS_hdr_cache_ud_t {
 typedef struct H5FS_sinfo_cache_ud_t {
     H5F_t *f;                  /* File that free space section info is within */
     H5FS_t *fspace;            /* free space manager */
-    hid_t dxpl_id;
 } H5FS_sinfo_cache_ud_t;
 
 /* Free space section bin info */
@@ -216,10 +215,8 @@ H5FL_EXTERN(H5FS_t);
 /******************************/
 
 /* Generic routines */
-H5_DLL herr_t H5FS__create_flush_depend(H5AC_info_t *parent_entry,
-    H5AC_info_t *child_entry);
-H5_DLL herr_t H5FS__destroy_flush_depend(H5AC_info_t *parent_entry,
-    H5AC_info_t *child_entry);
+H5_DLL herr_t H5FS__create_flush_depend(H5AC_info_t *parent_entry, H5AC_info_t *child_entry);
+H5_DLL herr_t H5FS__destroy_flush_depend(H5AC_info_t *parent_entry, H5AC_info_t *child_entry);
 
 /* Free space manager header routines */
 H5_DLL H5FS_t *H5FS__new(const H5F_t *f, uint16_t nclasses,
@@ -236,10 +233,10 @@ H5_DLL herr_t H5FS__hdr_dest(H5FS_t *hdr);
 H5_DLL herr_t H5FS_sinfo_dest(H5FS_sinfo_t *sinfo);
 
 /* Sanity check routines */
-#ifdef H5FS_DEBUG
-H5_DLL herr_t H5FS_assert(const H5FS_t *fspace, hid_t dxpl_id);
-H5_DLL herr_t H5FS_sect_assert(const H5FS_t *fspace, hid_t dxpl_id);
-#endif /* H5FS_DEBUG */
+#ifdef H5FS_DEBUG_ASSERT
+H5_DLL void H5FS__assert(const H5FS_t *fspace);
+H5_DLL void H5FS__sect_assert(const H5FS_t *fspace);
+#endif /* H5FS_DEBUG_ASSERT */
 
 /* Testing routines */
 #ifdef H5FS_TESTING

@@ -18,6 +18,7 @@
 #include "vtkContextScene.h"
 #include "vtkContextView.h"
 #include "vtkFloatArray.h"
+#include "vtkMath.h"
 #include "vtkNew.h"
 #include "vtkPlot.h"
 #include "vtkRenderWindow.h"
@@ -29,7 +30,7 @@
 #include <string>
 
 //----------------------------------------------------------------------------
-int TestChartUnicode(int argc, char *argv[])
+int TestChartUnicode(int argc, char* argv[])
 {
   if (argc < 2)
   {
@@ -50,12 +51,12 @@ int TestChartUnicode(int argc, char *argv[])
   chart->GetTitleProperties()->SetFontFile(fontFile.c_str());
   chart->SetTitle("\xcf\x85\xcf\x84\xce\xba");
 
-  vtkAxis *axis1 = chart->GetAxis(0);
+  vtkAxis* axis1 = chart->GetAxis(0);
   axis1->GetTitleProperties()->SetFontFamily(VTK_FONT_FILE);
   axis1->GetTitleProperties()->SetFontFile(fontFile.c_str());
   axis1->SetTitle("\xcf\x87(m)");
 
-  vtkAxis *axis2 = chart->GetAxis(1);
+  vtkAxis* axis2 = chart->GetAxis(1);
   axis2->GetTitleProperties()->SetFontFamily(VTK_FONT_FILE);
   axis2->GetTitleProperties()->SetFontFile(fontFile.c_str());
   axis2->SetTitle("\xcf\x80\xcf\x86");
@@ -74,11 +75,11 @@ int TestChartUnicode(int argc, char *argv[])
   for (int i = 0; i < numPoints; ++i)
   {
     table->SetValue(i, 0, i * inc);
-    table->SetValue(i, 1, cos(i * inc) + sin(i * (inc - 3.14)));
+    table->SetValue(i, 1, cos(i * inc) + sin(i * (inc - vtkMath::Pi())));
   }
 
   // Add multiple line plots, setting the colors etc
-  vtkPlot *line = chart->AddPlot(vtkChart::LINE);
+  vtkPlot* line = chart->AddPlot(vtkChart::LINE);
   line->SetInputData(table, 0, 1);
   line->SetColor(42, 55, 69, 255);
 

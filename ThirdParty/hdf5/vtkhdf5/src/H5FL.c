@@ -18,7 +18,7 @@
  * Purpose: Manage priority queues of free-lists (of blocks of bytes).
  *      These are used in various places in the library which allocate and
  *      free differently blocks of bytes repeatedly.  Usually the same size
- *      of block is allocated and freed repeatly in a loop, while writing out
+ *      of block is allocated and freed repeatedly in a loop, while writing out
  *      chunked data for example, but the blocks may also be of different sizes
  *      from different datasets and an attempt is made to optimize access to
  *      the proper free list of blocks by using these priority queues to
@@ -499,7 +499,7 @@ H5FL_reg_calloc(H5FL_reg_head_t *head H5FL_TRACK_PARAMS)
         HGOTO_ERROR(H5E_RESOURCE, H5E_NOSPACE, NULL, "memory allocation failed")
 
     /* Clear to zeros */
-    /* (Accomodate tracking information, if present) */
+    /* (Accommodate tracking information, if present) */
     HDmemset(ret_value,0,head->size - H5FL_TRACK_SIZE);
 
 done:
@@ -642,7 +642,7 @@ H5FL__reg_term(void)
         tmp = H5FL_reg_gc_head.first->next;
 
 #ifdef H5FL_DEBUG
-printf("%s: head->name = %s, head->allocated = %d\n", FUNC, H5FL_reg_gc_head.first->list->name, (int)H5FL_reg_gc_head.first->list->allocated);
+HDprintf("%s: head->name = %s, head->allocated = %d\n", FUNC, H5FL_reg_gc_head.first->list->name, (int)H5FL_reg_gc_head.first->list->allocated);
 #endif /* H5FL_DEBUG */
         /* Check if the list has allocations outstanding */
         if(H5FL_reg_gc_head.first->list->allocated > 0) {
@@ -1312,7 +1312,7 @@ H5FL__blk_term(void)
         tmp = H5FL_blk_gc_head.first->next;
 
 #ifdef H5FL_DEBUG
-printf("%s: head->name = %s, head->allocated = %d\n", FUNC, H5FL_blk_gc_head.first->pq->name, (int)H5FL_blk_gc_head.first->pq->allocated);
+HDprintf("%s: head->name = %s, head->allocated = %d\n", FUNC, H5FL_blk_gc_head.first->pq->name, (int)H5FL_blk_gc_head.first->pq->allocated);
 #endif /* H5FL_DEBUG */
 
         /* Check if the list has allocations outstanding */
@@ -1780,7 +1780,7 @@ H5FL__arr_term(void)
 
         /* Check if the list has allocations outstanding */
 #ifdef H5FL_DEBUG
-printf("%s: head->name = %s, head->allocated = %d\n", FUNC, H5FL_arr_gc_head.first->list->name, (int)H5FL_arr_gc_head.first->list->allocated);
+HDprintf("%s: head->name = %s, head->allocated = %d\n", FUNC, H5FL_arr_gc_head.first->list->name, (int)H5FL_arr_gc_head.first->list->allocated);
 #endif /* H5FL_DEBUG */
         if(H5FL_arr_gc_head.first->list->allocated > 0) {
             /* Add free list to the list of nodes with allocations open still */
@@ -2220,7 +2220,7 @@ H5FL_fac_calloc(H5FL_fac_head_t *head H5FL_TRACK_PARAMS)
         HGOTO_ERROR(H5E_RESOURCE, H5E_NOSPACE, NULL, "memory allocation failed")
 
     /* Clear to zeros */
-    /* (Accomodate tracking information, if present) */
+    /* (Accommodate tracking information, if present) */
     HDmemset(ret_value,0,head->size - H5FL_TRACK_SIZE);
 
 done:
@@ -2408,7 +2408,7 @@ H5FL__fac_term_all(void)
         tmp = H5FL_fac_gc_head.first->next;
 
 #ifdef H5FL_DEBUG
-printf("%s: head->size = %d, head->allocated = %d\n", FUNC, (int)H5FL_fac_gc_head.first->list->size, (int)H5FL_fac_gc_head.first->list->allocated);
+HDprintf("%s: head->size = %d, head->allocated = %d\n", FUNC, (int)H5FL_fac_gc_head.first->list->size, (int)H5FL_fac_gc_head.first->list->allocated);
 #endif /* H5FL_DEBUG */
 
         /* The list cannot have any allocations outstanding */

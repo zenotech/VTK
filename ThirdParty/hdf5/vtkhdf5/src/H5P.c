@@ -27,6 +27,7 @@
 /* Headers */
 /***********/
 #include "H5private.h"		/* Generic Functions			*/
+#include "H5CXprivate.h"        /* API Contexts                         */
 #include "H5Eprivate.h"		/* Error handling		  	*/
 #include "H5Iprivate.h"		/* IDs			  		*/
 #include "H5Ppkg.h"		/* Property lists		  	*/
@@ -398,7 +399,7 @@ done:
  GLOBAL VARIABLES
  COMMENTS, BUGS, ASSUMPTIONS
         The 'set' callback function may be useful to range check the value being
-    set for the property or may perform some tranformation/translation of the
+    set for the property or may perform some transformation/translation of the
     value set.  The 'get' callback would then [probably] reverse the
     transformation, etc.  A single 'get' or 'set' callback could handle
     multiple properties by performing different actions based on the property
@@ -580,7 +581,7 @@ done:
  GLOBAL VARIABLES
  COMMENTS, BUGS, ASSUMPTIONS
         The 'set' callback function may be useful to range check the value being
-    set for the property or may perform some tranformation/translation of the
+    set for the property or may perform some transformation/translation of the
     value set.  The 'get' callback would then [probably] reverse the
     transformation, etc.  A single 'get' or 'set' callback could handle
     multiple properties by performing different actions based on the property
@@ -839,6 +840,7 @@ herr_t
 H5Pencode(hid_t plist_id, void *buf, size_t *nalloc)
 {
     H5P_genplist_t	*plist;         /* Property list to query */
+    hid_t temp_fapl_id = H5P_DEFAULT;
     herr_t ret_value = SUCCEED;          /* return value */
 
     FUNC_ENTER_API(FAIL)
@@ -847,6 +849,10 @@ H5Pencode(hid_t plist_id, void *buf, size_t *nalloc)
     /* Check arguments. */
     if(NULL == (plist = (H5P_genplist_t *)H5I_object_verify(plist_id, H5I_GENPROP_LST)))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a property list");
+
+    /* Verify access property list and set up collective metadata if appropriate */
+    if(H5CX_set_apl(&temp_fapl_id, H5P_CLS_FACC, H5I_INVALID_HID, TRUE) < 0)
+        HGOTO_ERROR(H5E_FILE, H5E_CANTSET, H5I_INVALID_HID, "can't set access property list info")
 
     /* Call the internal encode routine */
     if((ret_value = H5P__encode(plist, TRUE, buf, nalloc)) < 0)

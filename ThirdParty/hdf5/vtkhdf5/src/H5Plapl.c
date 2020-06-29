@@ -340,11 +340,11 @@ done:
 static herr_t
 H5P__lacc_elink_fapl_enc(const void *value, void **_pp, size_t *size)
 {
-    const hid_t *elink_fapl = (const hid_t *)value;     /* Property to encode */
+    const hid_t *elink_fapl = (const hid_t *)value;         /* Property to encode */
     uint8_t **pp = (uint8_t **)_pp;
     H5P_genplist_t *fapl_plist;         /* Pointer to property list */
     hbool_t non_default_fapl = FALSE;   /* Whether the FAPL is non-default */
-    size_t fapl_size = 0;                /* FAPL's encoded size */
+    size_t fapl_size = 0;               /* FAPL's encoded size */
     herr_t ret_value = SUCCEED;         /* Return value */
 
     FUNC_ENTER_STATIC
@@ -1059,9 +1059,8 @@ H5Pget_elink_prefix(hid_t plist_id, char *prefix, size_t size)
         /* Copy to user's buffer, if given */
         len = HDstrlen(my_prefix);
         if(prefix) {
-            HDstrncpy(prefix, my_prefix, MIN(len + 1, size));
-            if(len >= size)
-                prefix[size - 1] = '\0';
+            HDstrncpy(prefix, my_prefix, size);
+            prefix[size - 1] = '\0';
         } /* end if */
     } /* end if */
     else

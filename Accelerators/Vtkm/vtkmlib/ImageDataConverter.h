@@ -14,7 +14,6 @@
 =========================================================================*/
 #ifndef vtkmlib_ImageDataConverter_h
 #define vtkmlib_ImageDataConverter_h
-#ifndef __VTK_WRAP__
 
 #include "vtkAcceleratorsVTKmModule.h"
 
@@ -27,23 +26,23 @@
 class vtkImageData;
 class vtkDataSet;
 
-namespace tovtkm {
+namespace tovtkm
+{
 
 VTKACCELERATORSVTKM_EXPORT
-vtkm::cont::DataSet Convert(vtkImageData* input,
-                            FieldsFlag fields = FieldsFlag::None);
+vtkm::cont::DataSet Convert(vtkImageData* input, FieldsFlag fields = FieldsFlag::None);
 
 }
 
-namespace fromvtkm {
+namespace fromvtkm
+{
 
 VTKACCELERATORSVTKM_EXPORT
 bool Convert(const vtkm::cont::DataSet& voutput, vtkImageData* output, vtkDataSet* input);
 
 VTKACCELERATORSVTKM_EXPORT
-bool Convert(const vtkm::cont::DataSet& voutput, int extents[6], vtkImageData* output,
-             vtkDataSet* input);
+bool Convert(
+  const vtkm::cont::DataSet& voutput, int extents[6], vtkImageData* output, vtkDataSet* input);
 
 }
-#endif
 #endif // vtkmlib_ImageDataConverter_h

@@ -17,6 +17,7 @@ vtk_add_test_cxx(vtkInteractionWidgetsCxxTests tests
   TestCellCentersPointPlacer.cxx
   TestCenteredSliderWidget2D.cxx
   TestCheckerboardWidget.cxx
+  TestCoincidentHandleWidgets.cxx
   TestConstrainedHandleWidget.cxx
   TestContourWidget2.cxx
   TestDijkstraImageGeodesicPath.cxx
@@ -35,6 +36,7 @@ vtk_add_test_cxx(vtkInteractionWidgetsCxxTests tests
   TestImplicitPlaneWidget2LockNormalToCamera.cxx
   TestImplicitPlaneWidget2b.cxx
   TestImplicitPlaneWidget3.cxx
+  TestLightWidget.cxx
   TestLogoWidget.cxx
   TestLogoWidgetAlphaBlending.cxx
   TestLogoWidgetDepthPeeling.cxx
@@ -45,8 +47,10 @@ vtk_add_test_cxx(vtkInteractionWidgetsCxxTests tests
   TestOrthoPlanes.cxx
   TestParallelopipedWidget.cxx
   TestPickingManagerSeedWidget.cxx
+  TestPickingManagerSeedWidget2.cxx
   TestPlaybackWidget.cxx
   TestPointHandleRepresentation3D.cxx
+  TestPolylineWidget.cxx
   TestProgrammaticPlacement.cxx
   TestProgressBarWidget.cxx
   TestProp3DButtonRepresentation.cxx,NO_VALID
@@ -131,7 +135,7 @@ vtk_test_cxx_executable(vtkInteractionWidgetsCxxTests all_tests
 if(NOT VTK_TEST_TIMEOUT_TerrainPolylineEditor)
   set(VTK_TEST_TIMEOUT_TerrainPolylineEditor 90)
 endif()
-set_tests_properties(vtkInteractionWidgetsCxx-TerrainPolylineEditor
+set_tests_properties(VTK::InteractionWidgetsCxx-TerrainPolylineEditor
   PROPERTIES TIMEOUT ${VTK_TEST_TIMEOUT_TerrainPolylineEditor})
 
 if(NOT VTK_OPENGL_HAS_OSMESA)
@@ -139,7 +143,7 @@ if(NOT VTK_OPENGL_HAS_OSMESA)
   if(NOT VTK_TEST_TIMEOUT_TestPickingManagerSeedWidget)
     set(VTK_TEST_TIMEOUT_TestPickingManagerSeedWidget 60)
   endif()
-  set_tests_properties(vtkInteractionWidgetsCxx-TestPickingManagerSeedWidget
+  set_tests_properties(VTK::InteractionWidgetsCxx-TestPickingManagerSeedWidget
     PROPERTIES TIMEOUT ${VTK_TEST_TIMEOUT_TestPickingManagerSeedWidget})
 endif()
 
@@ -148,6 +152,6 @@ endif()
 if(NOT VTK_TEST_TIMEOUT_TestSphereHandleWidget)
   set(VTK_TEST_TIMEOUT_TestSphereHandleWidget 300)
 endif()
-set_tests_properties(vtkInteractionWidgetsCxx-TestSphereHandleWidget
+set_tests_properties(VTK::InteractionWidgetsCxx-TestSphereHandleWidget
     PROPERTIES TIMEOUT ${VTK_TEST_TIMEOUT_TestSphereHandleWidget}
                RUN_SERIAL ON)

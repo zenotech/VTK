@@ -9,14 +9,18 @@ vtk_add_test_python(
   TestDeformPointSet.py
   TestDiscreteFlyingEdges2D.py
   TestDiscreteFlyingEdges3D.py
+  TestDiscreteFlyingEdgesClipper2D.py
   TestDiscreteMarchingCubes.py
   TestDiscreteMarchingCubesAdjacentScalars.py
+  TestFEDiscreteClipper2D.py
   TestGraphLayoutFilter.py
+  TestMarchingCubes.py
   TestMultiBlockFromTimeSeries.py
   TestPointConnectivityFilter.py
   TestRemoveGhostCells.py,NO_OUTPUT,NO_VALID
   TestSplineFilter.py
   TestStaticCellLocator.py
+  TestStaticCellLocatorPlaneIntersection.py
   TestSynchronizeTimeFilter.py,NO_OUTPUT,NO_VALID
   WarpToImage.py
   blankGrid.py

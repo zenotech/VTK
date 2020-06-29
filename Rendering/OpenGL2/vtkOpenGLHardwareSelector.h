@@ -22,13 +22,13 @@
  *
  * @sa
  * vtkHardwareSelector
-*/
+ */
 
 #ifndef vtkOpenGLHardwareSelector_h
 #define vtkOpenGLHardwareSelector_h
 
-#include "vtkRenderingOpenGL2Module.h" // For export macro
 #include "vtkHardwareSelector.h"
+#include "vtkRenderingOpenGL2Module.h" // For export macro
 
 class VTKRENDERINGOPENGL2_EXPORT vtkOpenGLHardwareSelector : public vtkHardwareSelector
 {
@@ -51,11 +51,6 @@ public:
   void RenderCompositeIndex(unsigned int index) override;
 
   /**
-   * Called by any vtkMapper or vtkProp subclass to render an attribute's id.
-   */
-  void RenderAttributeId(vtkIdType attribid) override;
-
-  /**
    * Called by any vtkMapper or subclass to render process id. This has any
    * effect when this->UseProcessIdFromData is true.
    */
@@ -74,14 +69,13 @@ protected:
 
   // Called internally before each prop is rendered
   // for device specific configuration/preparation etc.
-  void BeginRenderProp(vtkRenderWindow *) override;
-  void EndRenderProp(vtkRenderWindow *) override;
+  void BeginRenderProp(vtkRenderWindow*) override;
+  void EndRenderProp(vtkRenderWindow*) override;
 
   void SavePixelBuffer(int passNo) override;
 
-  // for internal state
-  class vtkInternals;
-  vtkInternals* Internals;
+  bool OriginalMultisample;
+  bool OriginalBlending;
 
 private:
   vtkOpenGLHardwareSelector(const vtkOpenGLHardwareSelector&) = delete;

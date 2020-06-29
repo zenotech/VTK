@@ -28,7 +28,7 @@
  *   x=it->GetPosition();
  *   }
  * </pre>
-*/
+ */
 
 #ifndef vtkGenericPointIterator_h
 #define vtkGenericPointIterator_h
@@ -43,7 +43,7 @@ public:
   /**
    * Standard VTK construction and type macros.
    */
-  vtkTypeMacro(vtkGenericPointIterator,vtkObject);
+  vtkTypeMacro(vtkGenericPointIterator, vtkObject);
   void PrintSelf(ostream& os, vtkIndent indent) override;
   //@}
 
@@ -55,7 +55,7 @@ public:
   /**
    * Is the iterator at the end of traversal?
    */
-  virtual int IsAtEnd() = 0;
+  virtual vtkTypeBool IsAtEnd() = 0;
 
   /**
    * Move the iterator to the next position in the list.
@@ -68,7 +68,7 @@ public:
    * \pre not_off: !IsAtEnd()
    * \post result_exists: result!=0
    */
-  virtual double *GetPosition() = 0;
+  virtual double* GetPosition() = 0;
 
   /**
    * Get the coordinates of the point at the current iterator position.

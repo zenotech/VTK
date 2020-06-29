@@ -15,7 +15,7 @@
  * Programmer:  Quincey Koziol <koziol@ncsa.uiuc.edu>
  *              Tuesday, November 10, 1998
  *
- * Purpose:	"None" selection data space I/O functions.
+ * Purpose:	"None" selection dataspace I/O functions.
  */
 
 #include "H5Smodule.h"          /* This source code file is part of the H5S module */
@@ -39,15 +39,14 @@ static herr_t H5S_none_release(H5S_t *space);
 static htri_t H5S_none_is_valid(const H5S_t *space);
 static hssize_t H5S_none_serial_size(const H5S_t *space);
 static herr_t H5S_none_serialize(const H5S_t *space, uint8_t **p);
-static herr_t H5S_none_deserialize(H5S_t *space, uint32_t version, uint8_t flags,
-    const uint8_t **p);
+static herr_t H5S_none_deserialize(H5S_t **space, const uint8_t **p);
 static herr_t H5S_none_bounds(const H5S_t *space, hsize_t *start, hsize_t *end);
 static herr_t H5S_none_offset(const H5S_t *space, hsize_t *off);
 static int H5S__none_unlim_dim(const H5S_t *space);
 static htri_t H5S_none_is_contiguous(const H5S_t *space);
 static htri_t H5S_none_is_single(const H5S_t *space);
 static htri_t H5S_none_is_regular(const H5S_t *space);
-static herr_t H5S_none_adjust_u(H5S_t *space, const hsize_t *offset);
+static void H5S_none_adjust_u(H5S_t *space, const hsize_t *offset);
 static herr_t H5S_none_project_scalar(const H5S_t *space, hsize_t *offset);
 static herr_t H5S_none_project_simple(const H5S_t *space, H5S_t *new_space, hsize_t *offset);
 static herr_t H5S_none_iter_init(H5S_sel_iter_t *iter, const H5S_t *space);
@@ -408,7 +407,7 @@ H5S_none_copy(H5S_t *dst, const H5S_t H5_ATTR_UNUSED *src, hbool_t H5_ATTR_UNUSE
     TRUE if the selection fits within the extent, FALSE if it does not and
         Negative on an error.
  DESCRIPTION
-    Determines if the current selection at the current offet fits within the
+    Determines if the current selection at the current offset fits within the
     extent for the dataspace.  Offset is irrelevant for this type of selection.
  GLOBAL VARIABLES
  COMMENTS, BUGS, ASSUMPTIONS
@@ -433,7 +432,7 @@ H5S_none_is_valid(const H5S_t H5_ATTR_UNUSED *space)
     Determine the number of bytes needed to store the serialized "none"
         selection information.
  USAGE
-    hssize_t H5S_none_serial_size(space)
+    hssize_t H5S_none_serial_size(space, f)
         H5S_t *space;             IN: Dataspace pointer to query
  RETURNS
     The number of bytes required on success, negative on an error.
@@ -494,8 +493,8 @@ H5S_none_serialize(const H5S_t *space, uint8_t **p)
     HDassert(pp);
 
     /* Store the preamble information */
-    UINT32ENCODE(pp, (uint32_t)H5S_GET_SELECT_TYPE(space));  /* Store the type of selection */
-    UINT32ENCODE(pp, (uint32_t)1);  /* Store the version number */
+    UINT32ENCODE(pp, (uint32_t)H5S_GET_SELECT_TYPE(space)); /* Store the type of selection */
+    UINT32ENCODE(pp, (uint32_t)H5S_NONE_VERSION_1);         /* Store the version number */
     UINT32ENCODE(pp, (uint32_t)0);  /* Store the un-used padding */
     UINT32ENCODE(pp, (uint32_t)0);  /* Store the additional information length */
 
@@ -513,10 +512,8 @@ H5S_none_serialize(const H5S_t *space, uint8_t **p)
     Deserialize the current selection from a user-provided buffer.
  USAGE
     herr_t H5S_none_deserialize(space, version, flags, p)
-        H5S_t *space;           IN/OUT: Dataspace pointer to place
+        H5S_t **space;          IN/OUT: Dataspace pointer to place
                                 selection into
-        uint32_t version        IN: Selection version
-        uint8_t flags           IN: Selection flags
         uint8 **p;              OUT: Pointer to buffer holding serialized
                                 selection.  Will be advanced to end of
                                 serialized selection.
@@ -531,22 +528,50 @@ H5S_none_serialize(const H5S_t *space, uint8_t **p)
  REVISION LOG
 --------------------------------------------------------------------------*/
 static herr_t
-H5S_none_deserialize(H5S_t *space, uint32_t H5_ATTR_UNUSED version, uint8_t H5_ATTR_UNUSED flags,
-    const uint8_t H5_ATTR_UNUSED **p)
+H5S_none_deserialize(H5S_t **space, const uint8_t **p)
 {
-    herr_t ret_value = SUCCEED;  /* return value */
+    H5S_t *tmp_space = NULL;    /* Pointer to actual dataspace to use,
+                                   either *space or a newly allocated one */
+    uint32_t version;           /* Version number */
+    herr_t ret_value = SUCCEED; /* return value */
 
     FUNC_ENTER_NOAPI_NOINIT
 
-    HDassert(space);
     HDassert(p);
     HDassert(*p);
 
+    /* As part of the efforts to push all selection-type specific coding
+       to the callbacks, the coding for the allocation of a null dataspace
+       is moved from H5S_select_deserialize() in H5Sselect.c to here.
+       This is needed for decoding virtual layout in H5O__layout_decode() */
+    /* Allocate space if not provided */
+    if(!*space) {
+        if(NULL == (tmp_space = H5S_create(H5S_SIMPLE)))
+            HGOTO_ERROR(H5E_DATASPACE, H5E_CANTCREATE, FAIL, "can't create dataspace")
+    } /* end if */
+    else
+        tmp_space = *space;
+
+    /* Decode version */
+    UINT32DECODE(*p, version);
+
+    /* Skip over the remainder of the header */
+    *p += 8;
+
     /* Change to "none" selection */
-    if(H5S_select_none(space) < 0)
+    if(H5S_select_none(tmp_space) < 0)
         HGOTO_ERROR(H5E_DATASPACE, H5E_CANTDELETE, FAIL, "can't change selection")
 
+    /* Return space to the caller if allocated */
+    if(!*space)
+        *space = tmp_space;
+
 done:
+    /* Free temporary space if not passed to caller (only happens on error) */
+    if(!*space && tmp_space)
+        if(H5S_close(tmp_space) < 0)
+            HDONE_ERROR(H5E_DATASPACE, H5E_CANTFREE, FAIL, "can't close dataspace")
+
     FUNC_LEAVE_NOAPI(ret_value)
 }   /* H5S_none_deserialize() */
 
@@ -744,11 +769,11 @@ H5S_none_is_regular(const H5S_t H5_ATTR_UNUSED *space)
  PURPOSE
     Adjust an "none" selection by subtracting an offset
  USAGE
-    herr_t H5S_none_adjust_u(space, offset)
+    void H5S_none_adjust_u(space, offset)
         H5S_t *space;           IN/OUT: Pointer to dataspace to adjust
         const hsize_t *offset; IN: Offset to subtract
  RETURNS
-    Non-negative on success, negative on failure
+    None
  DESCRIPTION
     Moves selection by subtracting an offset from it.
  GLOBAL VARIABLES
@@ -756,7 +781,7 @@ H5S_none_is_regular(const H5S_t H5_ATTR_UNUSED *space)
  EXAMPLES
  REVISION LOG
 --------------------------------------------------------------------------*/
-static herr_t
+static void
 H5S_none_adjust_u(H5S_t H5_ATTR_UNUSED *space, const hsize_t H5_ATTR_UNUSED *offset)
 {
     FUNC_ENTER_NOAPI_NOINIT_NOERR
@@ -765,7 +790,7 @@ H5S_none_adjust_u(H5S_t H5_ATTR_UNUSED *space, const hsize_t H5_ATTR_UNUSED *off
     HDassert(space);
     HDassert(offset);
 
-    FUNC_LEAVE_NOAPI(FAIL)
+    FUNC_LEAVE_NOAPI_VOID
 }   /* H5S_none_adjust_u() */
 
 
@@ -898,7 +923,7 @@ H5Sselect_none(hid_t spaceid)
 
     /* Check args */
     if(NULL == (space = (H5S_t *)H5I_object_verify(spaceid, H5I_DATASPACE)))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a data space")
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a dataspace")
 
     /* Change to "none" selection */
     if(H5S_select_none(space) < 0)

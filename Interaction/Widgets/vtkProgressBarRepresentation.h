@@ -20,13 +20,13 @@
  *
  * @sa
  * vtkProgressBarWidget
-*/
+ */
 
 #ifndef vtkProgressBarRepresentation_h
 #define vtkProgressBarRepresentation_h
 
-#include "vtkInteractionWidgetsModule.h" // For export macro
 #include "vtkBorderRepresentation.h"
+#include "vtkInteractionWidgetsModule.h" // For export macro
 
 class vtkActor2D;
 class vtkPoints;
@@ -40,7 +40,7 @@ public:
   /**
    * Instantiate this class.
    */
-  static vtkProgressBarRepresentation *New();
+  static vtkProgressBarRepresentation* New();
 
   //@{
   /**
@@ -113,7 +113,7 @@ public:
   int RenderOverlay(vtkViewport*) override;
   int RenderOpaqueGeometry(vtkViewport*) override;
   int RenderTranslucentPolygonalGeometry(vtkViewport*) override;
-  int HasTranslucentPolygonalGeometry() override;
+  vtkTypeBool HasTranslucentPolygonalGeometry() override;
   //@}
 
 protected:
@@ -125,11 +125,11 @@ protected:
   double BackgroundColor[3];
   bool DrawBackground;
 
-  vtkPoints      *Points;
-  vtkUnsignedCharArray  *ProgressBarData;
-  vtkProperty2D  *Property;
-  vtkActor2D     *Actor;
-  vtkActor2D     *BackgroundActor;
+  vtkPoints* Points;
+  vtkUnsignedCharArray* ProgressBarData;
+  vtkProperty2D* Property;
+  vtkActor2D* Actor;
+  vtkActor2D* BackgroundActor;
 
 private:
   vtkProgressBarRepresentation(const vtkProgressBarRepresentation&) = delete;

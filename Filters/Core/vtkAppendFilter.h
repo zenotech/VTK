@@ -25,7 +25,7 @@
  *
  * @sa
  * vtkAppendPolyData
-*/
+ */
 
 #ifndef vtkAppendFilter_h
 #define vtkAppendFilter_h
@@ -39,48 +39,62 @@ class vtkDataSetCollection;
 class VTKFILTERSCORE_EXPORT vtkAppendFilter : public vtkUnstructuredGridAlgorithm
 {
 public:
-  static vtkAppendFilter *New();
-
-  vtkTypeMacro(vtkAppendFilter,vtkUnstructuredGridAlgorithm);
+  static vtkAppendFilter* New();
+  vtkTypeMacro(vtkAppendFilter, vtkUnstructuredGridAlgorithm);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
+  //@{
   /**
    * Get any input of this filter.
    */
-  vtkDataSet *GetInput(int idx);
-  vtkDataSet *GetInput()
-    {return this->GetInput( 0 );}
-
-  //@{
-  /**
-   * Get if the filter should merge coincidental points
-   * Note: The filter will only merge points if the ghost cell array doesn't exist
-   * Defaults to Off
-   */
-  vtkGetMacro(MergePoints,vtkTypeBool);
+  vtkDataSet* GetInput(int idx);
+  vtkDataSet* GetInput() { return this->GetInput(0); }
   //@}
 
   //@{
   /**
-   * Set the filter to merge coincidental points.
+   * Get/Set if the filter should merge coincidental points
    * Note: The filter will only merge points if the ghost cell array doesn't exist
    * Defaults to Off
    */
-  vtkSetMacro(MergePoints,vtkTypeBool);
+  vtkGetMacro(MergePoints, vtkTypeBool);
+  vtkSetMacro(MergePoints, vtkTypeBool);
+  vtkBooleanMacro(MergePoints, vtkTypeBool);
   //@}
 
-  vtkBooleanMacro(MergePoints,vtkTypeBool);
+  //@{
+  /**
+   * Get/Set the tolerance to use to find coincident points when `MergePoints`
+   * is `true`. Default is 0.0.
+   *
+   * This is simply passed on to the internal vtkLocator used to merge points.
+   * @sa `vtkLocator::SetTolerance`.
+   */
+  vtkSetClampMacro(Tolerance, double, 0.0, VTK_DOUBLE_MAX);
+  vtkGetMacro(Tolerance, double);
+  //@}
+
+  //@{
+  /**
+   * Get/Set whether Tolerance is treated as an absolute or relative tolerance.
+   * The default is to treat it as an absolute tolerance. When off, the
+   * tolerance is multiplied by the diagonal of the bounding box of the input.
+   */
+  vtkSetMacro(ToleranceIsAbsolute, bool);
+  vtkGetMacro(ToleranceIsAbsolute, bool);
+  vtkBooleanMacro(ToleranceIsAbsolute, bool);
+  //@}
 
   /**
    * Remove a dataset from the list of data to append.
    */
-  void RemoveInputData(vtkDataSet *in);
+  void RemoveInputData(vtkDataSet* in);
 
   /**
    * Returns a copy of the input array.  Modifications to this list
    * will not be reflected in the actual inputs.
    */
-  vtkDataSetCollection *GetInputList();
+  vtkDataSetCollection* GetInputList();
 
   //@{
   /**
@@ -97,20 +111,24 @@ protected:
   ~vtkAppendFilter() override;
 
   // Usual data generation method
-  int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *) override;
-  int RequestUpdateExtent(vtkInformation *,
-                          vtkInformationVector **, vtkInformationVector *) override;
-  int FillInputPortInformation(int port, vtkInformation *info) override;
+  int RequestData(vtkInformation*, vtkInformationVector**, vtkInformationVector*) override;
+  int RequestUpdateExtent(vtkInformation*, vtkInformationVector**, vtkInformationVector*) override;
+  int FillInputPortInformation(int port, vtkInformation* info) override;
 
   // list of data sets to append together.
   // Here as a convenience.  It is a copy of the input array.
-  vtkDataSetCollection *InputList;
+  vtkDataSetCollection* InputList;
 
-  //If true we will attempt to merge points. Must also not have
-  //ghost cells defined.
+  // If true we will attempt to merge points. Must also not have
+  // ghost cells defined.
   vtkTypeBool MergePoints;
 
   int OutputPointsPrecision;
+  double Tolerance;
+
+  // If true, tolerance is used as is. If false, tolerance is multiplied by
+  // the diagonal of the bounding box of the input.
+  bool ToleranceIsAbsolute;
 
 private:
   vtkAppendFilter(const vtkAppendFilter&) = delete;
@@ -118,16 +136,10 @@ private:
 
   // Get all input data sets that have points, cells, or both.
   // Caller must delete the returned vtkDataSetCollection.
-  vtkDataSetCollection* GetNonEmptyInputs(vtkInformationVector ** inputVector);
+  vtkDataSetCollection* GetNonEmptyInputs(vtkInformationVector** inputVector);
 
-  void AppendArrays(int attributesType,
-                    vtkInformationVector **inputVector,
-                    vtkIdType* globalIds,
-                    vtkUnstructuredGrid* output,
-                    vtkIdType totalNumberOfElements);
+  void AppendArrays(int attributesType, vtkInformationVector** inputVector, vtkIdType* globalIds,
+    vtkUnstructuredGrid* output, vtkIdType totalNumberOfElements);
 };
 
-
 #endif
-
-

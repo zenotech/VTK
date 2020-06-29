@@ -37,11 +37,13 @@ set(TestParallelCoordinatesDouble_ARGS
   )
 
 vtk_add_test_cxx(vtkChartsCoreCxxTests tests
+  TestAdjustLowerBoundForLogPlot.cxx
   TestContextScene.cxx,NO_DATA,NO_VALID
   TestControlPointsItem.cxx,NO_DATA,NO_VALID
   TestControlPointsItemEvents.cxx,NO_DATA,NO_VALID
   TestAreaPlot.cxx
   TestAxes.cxx
+  TestAxes2.cxx
   TestBagPlot.cxx
   TestBarGraph.cxx
   TestBarGraphHorizontal.cxx
@@ -53,6 +55,7 @@ vtk_add_test_cxx(vtkChartsCoreCxxTests tests
   TestChartBadPoints.cxx
   TestChartDouble.cxx
   TestChartDoubleColors.cxx
+  TestChartDoubleColorsOpaque.cxx
   TestChartMatrix.cxx
   TestChartTileScaling.cxx
   TestChartUnicode.cxx
@@ -90,6 +93,7 @@ vtk_add_test_cxx(vtkChartsCoreCxxTests tests
   TestPieChart.cxx
   TestPlotMatrix.cxx
   TestPropItem.cxx
+  TestRangeHandlesItemEvents.cxx,NO_DATA,NO_VALID
   TestScalarsToColors.cxx
   TestScatterPlot.cxx
   TestScatterPlotMatrix.cxx

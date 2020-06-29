@@ -22,13 +22,13 @@
 class vtkPiecewiseFunction;
 class vtkImageData;
 
-/// vtkPiecewiseFunctionItem internall uses vtkPlot::Color, white by default
-class VTKCHARTSCORE_EXPORT vtkPiecewiseFunctionItem: public vtkScalarsToColorsItem
+/// vtkPiecewiseFunctionItem internal uses vtkPlot::Color, white by default
+class VTKCHARTSCORE_EXPORT vtkPiecewiseFunctionItem : public vtkScalarsToColorsItem
 {
 public:
   static vtkPiecewiseFunctionItem* New();
   vtkTypeMacro(vtkPiecewiseFunctionItem, vtkScalarsToColorsItem);
-  void PrintSelf(ostream &os, vtkIndent indent) override;
+  void PrintSelf(ostream& os, vtkIndent indent) override;
 
   void SetPiecewiseFunction(vtkPiecewiseFunction* t);
   vtkGetObjectMacro(PiecewiseFunction, vtkPiecewiseFunction);
@@ -48,8 +48,8 @@ protected:
   vtkPiecewiseFunction* PiecewiseFunction;
 
 private:
-  vtkPiecewiseFunctionItem(const vtkPiecewiseFunctionItem &) = delete;
-  void operator=(const vtkPiecewiseFunctionItem &) = delete;
+  vtkPiecewiseFunctionItem(const vtkPiecewiseFunctionItem&) = delete;
+  void operator=(const vtkPiecewiseFunctionItem&) = delete;
 };
 
 #endif

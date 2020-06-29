@@ -48,7 +48,7 @@
  *
  * @sa
  * vtkRowQueryToTable
-*/
+ */
 
 #ifndef vtkRowQuery_h
 #define vtkRowQuery_h
@@ -92,7 +92,7 @@ public:
    * Uses GetNumberOfFields() and GetFieldName()
    * to match field name.
    */
-  int GetFieldIndex(char* name);
+  int GetFieldIndex(const char* name);
 
   /**
    * Advance row, return false if past end.
@@ -145,10 +145,10 @@ protected:
   vtkRowQuery();
   ~vtkRowQuery() override;
   bool CaseSensitiveFieldNames;
+
 private:
-  vtkRowQuery(const vtkRowQuery &) = delete;
-  void operator=(const vtkRowQuery &) = delete;
+  vtkRowQuery(const vtkRowQuery&) = delete;
+  void operator=(const vtkRowQuery&) = delete;
 };
 
 #endif // vtkRowQuery_h
-

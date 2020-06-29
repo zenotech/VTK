@@ -49,10 +49,24 @@ public:
   /**
    * Enable/disable printing of testing of various path during `Locate`
    * to `stdout`.
+   *
+   * @deprecated Instead use `SetLogVerbosity` to specify the verbosity at which
+   * this instance should log trace information. Default is
+   * `vtkLogger::VERBOSITY_TRACE`.
    */
-  vtkSetMacro(PrintDebugInformation, bool);
-  vtkGetMacro(PrintDebugInformation, bool);
-  vtkBooleanMacro(PrintDebugInformation, bool);
+  VTK_LEGACY(void SetPrintDebugInformation(bool));
+  VTK_LEGACY(bool GetPrintDebugInformation());
+  VTK_LEGACY(void PrintDebugInformationOn());
+  VTK_LEGACY(void PrintDebugInformationOff());
+  //@}
+
+  //@{
+  /**
+   * The log verbosity to use when logging information about the resource
+   * searching. Default is `vtkLogger::VERBOSITY_TRACE`.
+   */
+  vtkSetMacro(LogVerbosity, int);
+  vtkGetMacro(LogVerbosity, int);
   //@}
 
   //@{
@@ -84,7 +98,7 @@ public:
    * Returns the name of the library providing the symbol. For example, if you
    * want to locate where the VTK libraries located call
    * `GetLibraryPathForSymbolUnix("GetVTKVersion")` on Unixes and
-   * `GetLibraryPathForSymbolUnix(GetVTKVersion)` on Window. Alternatively, you
+   * `GetLibraryPathForSymbolWin32(GetVTKVersion)` on Windows. Alternatively, you
    * can simply use the `vtkGetLibraryPathForSymbol(GetVTKVersion)` macro
    * that makes the appropriate call as per the current platform.
    */
@@ -96,16 +110,16 @@ protected:
   vtkResourceFileLocator();
   ~vtkResourceFileLocator() override;
 
-  bool PrintDebugInformation;
-
 private:
   vtkResourceFileLocator(const vtkResourceFileLocator&) = delete;
   void operator=(const vtkResourceFileLocator&) = delete;
+
+  int LogVerbosity;
 };
 
 #if defined(_WIN32) && !defined(__CYGWIN__)
 #define vtkGetLibraryPathForSymbol(function)                                                       \
-  vtkResourceFileLocator::GetLibraryPathForSymbolWin32(&function)
+  vtkResourceFileLocator::GetLibraryPathForSymbolWin32(reinterpret_cast<const void*>(&function))
 #else
 #define vtkGetLibraryPathForSymbol(function)                                                       \
   vtkResourceFileLocator::GetLibraryPathForSymbolUnix(#function)

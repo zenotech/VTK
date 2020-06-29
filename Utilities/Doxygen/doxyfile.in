@@ -92,6 +92,7 @@ JAVADOC_AUTOBRIEF    = YES
 SORT_MEMBER_DOCS     = NO
 DISTRIBUTE_GROUP_DOC = YES
 TAB_SIZE             = 3
+HTML_TIMESTAMP       = YES
 SHORT_NAMES          = @DOXYGEN_SHORT_NAMES@
 # PAPER_TYPE           = letter
 
@@ -107,7 +108,8 @@ MACRO_EXPANSION      = YES
 SEARCH_INCLUDES      = YES
 INCLUDE_PATH         =
 EXPAND_ONLY_PREDEF   = YES
-EXPAND_AS_DEFINED = vtkAllEventsMacro \
+EXPAND_AS_DEFINED = vtkDataArray \
+                    vtkAllEventsMacro \
                     vtkEventDeclarationMacro \
                     _vtk_add_event
 PREDEFINED  = "vtkSetMacro(name,type)= \
@@ -177,17 +179,16 @@ PREDEFINED  = "vtkSetMacro(name,type)= \
                    private: \
                    virtual const char* GetClassNameInternal() const; \
                    public: \
-                   static int IsTypeOf(const char *type); \
-                   virtual int IsA(const char *type); \
+                   static vtkTypeBool IsTypeOf(const char *type); \
+                   virtual vtkTypeBool IsA(const char *type); \
                    static thisClass* SafeDownCast(vtkObjectBase *o); \
                    protected: \
                    virtual vtkObjectBase *NewInstanceInternal() const; \
                    public: \
                    thisClass *NewInstance() const;" \
                "VTK_LEGACY(x)= x" \
-               "VTK_OVERRIDE=override" \
-               "VTK_DELETE=delete" \
                "VTK_NEWINSTANCE=" \
                "VTK_ZEROCOPY=" \
                "VTK_EXPECTS(x)=" \
-               "VTK_SIZEHINT(...)="
+               "VTK_SIZEHINT(...)=" \
+               "DOXYGEN_SHOULD_SKIP_THIS"

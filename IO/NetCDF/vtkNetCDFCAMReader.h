@@ -23,7 +23,7 @@
  * cells.  The reader requires 2 NetCDF files: the main file has all
  * attributes, the connectivity file has point positions and cell
  * connectivity information.
-*/
+ */
 
 #ifndef vtkNetCDFCAMReader_h
 #define vtkNetCDFCAMReader_h
@@ -31,16 +31,14 @@
 #include "vtkIONetCDFModule.h" // For export macro
 #include "vtkUnstructuredGridAlgorithm.h"
 
-#include "vtk_netcdfcpp_fwd.h" // Forward declarations for vtknetcdfcpp
-
 class vtkCallbackCommand;
 class vtkDataArraySelection;
 
 class VTKIONETCDF_EXPORT vtkNetCDFCAMReader : public vtkUnstructuredGridAlgorithm
 {
 public:
-  static vtkNetCDFCAMReader *New();
-  vtkTypeMacro(vtkNetCDFCAMReader,vtkUnstructuredGridAlgorithm);
+  static vtkNetCDFCAMReader* New();
+  vtkTypeMacro(vtkNetCDFCAMReader, vtkUnstructuredGridAlgorithm);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
   /**
@@ -120,28 +118,24 @@ protected:
   vtkNetCDFCAMReader();
   ~vtkNetCDFCAMReader() override;
 
-  int RequestInformation(vtkInformation*, vtkInformationVector**,
-                         vtkInformationVector*) override;
+  int RequestInformation(vtkInformation*, vtkInformationVector**, vtkInformationVector*) override;
 
-  int RequestData(vtkInformation *, vtkInformationVector **,
-                          vtkInformationVector *) override;
+  int RequestData(vtkInformation*, vtkInformationVector**, vtkInformationVector*) override;
 
-  int RequestUpdateExtent(vtkInformation *, vtkInformationVector **,
-                                  vtkInformationVector *) override;
+  int RequestUpdateExtent(vtkInformation*, vtkInformationVector**, vtkInformationVector*) override;
 
   /**
    * Returns true for success.  Based on the piece, number of pieces,
    * number of levels of cells, and the number of cells per level, gives
    * a partitioned space of levels and cells.
    */
-  bool GetPartitioning(
-    int piece, int numPieces,int numCellLevels, int numCellsPerLevel,
-    int & beginCellLevel, int & endCellLevel, int & beginCell, int & endCell);
+  bool GetPartitioning(size_t piece, size_t numPieces, size_t numCellLevels,
+    size_t numCellsPerLevel, size_t& beginCellLevel, size_t& endCellLevel, size_t& beginCell,
+    size_t& endCell);
 
   void BuildVarArray();
-  static void SelectionCallback(vtkObject* caller, unsigned long eid,
-                                void* clientdata, void* calldata);
-
+  static void SelectionCallback(
+    vtkObject* caller, unsigned long eid, void* clientdata, void* calldata);
 
 private:
   vtkNetCDFCAMReader(const vtkNetCDFCAMReader&) = delete;
@@ -167,8 +161,8 @@ private:
   //@}
 
   int VerticalDimension;
-  double * TimeSteps;
-  long NumberOfTimeSteps;
+  double* TimeSteps;
+  size_t NumberOfTimeSteps;
   vtkDataArraySelection* PointDataArraySelection;
   vtkCallbackCommand* SelectionObserver;
 
@@ -180,15 +174,8 @@ private:
   int InterfaceLayerIndex;
   int InterfaceLayersRange[2];
 
-
-  //@{
-  /**
-   * The NetCDF file descriptors.  nullptr indicates they haven't
-   * been opened.
-   */
-  NcFile* PointsFile;
-  NcFile* ConnectivityFile;
+  class Internal;
+  Internal* Internals;
 };
-  //@}
 
 #endif

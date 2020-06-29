@@ -26,46 +26,43 @@
  * Binary files written on one system may not be readable on other systems.
  * @sa
  * vtkTable vtkDataReader vtkTableWriter
-*/
+ */
 
 #ifndef vtkTableReader_h
 #define vtkTableReader_h
 
-#include "vtkIOLegacyModule.h" // For export macro
 #include "vtkDataReader.h"
+#include "vtkIOLegacyModule.h" // For export macro
 
 class vtkTable;
 
 class VTKIOLEGACY_EXPORT vtkTableReader : public vtkDataReader
 {
 public:
-  static vtkTableReader *New();
-  vtkTypeMacro(vtkTableReader,vtkDataReader);
+  static vtkTableReader* New();
+  vtkTypeMacro(vtkTableReader, vtkDataReader);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
   //@{
   /**
    * Get the output of this reader.
    */
-  vtkTable *GetOutput();
-  vtkTable *GetOutput(int idx);
-  void SetOutput(vtkTable *output);
+  vtkTable* GetOutput();
+  vtkTable* GetOutput(int idx);
+  void SetOutput(vtkTable* output);
   //@}
+
+  /**
+   * Actual reading happens here
+   */
+  int ReadMeshSimple(const std::string& fname, vtkDataObject* output) override;
 
 protected:
   vtkTableReader();
   ~vtkTableReader() override;
 
-  int RequestData(vtkInformation *, vtkInformationVector **,
-                          vtkInformationVector *) override;
-
-  // Since the Outputs[0] has the same UpdateExtent format
-  // as the generic DataObject we can copy the UpdateExtent
-  // as a default behavior.
-  int RequestUpdateExtent(vtkInformation *, vtkInformationVector **,
-                                  vtkInformationVector *) override;
-
   int FillOutputPortInformation(int, vtkInformation*) override;
+
 private:
   vtkTableReader(const vtkTableReader&) = delete;
   void operator=(const vtkTableReader&) = delete;

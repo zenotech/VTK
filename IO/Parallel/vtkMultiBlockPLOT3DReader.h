@@ -34,9 +34,10 @@
  * alpha, tuple 2: re, tuple 3: time). In addition, the solution file contains
  * the flow density (scalar), flow momentum (vector), and flow energy (scalar).
  *
- * Note that this reader does not support time series data which is usually
- * stored as a series of Q and optionally XYZ files. If you want to read such
- * a file series, use vtkPlot3DMetaReader.
+ * This reader supports a limited form of time series data which are stored
+ * as a series of Q files. Using the AddFileName() method provided by the
+ * superclass, one can define a file series. For other cases, for example where
+ * the XYZ or function files vary over time, use vtkPlot3DMetaReader.
  *
  * The reader can generate additional scalars and vectors (or "functions")
  * from this information. To use vtkMultiBlockPLOT3DReader, you must specify the
@@ -81,14 +82,14 @@
  *
  * @sa
  * vtkMultiBlockDataSet vtkStructuredGrid vtkPlot3DMetaReader
-*/
+ */
 
 #ifndef vtkMultiBlockPLOT3DReader_h
 #define vtkMultiBlockPLOT3DReader_h
 
-#include <vector>  // For holding function-names
 #include "vtkIOParallelModule.h" // For export macro
-#include "vtkMultiBlockDataSetAlgorithm.h"
+#include "vtkParallelReader.h"
+#include <vector> // For holding function-names
 
 class vtkDataArray;
 class vtkDataSetAttributes;
@@ -98,50 +99,59 @@ class vtkMultiProcessController;
 class vtkStructuredGrid;
 class vtkUnsignedCharArray;
 struct vtkMultiBlockPLOT3DReaderInternals;
+class vtkMultiBlockDataSet;
 
 namespace Functors
 {
-  class ComputeFunctor;
-  class ComputeTemperatureFunctor;
-  class ComputePressureFunctor;
-  class ComputePressureCoefficientFunctor;
-  class ComputeMachNumberFunctor;
-  class ComputeSoundSpeedFunctor;
-  class ComputeEnthalpyFunctor;
-  class ComputeKinecticEnergyFunctor;
-  class ComputeVelocityMagnitudeFunctor;
-  class ComputeEntropyFunctor;
-  class ComputeSwirlFunctor;
-  class ComputeVelocityFunctor;
-  class ComputeVorticityMagnitudeFunctor;
-  class ComputePressureGradientFunctor;
-  class ComputeVorticityFunctor;
-  class ComputeStrainRateFunctor;
+class ComputeFunctor;
+class ComputeTemperatureFunctor;
+class ComputePressureFunctor;
+class ComputePressureCoefficientFunctor;
+class ComputeMachNumberFunctor;
+class ComputeSoundSpeedFunctor;
+class ComputeEnthalpyFunctor;
+class ComputeKinecticEnergyFunctor;
+class ComputeVelocityMagnitudeFunctor;
+class ComputeEntropyFunctor;
+class ComputeSwirlFunctor;
+class ComputeVelocityFunctor;
+class ComputeVorticityMagnitudeFunctor;
+class ComputePressureGradientFunctor;
+class ComputeVorticityFunctor;
+class ComputeStrainRateFunctor;
 }
 
-
-class VTKIOPARALLEL_EXPORT vtkMultiBlockPLOT3DReader : public vtkMultiBlockDataSetAlgorithm
+class VTKIOPARALLEL_EXPORT vtkMultiBlockPLOT3DReader : public vtkParallelReader
 {
-friend class Functors::ComputeFunctor;
-friend class Functors::ComputeTemperatureFunctor;
-friend class Functors::ComputePressureFunctor;
-friend class Functors::ComputePressureCoefficientFunctor;
-friend class Functors::ComputeMachNumberFunctor;
-friend class Functors::ComputeSoundSpeedFunctor;
-friend class Functors::ComputeEnthalpyFunctor;
-friend class Functors::ComputeKinecticEnergyFunctor;
-friend class Functors::ComputeVelocityMagnitudeFunctor;
-friend class Functors::ComputeEntropyFunctor;
-friend class Functors::ComputeSwirlFunctor;
-friend class Functors::ComputeVelocityFunctor;
-friend class Functors::ComputeVorticityMagnitudeFunctor;
-friend class Functors::ComputePressureGradientFunctor;
-friend class Functors::ComputeVorticityFunctor;
-friend class Functors::ComputeStrainRateFunctor;
+  friend class Functors::ComputeFunctor;
+  friend class Functors::ComputeTemperatureFunctor;
+  friend class Functors::ComputePressureFunctor;
+  friend class Functors::ComputePressureCoefficientFunctor;
+  friend class Functors::ComputeMachNumberFunctor;
+  friend class Functors::ComputeSoundSpeedFunctor;
+  friend class Functors::ComputeEnthalpyFunctor;
+  friend class Functors::ComputeKinecticEnergyFunctor;
+  friend class Functors::ComputeVelocityMagnitudeFunctor;
+  friend class Functors::ComputeEntropyFunctor;
+  friend class Functors::ComputeSwirlFunctor;
+  friend class Functors::ComputeVelocityFunctor;
+  friend class Functors::ComputeVorticityMagnitudeFunctor;
+  friend class Functors::ComputePressureGradientFunctor;
+  friend class Functors::ComputeVorticityFunctor;
+  friend class Functors::ComputeStrainRateFunctor;
+
 public:
-  static vtkMultiBlockPLOT3DReader *New();
-  vtkTypeMacro(vtkMultiBlockPLOT3DReader,vtkMultiBlockDataSetAlgorithm);
+  static vtkMultiBlockPLOT3DReader* New();
+  vtkTypeMacro(vtkMultiBlockPLOT3DReader, vtkParallelReader);
   void PrintSelf(ostream& os, vtkIndent indent) override;
+
+  //@{
+  /**
+   * Get the output data object for a port on this algorithm.
+   */
+  vtkMultiBlockDataSet* GetOutput();
+  vtkMultiBlockDataSet* GetOutput(int);
+  //@}
 
   //@{
   /**
@@ -149,16 +159,24 @@ public:
    */
   void SetFileName(const char* name) { this->SetXYZFileName(name); }
   const char* GetFileName() { return this->GetXYZFileName(); }
-  virtual void SetXYZFileName( const char* );
+  const char* GetFileName(int i) { return this->vtkParallelReader::GetFileName(i); }
+  virtual void SetXYZFileName(const char*);
   vtkGetStringMacro(XYZFileName);
   //@}
 
   //@{
   /**
-   * Set/Get the PLOT3D solution filename.
+   * Set/Get the PLOT3D solution filename. This adds a filename
+   * using the superclass' AddFileName() method. To read a series
+   * of q files, use the AddFileName() interface directly to add
+   * multiple q filenames in the appropriate order. If the files
+   * are of Overflow format, the reader will read the time values
+   * from the files. Otherwise, it will use an integer sequence.
+   * Use a meta reader to support time values for non-Overflow file
+   * sequences.
    */
-  vtkSetStringMacro(QFileName);
-  vtkGetStringMacro(QFileName);
+  void SetQFileName(const char* name);
+  const char* GetQFileName();
   //@}
 
   //@{
@@ -273,23 +291,23 @@ public:
   void SetByteOrderToLittleEndian();
   vtkSetMacro(ByteOrder, int);
   vtkGetMacro(ByteOrder, int);
-  const char *GetByteOrderAsString();
+  const char* GetByteOrderAsString();
   //@}
 
   //@{
   /**
    * Set/Get the gas constant. Default is 1.0.
    */
-  vtkSetMacro(R,double);
-  vtkGetMacro(R,double);
+  vtkSetMacro(R, double);
+  vtkGetMacro(R, double);
   //@}
 
   //@{
   /**
    * Set/Get the ratio of specific heats. Default is 1.4.
    */
-  vtkSetMacro(Gamma,double);
-  vtkGetMacro(Gamma,double);
+  vtkSetMacro(Gamma, double);
+  vtkGetMacro(Gamma, double);
   //@}
 
   //@{
@@ -311,7 +329,7 @@ public:
    * function is extracted.
    */
   void SetScalarFunctionNumber(int num);
-  vtkGetMacro(ScalarFunctionNumber,int);
+  vtkGetMacro(ScalarFunctionNumber, int);
   //@}
 
   //@{
@@ -320,7 +338,7 @@ public:
    * function is extracted.
    */
   void SetVectorFunctionNumber(int num);
-  vtkGetMacro(VectorFunctionNumber,int);
+  vtkGetMacro(VectorFunctionNumber, int);
   //@}
 
   //@{
@@ -345,51 +363,65 @@ public:
    * Set/Get the communicator object (we'll use global World controller
    * if you don't set a different one).
    */
-  void SetController(vtkMultiProcessController *c);
+  void SetController(vtkMultiProcessController* c);
   vtkGetObjectMacro(Controller, vtkMultiProcessController);
   //@}
 
-  void AddFunctionName(const std::string &name) {FunctionNames.push_back(name);}
+  void AddFunctionName(const std::string& name) { FunctionNames.push_back(name); }
 
   enum
   {
-    FILE_BIG_ENDIAN=0,
-    FILE_LITTLE_ENDIAN=1
+    FILE_BIG_ENDIAN = 0,
+    FILE_LITTLE_ENDIAN = 1
   };
+
+  //@{
+  /**
+   * These methods have to be overwritten from superclass
+   * because Plot3D actually uses the XYZ file to read these.
+   * This is not recognized by the superclass which returns
+   * an error when a filename (Q filename) is not set.
+   */
+  int ReadMetaData(vtkInformation* metadata) override;
+  int ReadMesh(int piece, int npieces, int nghosts, int timestep, vtkDataObject* output) override;
+  int ReadPoints(int piece, int npieces, int nghosts, int timestep, vtkDataObject* output) override;
+  int ReadArrays(int piece, int npieces, int nghosts, int timestep, vtkDataObject* output) override;
+  //@}
 
 protected:
   vtkMultiBlockPLOT3DReader();
   ~vtkMultiBlockPLOT3DReader() override;
 
+  //@{
+  /**
+   * Overridden from superclass to do actual reading.
+   */
+  double GetTimeValue(const std::string& fname) override;
+  int ReadMesh(
+    const std::string& fname, int piece, int npieces, int nghosts, vtkDataObject* output) override;
+  int ReadPoints(
+    const std::string& fname, int piece, int npieces, int nghosts, vtkDataObject* output) override;
+  int ReadArrays(
+    const std::string& fname, int piece, int npieces, int nghosts, vtkDataObject* output) override;
+  //@}
+
   vtkDataArray* CreateFloatArray();
 
   int CheckFile(FILE*& fp, const char* fname);
   int CheckGeometryFile(FILE*& xyzFp);
-  int CheckSolutionFile(FILE*& qFp);
   int CheckFunctionFile(FILE*& fFp);
 
   int GetByteCountSize();
-  int SkipByteCount (FILE* fp);
-  int ReadIntBlock  (FILE* fp, int n, int*   block);
+  int SkipByteCount(FILE* fp);
+  int ReadIntBlock(FILE* fp, int n, int* block);
 
-  vtkIdType ReadValues(
-    FILE* fp,
-    int n,
-    vtkDataArray* scalar);
-  virtual int ReadIntScalar(
-    void* vfp,
-    int extent[6], int wextent[6],
-    vtkDataArray* scalar, vtkTypeUInt64 offset,
-    const vtkMultiBlockPLOT3DReaderRecord& currentRecord);
-  virtual int ReadScalar(
-    void* vfp,
-    int extent[6], int wextent[6],
-    vtkDataArray* scalar, vtkTypeUInt64 offset,
-    const vtkMultiBlockPLOT3DReaderRecord& currentRecord);
-  virtual int ReadVector(
-    void* vfp,
-    int extent[6], int wextent[6],
-    int numDims, vtkDataArray* vector, vtkTypeUInt64 offset,
+  vtkIdType ReadValues(FILE* fp, int n, vtkDataArray* scalar);
+  virtual int ReadIntScalar(void* vfp, int extent[6], int wextent[6], vtkDataArray* scalar,
+    vtkTypeUInt64 offset, const vtkMultiBlockPLOT3DReaderRecord& currentRecord);
+  virtual int ReadScalar(void* vfp, int extent[6], int wextent[6], vtkDataArray* scalar,
+    vtkTypeUInt64 offset, const vtkMultiBlockPLOT3DReaderRecord& currentRecord);
+  virtual int ReadVector(void* vfp, int extent[6], int wextent[6], int numDims,
+    vtkDataArray* vector, vtkTypeUInt64 offset,
     const vtkMultiBlockPLOT3DReaderRecord& currentRecord);
   virtual int OpenFileForDataRead(void*& fp, const char* fname);
   virtual void CloseFile(void* fp);
@@ -404,8 +436,7 @@ protected:
 
   int AutoDetectionCheck(FILE* fp);
 
-  void AssignAttribute(int fNumber, vtkStructuredGrid* output,
-                       int attributeType);
+  void AssignAttribute(int fNumber, vtkStructuredGrid* output, int attributeType);
   void MapFunction(int fNumber, vtkStructuredGrid* output);
 
   //@{
@@ -441,11 +472,12 @@ protected:
 
   double GetGamma(vtkIdType idx, vtkDataArray* gamma);
 
-  //plot3d FileNames
-  char *XYZFileName;
-  char *QFileName;
-  char *FunctionFileName;
+  int FillOutputPortInformation(int port, vtkInformation* info) override;
 
+  // plot3d FileNames
+  char* XYZFileName;
+  char* QFileName;
+  char* FunctionFileName;
   vtkTypeBool BinaryFile;
   vtkTypeBool HasByteCount;
   vtkTypeBool TwoDimensionalGeometry;
@@ -460,34 +492,25 @@ protected:
 
   size_t FileSize;
 
-  //parameters used in computing derived functions
+  // parameters used in computing derived functions
   double R;
   double Gamma;
   double GammaInf;
 
   bool PreserveIntermediateFunctions;
 
-  //named functions from meta data
+  // named functions from meta data
   std::vector<std::string> FunctionNames;
 
-  //functions to read that are not scalars or vectors
-  vtkIntArray *FunctionList;
+  // functions to read that are not scalars or vectors
+  vtkIntArray* FunctionList;
 
   int ScalarFunctionNumber;
   int VectorFunctionNumber;
 
-  int FillOutputPortInformation(int port, vtkInformation* info) override;
-
-  int RequestData(vtkInformation*,
-                          vtkInformationVector**,
-                          vtkInformationVector*) override;
-  int RequestInformation(vtkInformation*,
-                                 vtkInformationVector**,
-                                 vtkInformationVector*) override;
-
   vtkMultiBlockPLOT3DReaderInternals* Internal;
 
-  vtkMultiProcessController *Controller;
+  vtkMultiProcessController* Controller;
 
 private:
   vtkMultiBlockPLOT3DReader(const vtkMultiBlockPLOT3DReader&) = delete;

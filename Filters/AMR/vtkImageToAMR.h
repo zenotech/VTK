@@ -21,13 +21,13 @@
  * vtkOverlappingAMR dataset. The input vtkImageData is treated as the highest
  * refinement available for the highest level. The lower refinements and the
  * number of blocks is controlled properties specified on the filter.
-*/
+ */
 
 #ifndef vtkImageToAMR_h
 #define vtkImageToAMR_h
 
-#include "vtkOverlappingAMRAlgorithm.h"
 #include "vtkFiltersAMRModule.h" // For export macro
+#include "vtkOverlappingAMRAlgorithm.h"
 
 class VTKFILTERSAMR_EXPORT vtkImageToAMR : public vtkOverlappingAMRAlgorithm
 {
@@ -55,7 +55,7 @@ public:
 
   //@{
   /**
-   * Set the maximun number of blocks in the output
+   * Set the maximum number of blocks in the output
    */
   vtkSetClampMacro(MaximumNumberOfBlocks, int, 1, VTK_INT_MAX);
   vtkGetMacro(MaximumNumberOfBlocks, int);
@@ -76,19 +76,16 @@ protected:
    * This is called by the superclass.
    * This is the method you should override.
    */
-  int RequestData(vtkInformation *request,
-                          vtkInformationVector **inputVector,
-                          vtkInformationVector *outputVector) override;
+  int RequestData(vtkInformation* request, vtkInformationVector** inputVector,
+    vtkInformationVector* outputVector) override;
 
   int NumberOfLevels;
   int MaximumNumberOfBlocks;
   int RefinementRatio;
 
-
 private:
   vtkImageToAMR(const vtkImageToAMR&) = delete;
   void operator=(const vtkImageToAMR&) = delete;
-
 };
 
 #endif

@@ -1,4 +1,4 @@
-/* Copyright 2009, UCAR/Unidata and OPeNDAP, Inc.
+/* Copyright 2018, UCAR/Unidata and OPeNDAP, Inc.
    See the COPYRIGHT file for more information. */
 
 #include <stdlib.h>
@@ -17,7 +17,7 @@
 #define DEFAULTALLOC 1024
 #define ALLOCINCR 1024
 
-static int ncbytesdebug = 1;
+#define NCBYTESDEBUG 1
 
 static int
 ncbytesfail(void)
@@ -25,7 +25,9 @@ ncbytesfail(void)
     fflush(stdout);
     fprintf(stderr,"bytebuffer failure\n");
     fflush(stderr);
-    if(ncbytesdebug) abort();
+#ifdef NCBYTESDEBUG
+    abort();
+#endif
     return FALSE;
 }
 
@@ -46,7 +48,7 @@ ncbytessetalloc(NCbytes* bb, unsigned long sz)
 {
   char* newcontent;
   if(bb == NULL) return ncbytesfail();
-  if(sz <= 0) {sz = (bb->alloc?2*bb->alloc:DEFAULTALLOC);}
+  if(sz == 0) {sz = (bb->alloc?2*bb->alloc:DEFAULTALLOC);}
   if(bb->alloc >= sz) return TRUE;
   if(bb->nonextendible) return ncbytesfail();
   newcontent=(char*)calloc(sz,sizeof(char));
@@ -110,9 +112,7 @@ ncbytesappend(NCbytes* bb, char elem)
 {
   if(bb == NULL) return ncbytesfail();
   /* We need space for the char + null */
-  while(bb->length+1 >= bb->alloc) {
-	if(!ncbytessetalloc(bb,0)) return ncbytesfail();
-  }
+  ncbytessetalloc(bb,bb->length+2);
   bb->content[bb->length] = (char)(elem & 0xFF);
   bb->length++;
   bb->content[bb->length] = '\0';

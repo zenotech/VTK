@@ -29,7 +29,7 @@
  * This algorithm does not consider valences, hybridization, aromaticity, or
  * anything other than atomic separations. It will not produce anything other
  * than single bonds.
-*/
+ */
 
 #ifndef vtkSimpleBondPerceiver_h
 #define vtkSimpleBondPerceiver_h
@@ -39,13 +39,13 @@
 
 class vtkDataSet;
 class vtkMolecule;
+class vtkPeriodicTable;
 
-class VTKDOMAINSCHEMISTRY_EXPORT vtkSimpleBondPerceiver :
-    public vtkMoleculeAlgorithm
+class VTKDOMAINSCHEMISTRY_EXPORT vtkSimpleBondPerceiver : public vtkMoleculeAlgorithm
 {
 public:
-  static vtkSimpleBondPerceiver *New();
-  vtkTypeMacro(vtkSimpleBondPerceiver,vtkMoleculeAlgorithm);
+  static vtkSimpleBondPerceiver* New();
+  vtkTypeMacro(vtkSimpleBondPerceiver, vtkMoleculeAlgorithm);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
   //@{
@@ -56,19 +56,36 @@ public:
   vtkGetMacro(Tolerance, float);
   //@}
 
+  //@{
+  /**
+   * Set/Get if the tolerance is absolute (i.e. added to radius)
+   * or not (i.e. multiplied with radius). Default is true.
+   */
+  vtkGetMacro(IsToleranceAbsolute, bool);
+  vtkSetMacro(IsToleranceAbsolute, bool);
+  //@}
+
 protected:
   vtkSimpleBondPerceiver();
   ~vtkSimpleBondPerceiver() override;
 
+  int RequestData(vtkInformation* request, vtkInformationVector** inputVector,
+    vtkInformationVector* outputVector) override;
+
   /**
-   * This is called by the superclass.
-   * This is the method you should override.
+   * Compute the bonds of input molecule.
    */
-  int RequestData(vtkInformation* request,
-                          vtkInformationVector** inputVector,
-                          vtkInformationVector* outputVector) override;
+  virtual void ComputeBonds(vtkMolecule* molecule);
+
+  /**
+   * Get the covalent radius corresponding to atomic number, modulated by Tolerance.
+   * Tolerance is multiplied if IsToleranceAbsolute is false.
+   * Half Tolerance is added if IsToleranceAbsolute is true (for backward compatibility)
+   */
+  double GetCovalentRadiusWithTolerance(vtkPeriodicTable* table, vtkIdType atomicNumber);
 
   float Tolerance;
+  bool IsToleranceAbsolute;
 
 private:
   vtkSimpleBondPerceiver(const vtkSimpleBondPerceiver&) = delete;

@@ -21,7 +21,7 @@
  *
  * @sa
  * vtkXMLPPolyDataReader vtkXMLPUnstructuredGridReader
-*/
+ */
 
 #ifndef vtkXMLPUnstructuredDataReader_h
 #define vtkXMLPUnstructuredDataReader_h
@@ -37,21 +37,19 @@ class vtkXMLUnstructuredDataReader;
 class VTKIOXML_EXPORT vtkXMLPUnstructuredDataReader : public vtkXMLPDataReader
 {
 public:
-  vtkTypeMacro(vtkXMLPUnstructuredDataReader,vtkXMLPDataReader);
+  vtkTypeMacro(vtkXMLPUnstructuredDataReader, vtkXMLPDataReader);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
   // For the specified port, copy the information this reader sets up in
   // SetupOutputInformation to outInfo
-  void CopyOutputInformation(vtkInformation *outInfo, int port) override;
+  void CopyOutputInformation(vtkInformation* outInfo, int port) override;
 
 protected:
   vtkXMLPUnstructuredDataReader();
   ~vtkXMLPUnstructuredDataReader() override;
 
-  int RequestInformation(vtkInformation *request,
-                                 vtkInformationVector **inputVector,
-                                 vtkInformationVector *outputVector) override;
-
+  int RequestInformation(vtkInformation* request, vtkInformationVector** inputVector,
+    vtkInformationVector* outputVector) override;
 
   vtkPointSet* GetOutputAsPointSet();
   vtkPointSet* GetPieceInputAsPointSet(int piece);
@@ -64,11 +62,10 @@ protected:
   void SetupEmptyOutput() override;
 
   // Setup the output's information.
-  void SetupOutputInformation(vtkInformation *outInfo) override;
+  void SetupOutputInformation(vtkInformation* outInfo) override;
 
   void SetupOutputData() override;
-  virtual void GetOutputUpdateExtent(int& piece, int& numberOfPieces,
-                                     int& ghostLevel)=0;
+  virtual void GetOutputUpdateExtent(int& piece, int& numberOfPieces, int& ghostLevel) = 0;
 
   // Pipeline execute data driver.  Called by vtkXMLReader.
   void ReadXMLData() override;
@@ -76,8 +73,7 @@ protected:
   void SetupUpdateExtent(int piece, int numberOfPieces, int ghostLevel);
 
   int ReadPieceData() override;
-  void CopyCellArray(vtkIdType totalNumberOfCells, vtkCellArray* inCells,
-                     vtkCellArray* outCells);
+  void CopyCellArray(vtkIdType totalNumberOfCells, vtkCellArray* inCells, vtkCellArray* outCells);
   void CopyFaceArray(vtkIdTypeArray *inFaces,
                      vtkIdTypeArray *outFaces,
                      vtkIdTypeArray *inFaceOffset,
@@ -89,7 +85,7 @@ protected:
   virtual vtkIdType GetNumberOfCellsInPiece(int piece);
 
   // The update request.
-  int UpdatePiece;
+  int UpdatePieceId;
   int UpdateNumberOfPieces;
   int UpdateGhostLevel;
 

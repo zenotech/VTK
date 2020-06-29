@@ -183,7 +183,7 @@ int vtkExtractSelectedArraysOverTime::RequestData(
 
   if (this->IsExecuting &&
     (!request->Has(vtkStreamingDemandDrivenPipeline::CONTINUE_EXECUTING()) ||
-        request->Get(vtkStreamingDemandDrivenPipeline::CONTINUE_EXECUTING()) == 0))
+      request->Get(vtkStreamingDemandDrivenPipeline::CONTINUE_EXECUTING()) == 0))
   {
     this->PostExecute(request, inputVector, outputVector);
     this->IsExecuting = false;
@@ -211,7 +211,6 @@ vtkSmartPointer<vtkDataObject> vtkExtractSelectedArraysOverTime::Extract(
     return input;
   }
   filter->SetPreserveTopology(0);
-  filter->SetUseProbeForLocations(1);
   filter->SetInputData(0, input);
   filter->SetInputData(1, selInput);
 

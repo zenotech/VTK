@@ -51,16 +51,13 @@
  *****************************************************************************/
 
 #include "exodusII.h"     // for ex_err, etc
-#include "exodusII_int.h" // for ex_comp_ws, EX_FATAL, etc
-#include "vtk_netcdf.h"       // for NC_NOERR, etc
-#include <stddef.h>       // for size_t
-#include <stdio.h>
+#include "exodusII_int.h" // for ex__comp_ws, EX_FATAL, etc
 
 /*!
  Internal function. Do not use in client code.
  */
 
-int ex_get_glob_vars_int(int exoid, int time_step, int num_glob_vars, void *glob_var_vals)
+int ex__get_glob_vars(int exoid, int time_step, int num_glob_vars, void *glob_var_vals)
 {
   int    varid;
   int    status;
@@ -68,27 +65,14 @@ int ex_get_glob_vars_int(int exoid, int time_step, int num_glob_vars, void *glob
   char   errmsg[MAX_ERR_LENGTH];
 
   EX_FUNC_ENTER();
-  ex_check_valid_file_id(exoid, __func__);
+  ex__check_valid_file_id(exoid, __func__);
 
   /* inquire previously defined variable */
   if ((status = nc_inq_varid(exoid, VAR_GLO_VAR, &varid)) != NC_NOERR) {
     snprintf(errmsg, MAX_ERR_LENGTH, "Warning: failed to locate global variables in file id %d",
              exoid);
-    ex_err(__func__, errmsg, status);
+    ex_err_fn(exoid, __func__, errmsg, status);
     EX_FUNC_LEAVE(EX_WARN);
-  }
-
-  /* Verify that time_step is within bounds */
-  {
-    int num_time_steps = ex_inquire_int(exoid, EX_INQ_TIME);
-    if (time_step <= 0 || time_step > num_time_steps) {
-      snprintf(errmsg, MAX_ERR_LENGTH,
-               "ERROR: time_step is out-of-range. Value = %d, valid "
-               "range is 1 to %d in file id %d",
-               time_step, num_time_steps, exoid);
-      ex_err(__func__, errmsg, EX_BADPARAM);
-      EX_FUNC_LEAVE(EX_FATAL);
-    }
   }
 
   /* read values of global variables */
@@ -98,7 +82,7 @@ int ex_get_glob_vars_int(int exoid, int time_step, int num_glob_vars, void *glob
   count[0] = 1;
   count[1] = num_glob_vars;
 
-  if (ex_comp_ws(exoid) == 4) {
+  if (ex__comp_ws(exoid) == 4) {
     status = nc_get_vara_float(exoid, varid, start, count, glob_var_vals);
   }
   else {
@@ -108,7 +92,7 @@ int ex_get_glob_vars_int(int exoid, int time_step, int num_glob_vars, void *glob
   if (status != NC_NOERR) {
     snprintf(errmsg, MAX_ERR_LENGTH, "ERROR: failed to get global variable values from file id %d",
              exoid);
-    ex_err(__func__, errmsg, status);
+    ex_err_fn(exoid, __func__, errmsg, status);
     EX_FUNC_LEAVE(EX_FATAL);
   }
   EX_FUNC_LEAVE(EX_NOERR);

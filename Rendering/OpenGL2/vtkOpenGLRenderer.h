@@ -18,26 +18,34 @@
  *
  * vtkOpenGLRenderer is a concrete implementation of the abstract class
  * vtkRenderer. vtkOpenGLRenderer interfaces to the OpenGL graphics library.
-*/
+ */
 
 #ifndef vtkOpenGLRenderer_h
 #define vtkOpenGLRenderer_h
 
-#include "vtkRenderingOpenGL2Module.h" // For export macro
 #include "vtkRenderer.h"
-#include <vector>  // STL Header
+#include "vtkRenderingOpenGL2Module.h" // For export macro
+#include "vtkSmartPointer.h"           // For vtkSmartPointer
+#include <string>                      // Ivars
+#include <vector>                      // STL Header
 
 class vtkOpenGLFXAAFilter;
 class vtkRenderPass;
+class vtkOpenGLState;
 class vtkOpenGLTexture;
+class vtkOrderIndependentTranslucentPass;
 class vtkTextureObject;
 class vtkDepthPeelingPass;
+class vtkPBRIrradianceTexture;
+class vtkPBRLUTTexture;
+class vtkPBRPrefilterTexture;
+class vtkShaderProgram;
 class vtkShadowMapPass;
 
 class VTKRENDERINGOPENGL2_EXPORT vtkOpenGLRenderer : public vtkRenderer
 {
 public:
-  static vtkOpenGLRenderer *New();
+  static vtkOpenGLRenderer* New();
   vtkTypeMacro(vtkOpenGLRenderer, vtkRenderer);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
@@ -49,7 +57,7 @@ public:
   /**
    * Overridden to support hidden line removal.
    */
-  void DeviceRenderOpaqueGeometry() override;
+  void DeviceRenderOpaqueGeometry(vtkFrameBufferObjectBase* fbo = nullptr) override;
 
   /**
    * Render translucent polygonal geometry. Default implementation just call
@@ -57,7 +65,7 @@ public:
    * Subclasses of vtkRenderer that can deal with depth peeling must
    * override this method.
    */
-  void DeviceRenderTranslucentPolygonalGeometry() override;
+  void DeviceRenderTranslucentPolygonalGeometry(vtkFrameBufferObjectBase* fbo = nullptr) override;
 
   void Clear(void) override;
 
@@ -75,8 +83,10 @@ public:
   int GetDepthPeelingHigherLayer();
 
   /**
-   * Indicate if this system is subject to the apple/amd bug
-   * of not having a working glPrimitiveId
+   * Indicate if this system is subject to the Apple/AMD bug
+   * of not having a working glPrimitiveId <rdar://20747550>.
+   * The bug is fixed on macOS 10.11 and later, and this method
+   * will return false when the OS is new enough.
    */
   bool HaveApplePrimitiveIdBug();
 
@@ -93,6 +103,61 @@ public:
    */
   bool IsDualDepthPeelingSupported();
 
+  // Get the state object used to keep track of
+  // OpenGL state
+  vtkOpenGLState* GetState();
+
+  // get the standard lighting uniform declarations
+  // for the current set of lights
+  const char* GetLightingUniforms();
+
+  // update the lighting uniforms for this shader if they
+  // are out of date
+  void UpdateLightingUniforms(vtkShaderProgram* prog);
+
+  // get the complexity of the current lights as a int
+  // 0 = no lighting
+  // 1 = headlight
+  // 2 = directional lights
+  // 3 = positional lights
+  enum LightingComplexityEnum
+  {
+    NoLighting = 0,
+    Headlight = 1,
+    Directional = 2,
+    Positional = 3
+  };
+  vtkGetMacro(LightingComplexity, int);
+
+  // get the number of lights turned on
+  vtkGetMacro(LightingCount, int);
+
+  //@{
+  /**
+   * Set the user light transform applied after the camera transform.
+   * Can be null to disable it.
+   */
+  void SetUserLightTransform(vtkTransform* transform);
+  vtkTransform* GetUserLightTransform();
+  //@}
+
+  //@{
+  /**
+   * Get environment textures used for image based lighting.
+   */
+  vtkPBRLUTTexture* GetEnvMapLookupTable();
+  vtkPBRIrradianceTexture* GetEnvMapIrradiance();
+  vtkPBRPrefilterTexture* GetEnvMapPrefiltered();
+  //@}
+
+  /**
+   * Overriden in order to connect the cubemap to the environment map textures.
+   */
+  void SetEnvironmentCubeMap(vtkTexture* cubemap, bool isSRGB = false) override;
+
+  // Method to release graphics resources
+  void ReleaseGraphicsResources(vtkWindow* w) override;
+
 protected:
   vtkOpenGLRenderer();
   ~vtkOpenGLRenderer() override;
@@ -102,30 +167,19 @@ protected:
    */
   void CheckCompilation(unsigned int fragmentShader);
 
-  // Internal method to release graphics resources in any derived renderers.
-  void ReleaseGraphicsResources(vtkWindow *w) override;
-
   /**
    * Ask all props to update and draw any opaque and translucent
    * geometry. This includes both vtkActors and vtkVolumes
    * Returns the number of props that rendered geometry.
    */
-  int UpdateGeometry() override;
+  int UpdateGeometry(vtkFrameBufferObjectBase* fbo = nullptr) override;
 
-  // Picking functions to be implemented by sub-classes
-  void DevicePickRender() override;
-  void StartPick(unsigned int pickFromSize) override;
-  void UpdatePickId() override;
-  void DonePick() override;
-  unsigned int GetPickedId() override;
-  unsigned int GetNumPickedIds() override;
-  int GetPickedIds(unsigned int atMost, unsigned int *callerBuffer) override;
-  double GetPickedZ() override;
-
-  // Ivars used in picking
-  class vtkGLPickInfo* PickInfo;
-
-  double PickedZ;
+  /**
+   * Check and return the textured background for the current state
+   * If monocular or stereo left eye, check BackgroundTexture
+   * If stereo right eye, check RightBackgroundTexture
+   */
+  vtkTexture* GetCurrentTexturedBackground();
 
   friend class vtkOpenGLProperty;
   friend class vtkOpenGLTexture;
@@ -135,17 +189,22 @@ protected:
   /**
    * FXAA is delegated to an instance of vtkOpenGLFXAAFilter
    */
-  vtkOpenGLFXAAFilter *FXAAFilter;
+  vtkOpenGLFXAAFilter* FXAAFilter;
 
   /**
    * Depth peeling is delegated to an instance of vtkDepthPeelingPass
    */
-  vtkDepthPeelingPass *DepthPeelingPass;
+  vtkDepthPeelingPass* DepthPeelingPass;
+
+  /**
+   * Fallback for transparency
+   */
+  vtkOrderIndependentTranslucentPass* TranslucentPass;
 
   /**
    * Shadows are delegated to an instance of vtkShadowMapPass
    */
-  vtkShadowMapPass *ShadowMapPass;
+  vtkShadowMapPass* ShadowMapPass;
 
   // Is rendering at translucent geometry stage using depth peeling and
   // rendering a layer other than the first one? (Boolean value)
@@ -155,8 +214,19 @@ protected:
 
   friend class vtkRenderPass;
 
-  bool HaveApplePrimitiveIdBugValue;
-  bool HaveApplePrimitiveIdBugChecked;
+  std::string LightingDeclaration;
+  int LightingComplexity;
+  int LightingCount;
+  vtkMTimeType LightingUpdateTime;
+
+  /**
+   * Optional user transform for lights
+   */
+  vtkSmartPointer<vtkTransform> UserLightTransform;
+
+  vtkPBRLUTTexture* EnvMapLookupTable;
+  vtkPBRIrradianceTexture* EnvMapIrradiance;
+  vtkPBRPrefilterTexture* EnvMapPrefiltered;
 
 private:
   vtkOpenGLRenderer(const vtkOpenGLRenderer&) = delete;
