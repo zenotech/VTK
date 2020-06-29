@@ -364,7 +364,7 @@ char vtkBox::IntersectBox(
   //
   for (i = 0; i < 3; i++)
   {
-    if (quadrant[i] != VTK_MIDDLE && dir[i] != 0.0)
+    if (quadrant[i] != VTK_MIDDLE && std::abs(dir[i]) > 1.0e-16)
     {
       maxT[i] = (candidatePlane[i] - origin[i]) / dir[i];
     }
