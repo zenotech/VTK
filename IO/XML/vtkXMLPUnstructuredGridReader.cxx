@@ -173,6 +173,17 @@ int vtkXMLPUnstructuredGridReader::ReadPieceData()
   memcpy(outTypes->GetVoidPointer(this->StartCell * components), inTypes->GetVoidPointer(0),
     inTypes->GetNumberOfTuples() * components * inTypes->GetDataTypeSize());
 
+  // Copy face data
+  /*if(input->GetFaces() || input->GetFaceLocations())
+  {
+    if(!output->GetFaces())
+      output->InitializeFacesRepresentation(startLoc);
+
+    this->CopyFaceArray(input->GetFaces(), output->GetFaces(),
+                        input->GetFaceLocations(),
+                        output->GetFaceLocations());
+  }*/
+
   return 1;
 }
 

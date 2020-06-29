@@ -893,6 +893,10 @@ void vtkXMLUnstructuredDataWriter::WriteCellsAppendedDataWorker(
       if (cellsMTime != mtime)
       {
         cellsMTime = mtime;
+
+        assert(cellsManager->GetElement(i).GetPosition(timestep) != 0);
+
+
         // Write the connectivity array.
         this->WriteArrayAppendedData(allcells[i], cellsManager->GetElement(i).GetPosition(timestep),
           cellsManager->GetElement(i).GetOffsetValue(timestep));

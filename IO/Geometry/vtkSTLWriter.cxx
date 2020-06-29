@@ -217,7 +217,7 @@ void vtkSTLWriter::WriteAsciiSTL(vtkPoints* pts, vtkCellArray* polys, vtkCellArr
         {
           vtkIdType ptId = ptIds->GetId(3 * i + j);
           poly->GetPoints()->GetPoint(ptId, v1);
-          fprintf(fp, "   vertex %.6g %.6g %.6g\n", v1[0], v1[1], v1[2]);
+          fprintf(fp, "   vertex %.9g %.9g %.9g\n", v1[0], v1[1], v1[2]);
         }
         fprintf(fp, "  endloop\n endfacet\n");
       }

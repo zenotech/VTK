@@ -220,7 +220,8 @@ void vtkXMLPolyDataWriter::WriteAppendedPiece(int index, vtkIndent indent)
   {
     return;
   }
-
+  // this->WriteCellsAppended("Verts", 0, 0, 0, indent,
+  //  &this->VertsOM->GetPiece(index));
   this->ConvertCells(this->GetInput()->GetVerts());
   this->WriteCellsAppended("Verts", nullptr, indent, &this->VertsOM->GetPiece(index));
   if (this->ErrorCode == vtkErrorCode::OutOfDiskSpaceError)
@@ -228,6 +229,8 @@ void vtkXMLPolyDataWriter::WriteAppendedPiece(int index, vtkIndent indent)
     return;
   }
 
+  // this->WriteCellsAppended("Lines", 0, 0, 0, indent ,
+  //  &this->LinesOM->GetPiece(index));
   this->ConvertCells(this->GetInput()->GetLines());
   this->WriteCellsAppended("Lines", nullptr, indent, &this->LinesOM->GetPiece(index));
   if (this->ErrorCode == vtkErrorCode::OutOfDiskSpaceError)
@@ -235,12 +238,17 @@ void vtkXMLPolyDataWriter::WriteAppendedPiece(int index, vtkIndent indent)
     return;
   }
 
+  // this->WriteCellsAppended("Strips", 0, 0, 0, indent,
+  //   &this->StripsOM->GetPiece(index));
   this->ConvertCells(this->GetInput()->GetStrips());
   this->WriteCellsAppended("Strips", nullptr, indent, &this->StripsOM->GetPiece(index));
   if (this->ErrorCode == vtkErrorCode::OutOfDiskSpaceError)
   {
     return;
   }
+
+  // this->WriteCellsAppended("Polys", 0, 0, 0, indent,
+  //  &this->PolysOM->GetPiece(index));
 
   this->ConvertCells(this->GetInput()->GetPolys());
   this->WriteCellsAppended("Polys", nullptr, indent, &this->PolysOM->GetPiece(index));

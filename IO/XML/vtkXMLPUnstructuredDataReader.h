@@ -31,6 +31,7 @@
 
 class vtkPointSet;
 class vtkCellArray;
+class vtkIdTypeArray;
 class vtkXMLUnstructuredDataReader;
 
 class VTKIOXML_EXPORT vtkXMLPUnstructuredDataReader : public vtkXMLPDataReader
@@ -73,6 +74,10 @@ protected:
 
   int ReadPieceData() override;
   void CopyCellArray(vtkIdType totalNumberOfCells, vtkCellArray* inCells, vtkCellArray* outCells);
+  void CopyFaceArray(vtkIdTypeArray *inFaces,
+                     vtkIdTypeArray *outFaces,
+                     vtkIdTypeArray *inFaceOffset,
+                     vtkIdTypeArray *outFaceOffset);
 
   // Get the number of points/cells in the given piece.  Valid after
   // UpdateInformation.

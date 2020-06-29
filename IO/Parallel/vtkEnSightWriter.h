@@ -177,6 +177,7 @@ protected:
   int NumberOfBlocks;
   int* BlockIDs;
   bool TransientGeometry;
+  bool DisableGeometryOutput;
   int GhostLevel;
   vtkUnstructuredGrid* TmpInput;
 

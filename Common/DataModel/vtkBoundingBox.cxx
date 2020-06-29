@@ -466,7 +466,7 @@ vtkIdType vtkBoundingBox::ComputeDivisions(vtkIdType totalBins, double bounds[6]
   // numerical noise doesn't cause an explosion later on. We'll consider any
   // length that's less than 0.1% of the average length to be zero:
   double totLen = lengths[0] + lengths[1] + lengths[2];
-  const double zeroDetectionTolerance = totLen * (0.001 / 3.);
+  const double zeroDetectionTolerance = totLen * (0.001 / 3.); // or 1.0e-12*totLen
 
   for (int i = 0; i < 3; ++i)
   {

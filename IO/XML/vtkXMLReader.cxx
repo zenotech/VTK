@@ -374,7 +374,7 @@ void vtkXMLReader::CloseVTKFile()
 {
   if (!this->Stream)
   {
-    vtkErrorMacro("File not open.");
+    //vtkErrorMacro("File not open.");
     return;
   }
   if (this->Stream == this->FileStream)

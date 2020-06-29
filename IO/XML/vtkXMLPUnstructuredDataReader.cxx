@@ -374,6 +374,64 @@ void vtkXMLPUnstructuredDataReader::CopyCellArray(
   outCells->Append(inCells, this->StartPoint);
 }
 
+//---------------------------------------------------------------------------
+void vtkXMLPUnstructuredDataReader::CopyFaceArray(vtkIdTypeArray *inFaces,
+                                                  vtkIdTypeArray *outFaces,
+                                                  vtkIdTypeArray *inFaceOffset,
+                                                  vtkIdTypeArray *outFaceOffset)
+{
+  // Allocate memory in the output connectivity array.
+  vtkIdType curSize = 0;
+  if(outFaces->GetNumberOfTuples())
+    {
+    curSize = outFaces->GetNumberOfTuples();
+    }
+  vtkIdType newSize = curSize+inFaces->GetNumberOfTuples();
+  vtkIdType* in = inFaces->GetPointer(0);
+  vtkIdType* end = inFaces->GetPointer(inFaces->GetNumberOfTuples());
+  vtkIdType* out = outFaces->WritePointer(0, newSize);
+  out += curSize;
+  vtkIdType* inFaceOffsetsPtr = inFaceOffset->GetPointer(0);
+  vtkIdType numberOfCells = inFaceOffset->GetNumberOfTuples();
+  vtkIdType startLoc = outFaceOffset->GetNumberOfTuples();
+  vtkIdType* outFaceOffsetsPtr = outFaceOffset->WritePointer(0, numberOfCells+startLoc);
+  outFaceOffsetsPtr += startLoc;
+  vtkIdType currLoc = curSize;
+
+  for(vtkIdType c = 0; c < numberOfCells; ++c)
+    {
+      if(inFaceOffsetsPtr[c] < 0)
+       {
+         outFaceOffsetsPtr[c] = -1;
+       }
+      else
+       {
+           outFaceOffsetsPtr[c] = currLoc;
+                   
+           vtkIdType numberOfCellFaces = *in++;
+           *out++ = numberOfCellFaces;
+           currLoc += 1;
+   
+           // Copy the point indices, but increment them for the appended
+           // version's index.
+           for(vtkIdType j=0;j < numberOfCellFaces; ++j)
+           {
+             vtkIdType numberOfFacePoints = *in++;
+             *out++ = numberOfFacePoints;
+            for( vtkIdType i = 0; i < numberOfFacePoints; ++i)
+            {
+               out[i] = in[i]+this->StartPoint;
+             }
+            in += numberOfFacePoints;
+            out += numberOfFacePoints;
+            currLoc += numberOfFacePoints + 1;
+           }
+
+       }
+
+    }
+}
+
 //----------------------------------------------------------------------------
 int vtkXMLPUnstructuredDataReader::RequestInformation(
   vtkInformation* request, vtkInformationVector** inputVector, vtkInformationVector* outputVector)
@@ -382,3 +440,4 @@ int vtkXMLPUnstructuredDataReader::RequestInformation(
   outInfo->Set(CAN_HANDLE_PIECE_REQUEST(), 1);
   return this->Superclass::RequestInformation(request, inputVector, outputVector);
 }
+
