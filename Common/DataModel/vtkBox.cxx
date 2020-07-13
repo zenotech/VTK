@@ -133,7 +133,7 @@ double vtkBox::EvaluateFunction(double x[3])
   for (int i = 0; i < 3; i++)
   {
     diff = this->BBox->GetLength(i);
-    if (diff != 0.0)
+    if (diff > 1.0e-16)
     {
       t = (x[i] - minP[i]) / diff;
       if (t < 0.0)
@@ -323,7 +323,7 @@ char vtkBox::IntersectBox(
   const double bounds[6], const double origin[3], const double dir[3], double coord[3], double& t)
 {
   bool inside = true;
-  char quadrant[3];
+  int quadrant[3];
   int i, whichPlane = 0;
   double maxT[3], candidatePlane[3];
 
@@ -362,6 +362,7 @@ char vtkBox::IntersectBox(
 
   //  Calculate parametric distances to plane
   //
+#pragma novector
   for (i = 0; i < 3; i++)
   {
     if (quadrant[i] != VTK_MIDDLE && std::abs(dir[i]) > 1.0e-16)
