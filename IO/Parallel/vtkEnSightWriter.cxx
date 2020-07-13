@@ -550,7 +550,7 @@ void vtkEnSightWriter::WriteData()
                 {
                   int CellId=CellsByElement[elementType][k];
                   vtkIdType nfaces;
-                  vtkIdType *ptids;
+                  vtkIdType const *ptids;
                   input->GetFaceStream(CellId,nfaces,ptids);
 
                   this->WriteIntToFile(nfaces,fd);
@@ -562,7 +562,7 @@ void vtkEnSightWriter::WriteData()
                 {
                   int CellId=CellsByElement[elementType][k];
                   vtkIdType nfaces;
-                  vtkIdType *ptids;
+                  vtkIdType const *ptids;
                   input->GetFaceStream(CellId,nfaces,ptids);
                   int count = 0;
                   for(int i = 0; i < nfaces; ++i)
@@ -577,7 +577,7 @@ void vtkEnSightWriter::WriteData()
                 {
                   int CellId=CellsByElement[elementType][k];
                   vtkIdType nfaces;
-                  vtkIdType *ptids;
+                  vtkIdType const *ptids;
                   input->GetFaceStream(CellId,nfaces,ptids);
                   int count = 0;
                   for(int i = 0; i < nfaces; ++i)
