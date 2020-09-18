@@ -317,9 +317,12 @@ const double* vtkRandomPool::GeneratePool()
   vtkIdType seqChunk = this->ChunkSize;
   vtkIdType numThreads = (seqSize / seqChunk) + 1;
   vtkRandomSequence* sequencer = this->Sequence;
+  vtkNew<vtkMultiThreader> threader;
+  threader->SetNumberOfThreads(numThreads);
+  vtkIdType actualThreads = threader->GetNumberOfThreads();
 
   // Fast path don't spin up threads
-  if (numThreads == 1)
+  if (numThreads == 1 || actualThreads == 1)
   {
     sequencer->Initialize(31415);
     double* p = this->Pool;
@@ -332,9 +335,6 @@ const double* vtkRandomPool::GeneratePool()
   // Otherwise spawn threads to fill in chunks of the sequence.
   else
   {
-    vtkNew<vtkMultiThreader> threader;
-    threader->SetNumberOfThreads(numThreads);
-    vtkIdType actualThreads = threader->GetNumberOfThreads();
     if (actualThreads < numThreads) // readjust work load
     {
       numThreads = actualThreads;
