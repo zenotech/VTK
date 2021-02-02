@@ -87,10 +87,10 @@
 #undef write
 #endif
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 vtkStandardNewMacro(vtkEnSightWriter);
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Created object with no filename and timestep 0
 vtkEnSightWriter::vtkEnSightWriter()
 {
@@ -110,7 +110,7 @@ vtkEnSightWriter::vtkEnSightWriter()
   this->TmpInput = nullptr;
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 vtkEnSightWriter::~vtkEnSightWriter()
 {
   this->SetBaseName(nullptr);
@@ -118,7 +118,7 @@ vtkEnSightWriter::~vtkEnSightWriter()
   this->SetPath(nullptr);
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 void vtkEnSightWriter::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
@@ -142,14 +142,14 @@ int vtkEnSightWriter::FillInputPortInformation(int vtkNotUsed(port), vtkInformat
   return 1;
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Specify the input data or filter.
 void vtkEnSightWriter::SetInputData(vtkUnstructuredGrid* input)
 {
   this->SetInputDataInternal(0, input);
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Specify the input data or filter.
 vtkUnstructuredGrid* vtkEnSightWriter::GetInput()
 {
@@ -167,7 +167,7 @@ vtkUnstructuredGrid* vtkEnSightWriter::GetInput()
   }
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 void vtkEnSightWriter::WriteData()
 {
   int i;
@@ -213,7 +213,7 @@ void vtkEnSightWriter::WriteData()
   // get the BlockID Cell Array
   vtkDataArray* BlockData = input->GetCellData()->GetScalars("BlockId");
 
-  if (BlockData == nullptr || strcmp(BlockData->GetName(), "BlockId"))
+  if (BlockData == nullptr || strcmp(BlockData->GetName(), "BlockId") != 0)
   {
     BlockData = nullptr;
   }
@@ -305,14 +305,15 @@ void vtkEnSightWriter::WriteData()
   vtkDataArray* GhostData =
     input->GetCellData()->GetScalars(vtkDataSetAttributes::GhostArrayName());
   // if the strings are not the same then we did not get the ghostData array
-  if (GhostData == nullptr || strcmp(GhostData->GetName(), vtkDataSetAttributes::GhostArrayName()))
+  if (GhostData == nullptr ||
+    strcmp(GhostData->GetName(), vtkDataSetAttributes::GhostArrayName()) != 0)
   {
     GhostData = nullptr;
   }
 
   // data structure to get all the cells for a certain part
   // basically sort by part# and cell type
-  std::map<int, std::vector<int> > CellsByPart;
+  std::map<int, std::vector<int>> CellsByPart;
 
   // just a list of part numbers
   std::list<int> partNumbers;
@@ -442,7 +443,7 @@ void vtkEnSightWriter::WriteData()
 
     // now we need to sort the cell list by element type
     // map is indexed by cell type has a vector of cell ID's
-    std::map<int, std::vector<int> > CellsByElement;
+    std::map<int, std::vector<int>> CellsByElement;
     for (j = 0; j < CellsByPart[part].size(); j++)
     {
       int CellType = input->GetCell(CellsByPart[part][j])->GetCellType();
@@ -700,7 +701,7 @@ void vtkEnSightWriter::WriteData()
   }
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 void vtkEnSightWriter::WriteCaseFile(int TotalTimeSteps)
 {
 
@@ -872,7 +873,7 @@ void vtkEnSightWriter::WriteCaseFile(int TotalTimeSteps)
   fclose(fd);
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 void vtkEnSightWriter::WriteSOSCaseFile(int numProcs)
 {
   this->ComputeNames();
@@ -920,7 +921,7 @@ void vtkEnSightWriter::WriteSOSCaseFile(int numProcs)
   fclose(fd);
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 void vtkEnSightWriter::WriteStringToFile(const char* cstring, FILE* file)
 {
   char cbuffer[81];
@@ -935,25 +936,25 @@ void vtkEnSightWriter::WriteStringToFile(const char* cstring, FILE* file)
   fwrite(cbuffer, sizeof(char), 80, file);
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 void vtkEnSightWriter::WriteTerminatedStringToFile(const char* cstring, FILE* file)
 {
   fwrite(cstring, sizeof(char), std::min(strlen(cstring), static_cast<size_t>(512)), file);
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 void vtkEnSightWriter::WriteIntToFile(const int i, FILE* file)
 {
   fwrite(&i, sizeof(int), 1, file);
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 void vtkEnSightWriter::WriteFloatToFile(const float f, FILE* file)
 {
   fwrite(&f, sizeof(float), 1, file);
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 void vtkEnSightWriter::WriteElementTypeToFile(int elementType, FILE* fd)
 {
   int ghostLevel = elementType / GhostLevelMultiplier;
@@ -1074,7 +1075,7 @@ void vtkEnSightWriter::WriteElementTypeToFile(int elementType, FILE* fd)
   }
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 bool vtkEnSightWriter::ShouldWriteGeometry()
 {
   return (
@@ -1084,7 +1085,7 @@ bool vtkEnSightWriter::ShouldWriteGeometry()
   //return (this->TransientGeometry || (this->TimeStep==0));
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 void vtkEnSightWriter::SanitizeFileName(char* name)
 {
 
@@ -1107,7 +1108,7 @@ void vtkEnSightWriter::SanitizeFileName(char* name)
   name[strlen(buffer)] = 0;
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 FILE* vtkEnSightWriter::OpenFile(char* name)
 {
   FILE* fd = vtksys::SystemTools::Fopen(name, "wb");
@@ -1120,7 +1121,7 @@ FILE* vtkEnSightWriter::OpenFile(char* name)
   return fd;
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 int vtkEnSightWriter::GetExodusModelIndex(int* elementArray, int numberElements, int partID)
 {
   int i;
@@ -1132,7 +1133,7 @@ int vtkEnSightWriter::GetExodusModelIndex(int* elementArray, int numberElements,
   return -1;
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 void vtkEnSightWriter::DefaultNames()
 {
   char* path = new char[4];
@@ -1144,7 +1145,7 @@ void vtkEnSightWriter::DefaultNames()
   this->SetBaseName(base);
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 void vtkEnSightWriter::ComputeNames()
 {
   if (this->Path && this->BaseName)
