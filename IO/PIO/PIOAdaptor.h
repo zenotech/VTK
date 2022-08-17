@@ -1,7 +1,7 @@
 /*=========================================================================
 
   Program:   ParaView
-  Module:    $RCSfile PIOAdaptor.h,v $
+  Module:    PIOAdaptor.h
 
   Copyright (c) Kitware, Inc.
   All rights reserved.
@@ -65,6 +65,7 @@ protected:
   int parsePIOFile(const char* DumpDescFile);
   int collectMetaData(const char* DumpDescFile);
   void collectVariableMetaData();
+  std::string trimString(const std::string& str);
 
   // Create the unstructured grid for tracers
   void create_tracer_UG(vtkMultiBlockDataSet* grid);
@@ -147,6 +148,9 @@ protected:
   // Record the ordering of the cells when building the hypertree grid
   // Needed so that the data will line up correctly
   std::vector<int> indexNodeLeaf;
+
+  struct AdaptorImpl;
+  AdaptorImpl* Impl;
 };
 
 #endif

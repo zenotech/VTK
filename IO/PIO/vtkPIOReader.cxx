@@ -14,7 +14,7 @@
 =========================================================================*/
 #include "vtkPIOReader.h"
 
-#include <iostream>
+#include "PIOAdaptor.h"
 
 #include "vtkCallbackCommand.h"
 #include "vtkCellData.h"
@@ -31,10 +31,10 @@
 #include "vtkObjectFactory.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
 #include "vtkStringArray.h"
-#include "vtkToolkits.h"
 #include "vtkUnstructuredGrid.h"
 
-#include "PIOAdaptor.h"
+#include <iostream>
+#include <set>
 
 vtkStandardNewMacro(vtkPIOReader);
 
@@ -52,7 +52,7 @@ vtkPIOReader::vtkPIOReader()
   this->Float64 = false;
   this->NumberOfVariables = 0;
   this->CurrentTimeStep = -1;
-  this->TimeSteps = 0;
+  this->TimeSteps = nullptr;
   this->CellDataArraySelection = vtkDataArraySelection::New();
   this->TimeDataStringArray = vtkStringArray::New();
 
@@ -65,7 +65,7 @@ vtkPIOReader::vtkPIOReader()
   this->SetActiveTimeDataArrayName("CycleIndex");
 
   // External PIO_DATA for actually reading files
-  this->pioAdaptor = 0;
+  this->pioAdaptor = nullptr;
 
   this->Controller = vtkMultiProcessController::GetGlobalController();
   if (this->Controller)
@@ -116,7 +116,7 @@ int vtkPIOReader::RequestInformation(vtkInformation* vtkNotUsed(reqInfo),
 
   // Get ParaView information and output pointers
   vtkInformation* outInfo = outVector->GetInformationObject(0);
-  if (this->pioAdaptor == 0)
+  if (this->pioAdaptor == nullptr)
   {
     // Create one PIOAdaptor which builds the MultiBlockDataSet
     this->pioAdaptor = new PIOAdaptor(this->Controller);
@@ -126,10 +126,10 @@ int vtkPIOReader::RequestInformation(vtkInformation* vtkNotUsed(reqInfo),
     // otherwise a basename-dmp000000 is given and defaults are used
     if (!this->pioAdaptor->initializeGlobal(this->FileName))
     {
-      vtkErrorMacro("Error in pio description file");
+      vtkErrorMacro("Error in loading pio files");
       this->SetErrorCode(vtkErrorCode::FileFormatError);
       delete this->pioAdaptor;
-      this->pioAdaptor = 0;
+      this->pioAdaptor = nullptr;
       return 0;
     }
 
@@ -138,17 +138,18 @@ int vtkPIOReader::RequestInformation(vtkInformation* vtkNotUsed(reqInfo),
     this->Float64 = pioAdaptor->GetFloat64();
 
     // Get the variable names and set in the selection
-    int numberOfVariables = this->pioAdaptor->GetNumberOfVariables();
-    for (int i = 0; i < numberOfVariables; i++)
+    std::set<std::string> variablesToEnableByDefault;
+    for (int cc = 0, max = this->pioAdaptor->GetNumberOfDefaultVariables(); cc < max; ++cc)
     {
-      this->CellDataArraySelection->AddArray(this->pioAdaptor->GetVariableName(i));
+      variablesToEnableByDefault.insert(this->pioAdaptor->GetVariableDefault(cc));
     }
-    this->DisableAllCellArrays();
-
-    // Set the variable names loaded by default
-    for (int i = 0; i < this->pioAdaptor->GetNumberOfDefaultVariables(); i++)
+    for (int i = 0, max = this->pioAdaptor->GetNumberOfVariables(); i < max; i++)
     {
-      this->SetCellArrayStatus(this->pioAdaptor->GetVariableDefault(i), 1);
+      const auto varName = this->pioAdaptor->GetVariableName(i);
+      // vtkDataArraySelection::AddArray doesn't override the setting only adds it
+      // (without affecting MTime) if not already present.
+      this->CellDataArraySelection->AddArray(
+        varName, variablesToEnableByDefault.find(varName) != variablesToEnableByDefault.end());
     }
 
     // Collect temporal information from PIOAdaptor's last PIO file
@@ -217,6 +218,10 @@ int vtkPIOReader::RequestInformation(vtkInformation* vtkNotUsed(reqInfo),
         vtkStreamingDemandDrivenPipeline::TIME_STEPS(), this->TimeSteps, this->NumberOfTimeSteps);
     }
   }
+
+  // Indicate reading in parallel is supported.
+  outInfo->Set(CAN_HANDLE_PIECE_REQUEST(), 1);
+
   return 1;
 }
 
@@ -227,9 +232,9 @@ int vtkPIOReader::RequestData(vtkInformation* vtkNotUsed(reqInfo),
   vtkInformationVector** vtkNotUsed(inVector), vtkInformationVector* outVector)
 {
   // If no PIOAdaptor there was an earlier failure
-  if (this->pioAdaptor == 0)
+  if (this->pioAdaptor == nullptr)
   {
-    vtkErrorMacro("Error in pio description file");
+    vtkErrorMacro("Error in loading pio files");
     this->SetErrorCode(vtkErrorCode::FileFormatError);
     return 0;
   }

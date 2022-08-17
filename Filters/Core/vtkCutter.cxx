@@ -384,7 +384,6 @@ int vtkCutter::RequestData(
     if (this->GetGenerateTriangles() && this->GetCutFunction() &&
       this->GetCutFunction()->IsA("vtkPlane") && this->GetNumberOfContours() == 1 &&
       this->GetGenerateCutScalars() == 0 &&
-      (input->GetCellData() && input->GetCellData()->GetNumberOfArrays() == 0) &&
       vtk3DLinearGridPlaneCutter::CanFullyProcessDataObject(input))
     {
       vtkNew<vtk3DLinearGridPlaneCutter> linear3DCutter;
@@ -405,6 +404,9 @@ int vtkCutter::RequestData(
       newPlane->Push(-d + this->GetValue(0));
 
       linear3DCutter->SetPlane(newPlane);
+      bool mergePoints =
+        this->GetLocator() && !this->GetLocator()->IsA("vtkNonMergingPointLocator");
+      linear3DCutter->SetMergePoints(mergePoints);
       linear3DCutter->SetOutputPointsPrecision(this->GetOutputPointsPrecision());
       linear3DCutter->SetInputArrayToProcess(0, this->GetInputArrayInformation(0));
       vtkNew<vtkEventForwarderCommand> progressForwarder;
@@ -818,6 +820,7 @@ void vtkCutter::UnstructuredGridCutter(vtkDataSet* input, vtkPolyData* output)
     vtkDataArray* dataArrayInput = inputPointSet->GetPoints()->GetData();
     this->CutFunction->FunctionValue(dataArrayInput, cutScalars);
   }
+
   vtkSmartPointer<vtkCellIterator> cellIter =
     vtkSmartPointer<vtkCellIterator>::Take(input->NewCellIterator());
   vtkNew<vtkGenericCell> cell;
@@ -826,7 +829,8 @@ void vtkCutter::UnstructuredGridCutter(vtkDataSet* input, vtkPolyData* output)
   double tempScalar;
   cellScalars = cutScalars->NewInstance();
   cellScalars->SetNumberOfComponents(cutScalars->GetNumberOfComponents());
-  cellScalars->Allocate(VTK_CELL_SIZE * cutScalars->GetNumberOfComponents());
+  int maxCellSize = input->GetMaxCellSize();
+  cellScalars->Allocate(maxCellSize * cutScalars->GetNumberOfComponents());
 
   vtkContourHelper helper(this->Locator, newVerts, newLines, newPolys, inPD, inCD, outPD, outCD,
     estimatedSize, this->GenerateTriangles != 0);

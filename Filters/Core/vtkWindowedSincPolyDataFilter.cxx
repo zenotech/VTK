@@ -311,7 +311,7 @@ struct PointConnectivityBase
       this->OptLevel = 2;
     }
   }
-  virtual ~PointConnectivityBase() {}
+  virtual ~PointConnectivityBase() = default;
 
   // Supports configuring connectivity (the counting and insertion
   // processes).
@@ -348,9 +348,9 @@ struct PointConnectivity : PointConnectivityBase
     // accommodate more smoothing edges (although after a certain point,
     // additional edges make little difference, especially at the cost of
     // memory and speed).
-    this->Offsets = new std::atomic<TIds>[this->NumPts + 1] {}; // Initialized to zero
-    this->Edges = nullptr;                                      // initially until constructed
-    this->EdgeCounts = new EDGE_COUNT_TYPE[this->NumPts];       // values set later
+    this->Offsets = new std::atomic<TIds>[this->NumPts + 1](); // Initialized to zero
+    this->Edges = nullptr;                                     // initially until constructed
+    this->EdgeCounts = new EDGE_COUNT_TYPE[this->NumPts];      // values set later
   }
 
   ~PointConnectivity() override
@@ -553,7 +553,7 @@ EDGE_COUNT_TYPE inline BuildO1Stencil(
 
   // Group edges, and counting the number of duplicates, and rearrange
   // into smoothing stencil.
-  while (1)
+  while (true)
   {
     // Find group of identical edges
     while (eEnd < nedges && edges[eEnd] == edges[eStart])
@@ -643,7 +643,7 @@ EDGE_COUNT_TYPE inline BuildO0Stencil(vtkIdType ptId, TIds* edges, TIds nedges,
   double* normals = ptConn->Normals->GetPointer(0);
 
   // Group edges, and count number of duplicates
-  while (1)
+  while (true)
   {
     // Find group of identical edges
     while (eEnd < nedges && edges[eEnd] == edges[eStart])
@@ -1492,14 +1492,14 @@ int vtkWindowedSincPolyDataFilter::RequestData(vtkInformation* vtkNotUsed(reques
   // If the points were normalized, reverse the normalization process.
   if (this->NormalizeCoordinates)
   {
-    UnnormalizePoints(newPts, length, center);
+    UnnormalizePoints(outPts, length, center);
   }
 
   // If error scalars are requested, create them.
   if (this->GenerateErrorScalars)
   {
     vtkSmartPointer<vtkFloatArray> errorScalars;
-    errorScalars.TakeReference(ProduceErrorScalars(input->GetPoints(), newPts));
+    errorScalars.TakeReference(ProduceErrorScalars(input->GetPoints(), outPts));
     int idx = output->GetPointData()->AddArray(errorScalars);
     output->GetPointData()->SetActiveAttribute(idx, vtkDataSetAttributes::SCALARS);
   }
@@ -1508,7 +1508,7 @@ int vtkWindowedSincPolyDataFilter::RequestData(vtkInformation* vtkNotUsed(reques
   if (this->GenerateErrorVectors)
   {
     vtkSmartPointer<vtkFloatArray> errorVectors;
-    errorVectors.TakeReference(ProduceErrorVectors(input->GetPoints(), newPts));
+    errorVectors.TakeReference(ProduceErrorVectors(input->GetPoints(), outPts));
     output->GetPointData()->AddArray(errorVectors);
   }
 

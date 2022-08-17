@@ -63,27 +63,32 @@ public:
    */
   void Render(const vtkRenderState* s) override;
 
-  //@{
+  ///@{
   /**
    * Tells the pass what it will render.
    */
   void SetSceneGraph(vtkOSPRayRendererNode*);
   vtkGetObjectMacro(SceneGraph, vtkOSPRayRendererNode);
-  //@}
+  ///@}
 
   /**
    * Called by the internals of this class
    */
   virtual void RenderInternal(const vtkRenderState* s);
 
-  //@{
+  ///@{
   /**
    * Wrapper around ospray's init and shutdown that protect
    * with a reference count.
    */
-  //@}
+  ///@}
   static void RTInit();
   static void RTShutdown();
+
+  /**
+   * A run time query to see if OSPRay can possibly work.
+   */
+  static bool IsSupported();
 
   /**
    * A run time query to see if a particular backend is available.

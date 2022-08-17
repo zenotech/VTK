@@ -1,34 +1,8 @@
-// Copyright(C) 1999-2017, 2020 National Technology & Engineering Solutions
+// Copyright(C) 1999-2021 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above
-//       copyright notice, this list of conditions and the following
-//       disclaimer in the documentation and/or other materials provided
-//       with the distribution.
-//
-//     * Neither the name of NTESS nor the names of its
-//       contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// See packages/seacas/LICENSE for details
 
 #include <Ioss_DatabaseIO.h>
 #include <Ioss_ElementBlock.h>
@@ -39,7 +13,10 @@
 #include <Ioss_SideBlock.h>
 #include <cassert>
 #include <cstddef>
+#include "vtk_fmt.h"
+#include VTK_FMT(fmt/ostream.h)
 #include <string>
+#include <tokenize.h>
 #include <vector>
 
 #include "Ioss_FieldManager.h"
@@ -81,6 +58,54 @@ Ioss::SideBlock::SideBlock(const Ioss::SideBlock &other)
     : EntityBlock(other), parentTopology_(other.parentTopology_),
       consistentSideNumber(other.consistentSideNumber)
 {
+}
+
+std::string Ioss::SideBlock::generate_sideblock_name(const std::string &sideset_name,
+                                                     const std::string &block_or_element,
+                                                     const std::string &face_topology_name)
+{
+  // The naming of sideblocks is:
+  // * If name is of form surface_{id},
+  //   * then {surface} + _ + block-or-element-topology + _ + side_topology + _ + {id}
+  //   * Eg – surface_1 would have sideblocks surface_block_1_quad_1
+  //
+  // * If name is not of that form (e.g. surface_1_foam or “gregs_liner”) then:
+  //   * Name + _ + block-or-element-topology + _ + side_topology
+  //   * Eg surface_1_foam_block_1_edge2, surface_1_foam_quad4_edge2
+  //   * Eg gregs_liner_block_1_edge2, gregs_liner_quad4_edge2
+
+  // Check whether the `block_or_element` portion of the name names a valid element topology...
+  std::string tmp_block_or_element = block_or_element;
+  auto       *element_topology     = ElementTopology::factory(block_or_element);
+  if (element_topology != nullptr) {
+    tmp_block_or_element = element_topology->name();
+  }
+
+  // Verify that `face_topology_name` is a valid topology and Get its "non-aliased" name.
+  std::string tmp_face_topology = face_topology_name;
+  auto       *face_topology     = ElementTopology::factory(face_topology_name);
+  if (face_topology != nullptr) {
+    tmp_face_topology = face_topology->name();
+  }
+  else {
+    std::ostringstream errmsg;
+    fmt::print(errmsg, "ERROR: Invalid face topology '{}' in function {}.\n", face_topology_name,
+               __func__);
+    IOSS_ERROR(errmsg);
+  }
+
+  std::vector<std::string> tokens = Ioss::tokenize(sideset_name, "_");
+  if (tokens.size() == 2) {
+    bool all_dig = tokens[1].find_first_not_of("0123456789") == std::string::npos;
+    if (all_dig && Ioss::Utils::str_equal(tokens[0], "surface")) {
+      std::string sideblock_name =
+          tokens[0] + "_" + tmp_block_or_element + "_" + tmp_face_topology + "_" + tokens[1];
+      return sideblock_name;
+    }
+  }
+
+  std::string sideblock_name = sideset_name + "_" + tmp_block_or_element + "_" + tmp_face_topology;
+  return sideblock_name;
 }
 
 int64_t Ioss::SideBlock::internal_get_field_data(const Ioss::Field &field, void *data,
@@ -177,3 +202,41 @@ int Ioss::SideBlock::get_consistent_side_number() const
   }
   return consistentSideNumber;
 }
+
+bool Ioss::SideBlock::equal_(const Ioss::SideBlock &rhs, bool quiet) const
+{
+  if (this->parentTopology_ != rhs.parentTopology_) {
+    if (!quiet) {
+      fmt::print(Ioss::OUTPUT(), "SideBlock: parentTopology_ mismatch\n");
+    }
+    return false;
+  }
+
+  if (this->blockMembership != rhs.blockMembership) {
+    if (!quiet) {
+      fmt::print(Ioss::OUTPUT(), "SideBlock: blockMembership mismatch\n");
+    }
+    return false;
+  }
+
+  if (this->consistentSideNumber != rhs.consistentSideNumber) {
+    if (!quiet) {
+      fmt::print(Ioss::OUTPUT(), "SideBlock: consistentSideNumber mismatch ({} vs. {})\n",
+                 this->consistentSideNumber, rhs.consistentSideNumber);
+    }
+    return false;
+  }
+
+  if (!quiet) {
+    return Ioss::EntityBlock::equal(rhs);
+  }
+  else {
+    return Ioss::EntityBlock::operator==(rhs);
+  }
+}
+
+bool Ioss::SideBlock::operator==(const Ioss::SideBlock &rhs) const { return equal_(rhs, true); }
+
+bool Ioss::SideBlock::operator!=(const Ioss::SideBlock &rhs) const { return !(*this == rhs); }
+
+bool Ioss::SideBlock::equal(const Ioss::SideBlock &rhs) const { return equal_(rhs, false); }
