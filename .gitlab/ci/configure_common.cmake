@@ -13,6 +13,8 @@ set(VTK_DEBUG_LEAKS ON CACHE BOOL "")
 set(VTK_USE_LARGE_DATA ON CACHE BOOL "")
 set(VTK_LINKER_FATAL_WARNINGS ON CACHE BOOL "")
 
+set(VTK_ENABLE_CATALYST ON CACHE BOOL "")
+
 # The install trees on CI machines need help since dependencies are not in a
 # default location.
 set(VTK_RELOCATABLE_INSTALL ON CACHE BOOL "")
@@ -27,6 +29,10 @@ set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY "ON" CACHE BOOL "")
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "")
 set(CMAKE_INSTALL_LIBDIR "lib" CACHE STRING "")
 
+# Enable extra build warnings in CI.
+set(VTK_ENABLE_EXTRA_BUILD_WARNINGS ON CACHE BOOL "")
+set(VTK_ENABLE_EXTRA_BUILD_WARNINGS_EVERYTHING ON CACHE BOOL "")
+
 include("${CMAKE_CURRENT_LIST_DIR}/configure_options.cmake")
 
 # Default to Release builds.
@@ -36,4 +42,4 @@ else ()
   set(CMAKE_BUILD_TYPE "$ENV{CMAKE_BUILD_TYPE}" CACHE STRING "")
 endif ()
 
-include("${CMAKE_CURRENT_LIST_DIR}/configure_sccache.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/configure_cache.cmake")

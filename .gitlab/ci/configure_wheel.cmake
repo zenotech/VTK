@@ -10,13 +10,19 @@ endif ()
 
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "macos")
   if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "x86_64")
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.10" CACHE STRING "")
+    if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "python31.") # 3.10+ binaries target at least 11.0
+      set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "")
+    else ()
+      set(CMAKE_OSX_DEPLOYMENT_TARGET "10.10" CACHE STRING "")
+    endif ()
   elseif ("$ENV{CMAKE_CONFIGURATION}" MATCHES "arm64")
     set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "")
   endif ()
 endif ()
 
 set(VTK_WHEEL_BUILD ON CACHE BOOL "")
+set(VTK_INSTALL_SDK ON CACHE BOOL "")
+
 set(CMAKE_PREFIX_PATH "$ENV{PYTHON_PREFIX}" CACHE STRING "")
 set(Python3_EXECUTABLE "$ENV{PYTHON_PREFIX}/${python_subdir}python$ENV{PYTHON_VERSION_SUFFIX}" CACHE FILEPATH "")
 # We always want the Python specified here, not the system one.
@@ -28,6 +34,9 @@ set(VTK_ENABLE_REMOTE_MODULES OFF CACHE BOOL "")
 
 # Disable debug leaks in wheels.
 set(VTK_DEBUG_LEAKS OFF CACHE BOOL "")
+
+# Enable `.pyi` files.
+set(VTK_BUILD_PYI_FILES ON CACHE BOOL "")
 
 # Disable modules we cannot build for wheels.
 set(VTK_GROUP_ENABLE_Qt NO CACHE STRING "") # Qt
@@ -48,8 +57,11 @@ set(VTK_MODULE_ENABLE_VTK_InfovisBoost NO CACHE STRING "") # Boost
 set(VTK_MODULE_ENABLE_VTK_InfovisBoostGraphAlgorithms NO CACHE STRING "") # Boost
 set(VTK_MODULE_ENABLE_VTK_RenderingFreeTypeFontConfig NO CACHE STRING "") # fontconfig
 set(VTK_MODULE_ENABLE_VTK_RenderingOpenVR NO CACHE STRING "") # OpenVR
+set(VTK_MODULE_ENABLE_VTK_RenderingOpenXR NO CACHE STRING "") # OpenXR
 set(VTK_MODULE_ENABLE_VTK_RenderingRayTracing NO CACHE STRING "") # OSPRay
 set(VTK_MODULE_ENABLE_VTK_fides NO CACHE STRING "") # ADIOS2
 set(VTK_MODULE_ENABLE_VTK_xdmf3 NO CACHE STRING "") # Boost
+set(VTK_MODULE_ENABLE_VTK_IOOCCT NO CACHE STRING "") # occt
+set(VTK_ENABLE_CATALYST OFF CACHE BOOL "") # catalyst
 
 include("${CMAKE_CURRENT_LIST_DIR}/configure_common.cmake")

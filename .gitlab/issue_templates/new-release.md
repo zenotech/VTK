@@ -34,6 +34,8 @@ git submodule update --recursive --init
     name: `update-to-v@VERSION@`):
     - Assemble release notes into `Documentation/release/@MAJOR@.@MINOR@.md`.
       - [ ] If `PATCH` is greater than 0, add items to the end of this file.
+    - [ ] If `@BASEBRANCH@` is `master`, update the non-patch version in a
+          separate commit (so that `master` gets it as well).
     - [ ] Remove old release note files
     - [ ] Update `.gitlab/ci/cdash-groups.json` to track the `release` CDash
           groups
@@ -65,8 +67,10 @@ git commit -m 'Update version number to @VERSION@@RC@' CMake/vtkVersion.cmake
     - [ ] Source (from the `build:source` CI job in the tag pipeline)
     - [ ] Documentation (from the `release-prep:documentation` CI job in the tag pipeline)
     - [ ] Wheels (from the `build:wheel-*` jobs).
+    - [ ] Wheel SDKs (from the `build:wheel-*` jobs (`vtk-wheel-sdk-*.tar.xz`)).
   - Upload assets to `vtk.org`
-    - [ ] `rsync -rptv $tarballs $wheels user@host:vtk_release/@MAJOR@.@MINOR@/`
+    - [ ] `rsync -rptv $tarballs $wheels $wheel_sdks user@host:vtk_release/@MAJOR@.@MINOR@/`
+    - [ ] `rsync -rptv $wheel_sdks user@host:wheel-sdks/`
   - [ ] Update `vtk.org/download` with the new release (email
         `comm@kitware.com` with filenames and hashes)
   - Software process updates (these can all be done independently)
@@ -75,6 +79,11 @@ git commit -m 'Update version number to @VERSION@@RC@' CMake/vtkVersion.cmake
       - This must be done after a nightly run to ensure all builds are in the
         `release` group
       - See the script itself for usage documentation
+    - Deprecation updates (if `@BASEBRANCH@` is `master`)
+    - [ ] Update deprecation macros for the next release
+    - [ ] Remove deprecated symbols from before the *prior* release
+    - [ ] Update `VTK_MINIMUM_DEPRECATION_LEVEL` to be that of the *prior*
+          release
 
 [backport-mrs]: https://gitlab.kitware.com/utils/release-utils/-/blob/master/backport-mrs.py
 [release-mr]: https://gitlab.kitware.com/utils/release-utils/-/blob/master/release-mr.py
@@ -86,7 +95,7 @@ git commit -m 'Update version number to @VERSION@@RC@' CMake/vtkVersion.cmake
         [discourse.vtk.org](https://discourse.vtk.org/).
 
 /cc @ben.boeckel
-/cc @ken-martin
-/cc @utkarsh.ayachit
+/cc @berkgeveci
+/cc @vbolea
 /milestone %"@VERSION@@RC@"
 /label ~"priority:required"

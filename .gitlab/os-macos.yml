@@ -7,10 +7,13 @@
         GIT_CLONE_PATH: "$CI_BUILDS_DIR/vtk-ci-ext/$CI_CONCURRENT_ID"
         # TODO: Factor this out so that each job selects the Xcode version to
         # use so that different versions can be tested in a single pipeline.
-        DEVELOPER_DIR: "/Applications/Xcode-12.4.app/Contents/Developer"
+        DEVELOPER_DIR: "/Applications/Xcode-13.1.app/Contents/Developer"
 
 .wheel_macos_arm64:
     extends: .macos
+
+    variables:
+        VTK_INSTALL: 1
 
 .wheel_macos39_arm64:
     extends: .wheel_macos_arm64
@@ -20,8 +23,19 @@
         PYTHON_VERSION_SUFFIX: "3.9"
         _PYTHON_HOST_PLATFORM: "macosx-11.0-arm64"
 
+.wheel_macos310_arm64:
+    extends: .wheel_macos_arm64
+
+    variables:
+        CMAKE_CONFIGURATION: wheel_macos310_arm64
+        PYTHON_VERSION_SUFFIX: "3.10"
+        _PYTHON_HOST_PLATFORM: "macosx-11.0-arm64"
+
 .wheel_macos_x86_64:
     extends: .macos
+
+    variables:
+        VTK_INSTALL: 1
 
 .wheel_macos36_x86_64:
     extends: .wheel_macos_x86_64
@@ -50,6 +64,14 @@
     variables:
         CMAKE_CONFIGURATION: wheel_macos39_x86_64
         PYTHON_VERSION_SUFFIX: "3.9"
+
+.wheel_macos310_x86_64:
+    extends: .wheel_macos_x86_64
+
+    variables:
+        CMAKE_CONFIGURATION: wheel_macos310_x86_64
+        PYTHON_VERSION_SUFFIX: "3.10"
+        _PYTHON_HOST_PLATFORM: "macosx-10.10-x86_64"
 
 ### Build and test
 
@@ -97,7 +119,7 @@
         - vtk
         - macos
         - shell
-        - xcode-12.4
+        - xcode-13.1
         - nonconcurrent
 
 .macos_wheel_builder_tags:
@@ -105,7 +127,7 @@
         - vtk
         - macos
         - shell
-        - xcode-12.4
+        - xcode-13.1
         - concurrent
 
 .macos_ext_builder_tags:
@@ -113,7 +135,7 @@
         - vtk
         - macos
         - shell
-        - xcode-12.4
+        - xcode-13.1
         - concurrent
 
 .macos_arm64_builder_tags:
@@ -121,7 +143,7 @@
         - vtk
         - macos-arm64
         - shell
-        - xcode-12.4
+        - xcode-13.1
         - nonconcurrent
 
 .macos_arm64_wheel_builder_tags:
@@ -129,7 +151,7 @@
         - vtk
         - macos-arm64
         - shell
-        - xcode-12.4
+        - xcode-13.1
         - concurrent
 
 ## macOS-specific scripts
@@ -150,6 +172,7 @@
 
 .cmake_build_macos:
     stage: build
+    extends: .warning_policy
 
     script:
         - *before_script_macos
@@ -160,6 +183,7 @@
         - ctest -VV -S .gitlab/ci/ctest_configure.cmake
         - ctest -VV -S .gitlab/ci/ctest_build.cmake &> $GIT_CLONE_PATH/compile_output.log
         - sccache --show-stats
+        - exec .gitlab/ci/check_warnings.sh .
 
     interruptible: true
 
@@ -173,15 +197,18 @@
 
 .cmake_test_external_macos:
     stage: test-ext
+    extends: .warning_policy
 
     script:
         - *before_script_macos
         - ctest -V --output-on-failure -S .gitlab/ci/ctest_test_external.cmake
+        - exec .gitlab/ci/check_warnings.sh ./Testing/External
 
     interruptible: true
 
 .cmake_build_wheel_macos:
     stage: build
+    extends: .warning_policy
 
     script:
         - *before_script_macos
@@ -198,12 +225,16 @@
         - "$PYTHON_PREFIX/bin/python$PYTHON_VERSION_SUFFIX -m venv venv"
         - venv/bin/pip install wheel
         - venv/bin/python3 setup.py bdist_wheel
+        - '[ -f dist/*_universal2.whl ] && exit 1 # universal2 wheels are not made; platform detection requires an override'
+        - venv/bin/python3 $GIT_CLONE_PATH/.gitlab/ci/create_wheel_sdk_archive.py
         # XXX: `delocate` can't handle `@loader_path` or do recursive
         # dependency scanning. Ignore it and just do it manually because
         # apparently VTK is the most complicated wheel in the world.
         # - venv/bin/pip install delocate
         # - venv/bin/delocate-listdeps dist/*.whl > $GIT_CLONE_PATH/wheel_output.log
         # - venv/bin/delocate-wheel -v dist/*.whl >> $GIT_CLONE_PATH/wheel_output.log
+        - cd ..
+        - exec .gitlab/ci/check_warnings.sh .
     interruptible: true
 
 .cmake_test_wheel_macos:
@@ -220,4 +251,5 @@
         - venv/bin/twine check build/dist/*.whl
         - venv/bin/pip install build/dist/*.whl
         - venv/bin/python -c "import vtk"
+        - if [ "$VTK_DISABLE_PYI_TESTING" != "1" ]; then venv/bin/python -m vtkmodules.generate_pyi --test -p vtkmodules; else echo "pyi test is disabled."; fi
     interruptible: true
