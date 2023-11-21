@@ -1,15 +1,5 @@
-/*=========================================================================
-  Program:   Visualization Toolkit
-  Module:    vtkOBJImporter.cxx
-  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
-  All rights reserved.
-  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
-
-     This software is distributed WITHOUT ANY WARRANTY; without even
-     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-     PURPOSE.  See the above copyright notice for more information.
-=========================================================================*/
-
+// SPDX-FileCopyrightText: Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+// SPDX-License-Identifier: BSD-3-Clause
 #include "vtkOBJImporter.h"
 
 #include "vtkActor.h"
@@ -37,6 +27,7 @@
 #include <set>
 #include <sstream>
 
+VTK_ABI_NAMESPACE_BEGIN
 vtkStandardNewMacro(vtkOBJImporter);
 vtkStandardNewMacro(vtkOBJPolyDataProcessor);
 
@@ -439,7 +430,9 @@ int vtkOBJPolyDataProcessor::RequestData(vtkInformation* vtkNotUsed(request),
 
   bool gotFirstUseMaterialTag = false;
 
+#ifndef NDEBUG
   int numPolysWithTCoords = 0;
+#endif
   bool hasTCoords = false;                 // has vt x y z
   bool hasPolysWithTextureIndices = false; // has f i/t/n or f i/t
   bool hasNormals = false;                 // has f i/t/n or f i//n
@@ -831,7 +824,9 @@ int vtkOBJPolyDataProcessor::RequestData(vtkInformation* vtkNotUsed(request),
         normal_polys->UpdateCellCount(nNormals);
 
         // also make a note of whether any cells have tcoords, and whether any have normals
+#ifndef NDEBUG
         numPolysWithTCoords += (int)(nTCoords) > 0;
+#endif
         if ((!hasTCoords) && (nTCoords > 0))
         {
           vtkDebugMacro("got texture coords in obj file! nTCoords = " << nTCoords);
@@ -1128,3 +1123,4 @@ vtkPolyData* vtkOBJPolyDataProcessor::GetOutput(int idx)
     return nullptr;
   }
 }
+VTK_ABI_NAMESPACE_END

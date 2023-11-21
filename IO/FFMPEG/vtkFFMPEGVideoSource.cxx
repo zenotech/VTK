@@ -1,17 +1,5 @@
-/*=========================================================================
-
-  Program:   Visualization Toolkit
-  Module:    vtkFFMPEGVideoSource.cxx
-
-  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
-  All rights reserved.
-  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
-
-     This software is distributed WITHOUT ANY WARRANTY; without even
-     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-     PURPOSE.  See the above copyright notice for more information.
-
-=========================================================================*/
+// SPDX-FileCopyrightText: Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+// SPDX-License-Identifier: BSD-3-Clause
 #include "vtkFFMPEGVideoSource.h"
 
 #include "vtkMultiThreader.h"
@@ -65,6 +53,7 @@ extern "C"
 //
 /////////////////////////////////////////////////////////////////////////
 
+VTK_ABI_NAMESPACE_BEGIN
 class vtkFFMPEGVideoSourceInternal
 {
 public:
@@ -663,7 +652,14 @@ void* vtkFFMPEGVideoSource::DrainAudio(vtkMultiThreader::ThreadInfo* data)
         cbd.NumberOfSamples = this->Internal->AudioFrame->nb_samples;
         cbd.BytesPerSample =
           av_get_bytes_per_sample(this->Internal->AudioDecodeContext->sample_fmt);
+#if defined(LIBAVCODEC_VERSION_MAJOR) &&                                                           \
+  (LIBAVCODEC_VERSION_MAJOR > 59 ||                                                                \
+    (LIBAVCODEC_VERSION_MAJOR == 59 && defined(LIBAVCODEC_VERSION_MINOR) &&                        \
+      LIBAVCODEC_VERSION_MINOR >= 24))
+        cbd.NumberOfChannels = this->Internal->AudioDecodeContext->ch_layout.nb_channels;
+#else
         cbd.NumberOfChannels = this->Internal->AudioDecodeContext->channels;
+#endif
         cbd.SampleRate = this->Internal->AudioDecodeContext->sample_rate;
         cbd.DataType = sampleFormat;
         cbd.Data = this->Internal->AudioFrame->extended_data;
@@ -954,3 +950,4 @@ void vtkFFMPEGVideoSource::SetOutputFormat(int format)
 
   this->Modified();
 }
+VTK_ABI_NAMESPACE_END

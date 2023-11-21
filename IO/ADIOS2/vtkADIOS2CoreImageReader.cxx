@@ -1,17 +1,5 @@
-/*=========================================================================
-
-  Program:   Visualization Toolkit
-  Module:    vtkADIOSReader.cxx
-
-  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
-  All rights reserved.
-  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
-
-     This software is distributed WITHOUT ANY WARRANTY; without even
-     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-     PURPOSE.  See the above copyright notice for more information.
-
-=========================================================================*/
+// SPDX-FileCopyrightText: Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+// SPDX-License-Identifier: BSD-3-Clause
 #include <array>
 #include <limits>
 #include <map>
@@ -40,7 +28,7 @@
 #include "vtkLongLongArray.h"
 #include "vtkMultiBlockDataSet.h"
 #include "vtkMultiPieceDataSet.h"
-#include "vtkMultiProcessController.h"
+#include "vtkMultiProcessController.h" // For the MPI controller member
 #include "vtkNew.h"
 #include "vtkObjectFactory.h"
 #include "vtkPointData.h"
@@ -58,7 +46,7 @@
 #include "vtkUnstructuredGrid.h"
 #include "vtksys/SystemTools.hxx"
 
-#ifdef IOADIOS2_HAVE_MPI
+#if VTK_MODULE_ENABLE_VTK_ParallelMPI
 #include "vtkMPI.h"
 #include "vtkMPIController.h"
 #endif
@@ -71,12 +59,14 @@
 // Helper functions
 //------------------------------------------------------------------------------
 
+VTK_ABI_NAMESPACE_BEGIN
 bool StringEndsWith(const std::string& a, const std::string& b)
 {
   return a.size() >= b.size() && a.compare(a.size() - b.size(), b.size(), b) == 0;
 }
 //------------------------------------------------------------------------------
 vtkStandardNewMacro(vtkADIOS2CoreImageReader);
+VTK_ABI_NAMESPACE_END
 namespace
 {
 inline std::vector<int> parseDimensions(const std::string& dimsStr)
@@ -91,6 +81,7 @@ inline std::vector<int> parseDimensions(const std::string& dimsStr)
   return dims;
 }
 }
+VTK_ABI_NAMESPACE_BEGIN
 
 //------------------------------------------------------------------------------
 struct vtkADIOS2CoreImageReader::vtkADIOS2CoreImageReaderImpl
@@ -135,7 +126,7 @@ vtkNew<vtkMultiPieceDataSet> vtkADIOS2CoreImageReader::vtkADIOS2CoreImageReaderI
   int myLen = static_cast<int>(ibds->GetNumberOfBlocks());
   int* allLens{ nullptr };
   int procId{ 0 }, numProcess{ 0 };
-#ifdef IOADIOS2_HAVE_MPI
+#if VTK_MODULE_ENABLE_VTK_ParallelMPI
   auto ctrl = vtkMultiProcessController::GetGlobalController();
   if (ctrl)
   {
@@ -295,7 +286,7 @@ const vtkADIOS2CoreImageReader::StringToParams& vtkADIOS2CoreImageReader::GetAva
 //------------------------------------------------------------------------------
 void vtkADIOS2CoreImageReader::SetController(vtkMultiProcessController* controller)
 {
-#ifdef IOADIOS2_HAVE_MPI
+#if VTK_MODULE_ENABLE_VTK_ParallelMPI
   vtkMPIController* mpiController = vtkMPIController::SafeDownCast(controller);
   if (controller && !mpiController)
   {
@@ -346,7 +337,7 @@ bool vtkADIOS2CoreImageReader::OpenAndReadMetaData()
   // Initialize the ADIOS2 data structures
   if (!this->Impl->Adios)
   {
-#ifdef IOADIOS2_HAVE_MPI
+#if VTK_MODULE_ENABLE_VTK_ParallelMPI
     // Make sure the ADIOS subsystem is initialized before processing any
     // sort of request.
     if (!this->Controller)
@@ -358,29 +349,34 @@ bool vtkADIOS2CoreImageReader::OpenAndReadMetaData()
     vtkMPICommunicator* comm =
       static_cast<vtkMPICommunicator*>(this->Controller->GetCommunicator());
 
-    this->Impl->Adios.reset(new adios2::ADIOS(*comm->GetMPIComm()->GetHandle(), adios2::DebugON));
+    this->Impl->Adios.reset(new adios2::ADIOS(*comm->GetMPIComm()->GetHandle()));
 #else
     // Make sure the ADIOS subsystem is initialized before processing any
     // sort of request.
 
-    this->Impl->Adios.reset(new adios2::ADIOS(adios2::DebugON));
+    this->Impl->Adios.reset(new adios2::ADIOS());
     // Before processing any request, read the meta data first
 #endif
   }
   // Before processing any request, read the meta data first
   try
   {
+#if IOADIOS2_BP5_RANDOM_ACCESS
+    auto mode = adios2::Mode::ReadRandomAccess;
+#else
+    auto mode = adios2::Mode::Read;
+#endif
     this->Impl->AdiosIO = this->Impl->Adios->DeclareIO("vtkADIOS2ImageRead");
     if (StringEndsWith(this->FileName, ".bp"))
     {
       this->Impl->AdiosIO.SetEngine("BPFile");
-      this->Impl->BpReader = this->Impl->AdiosIO.Open(this->FileName, adios2::Mode::Read);
+      this->Impl->BpReader = this->Impl->AdiosIO.Open(this->FileName, mode);
     }
     else if (StringEndsWith(this->FileName, "md.idx"))
     {
       this->Impl->AdiosIO.SetEngine("BP4");
-      this->Impl->BpReader = this->Impl->AdiosIO.Open(
-        this->FileName.substr(0, this->FileName.size() - 6), adios2::Mode::Read);
+      this->Impl->BpReader =
+        this->Impl->AdiosIO.Open(this->FileName.substr(0, this->FileName.size() - 6), mode);
     }
     else
     {
@@ -914,7 +910,7 @@ void vtkADIOS2CoreImageReader::CalculateWorkDistribution(const std::string& varN
   auto var = this->Impl->AdiosIO.InquireVariable<T>(varName);
   size_t blockNum = this->Impl->BpReader.BlocksInfo(var, this->Impl->RequestStep).size();
 
-#ifdef IOADIOS2_HAVE_MPI
+#if VTK_MODULE_ENABLE_VTK_ParallelMPI
   size_t rank = static_cast<size_t>(this->Controller->GetLocalProcessId());
   size_t procs = static_cast<size_t>(this->Controller->GetNumberOfProcesses());
 #else
@@ -1040,3 +1036,4 @@ void vtkADIOS2CoreImageReader::GatherTimeStepsFromADIOSTimeArray()
     vtkErrorMacro("Fail to gather time steps from time array " << this->TimeStepArray << ex.what());
   }
 }
+VTK_ABI_NAMESPACE_END

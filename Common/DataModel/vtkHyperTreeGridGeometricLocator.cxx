@@ -1,17 +1,5 @@
-/*=========================================================================
-
-  Program:   Visualization Toolkit
-  Module:    vtkHyperTreeGridGeoemtricLocator.cxx
-
-  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
-  All rights reserved.
-  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
-
-     This software is distributed WITHOUT ANY WARRANTY; without even
-     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-     PURPOSE.  See the above copyright notice for more information.
-
-=========================================================================*/
+// SPDX-FileCopyrightText: Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+// SPDX-License-Identifier: BSD-3-Clause
 #include "vtkHyperTreeGridGeometricLocator.h"
 
 #include "vtkGenericCell.h"
@@ -31,6 +19,7 @@
 #include <numeric>
 #include <vector>
 
+VTK_ABI_NAMESPACE_BEGIN
 //------------------------------------------------------------------------------
 vtkStandardNewMacro(vtkHyperTreeGridGeometricLocator);
 
@@ -441,7 +430,7 @@ struct vtkHyperTreeGridGeometricLocator::RecurseTreesFunctor
       {
         vtkErrorWithObjectMacro(nullptr, << "Could not release local point memory.");
       }
-      for (unsigned int i = 0; i < it->LocCellIds->GetNumberOfIds(); i++)
+      for (unsigned int i = 0; i < static_cast<unsigned int>(it->LocCellIds->GetNumberOfIds()); i++)
       {
         this->GlobCellIds->InsertId(nCells + i, it->LocCellIds->GetId(i));
       }
@@ -462,7 +451,7 @@ int vtkHyperTreeGridGeometricLocator::IntersectWithLine(const double p0[3], cons
     return 0;
   }
   // setup computation
-  unsigned int nInitialPoints = points->GetNumberOfPoints();
+  const auto nInitialPoints = points->GetNumberOfPoints();
   std::vector<double> ts;
 
   {
@@ -695,3 +684,4 @@ std::vector<int> vtkHyperTreeGridGeometricLocator::GetSortingMap(
   std::sort(map.begin(), map.end(), [&other](int i0, int i1) { return (other[i0] < other[i1]); });
   return map;
 }
+VTK_ABI_NAMESPACE_END

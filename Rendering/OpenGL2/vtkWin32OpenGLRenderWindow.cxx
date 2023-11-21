@@ -1,17 +1,5 @@
-/*=========================================================================
-
-Program:   Visualization Toolkit
-Module:    vtkWin32OpenGLRenderWindow.cxx
-
-Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
-All rights reserved.
-See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
-
-This software is distributed WITHOUT ANY WARRANTY; without even
-the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-PURPOSE.  See the above copyright notice for more information.
-
-=========================================================================*/
+// SPDX-FileCopyrightText: Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+// SPDX-License-Identifier: BSD-3-Clause
 #include "vtkWin32OpenGLRenderWindow.h"
 
 #include "vtkCommand.h"
@@ -45,6 +33,7 @@ PURPOSE.  See the above copyright notice for more information.
 #define WM_MOUSEWHEEL 0x020A
 #endif // WM_MOUSEWHEEL
 
+VTK_ABI_NAMESPACE_BEGIN
 vtkStandardNewMacro(vtkWin32OpenGLRenderWindow);
 
 const std::string vtkWin32OpenGLRenderWindow::DEFAULT_BASE_WINDOW_NAME =
@@ -1512,3 +1501,4 @@ bool vtkWin32OpenGLRenderWindow::DetectDPI()
   this->SetDPI(GetDeviceCaps(this->DeviceContext, LOGPIXELSY));
   return true;
 }
+VTK_ABI_NAMESPACE_END
