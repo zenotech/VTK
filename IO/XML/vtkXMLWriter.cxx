@@ -918,9 +918,6 @@ void vtkXMLWriter::WriteAppendedDataOffset(
   vtkTypeInt64 offset = returnPos - this->AppendedDataPosition;
   lastoffset = offset; // saving result
   os.seekp(std::streampos(streamPos));
-
-  assert(streamPos != 0);
-
   if (attr)
   {
     os << " " << attr << "=";
@@ -942,9 +939,6 @@ void vtkXMLWriter::ForwardAppendedDataOffset(
   ostream& os = *(this->Stream);
   std::streampos returnPos = os.tellp();
   os.seekp(std::streampos(streamPos));
-
-  assert(streamPos != 0);
-
   if (attr)
   {
     os << " " << attr << "=";
