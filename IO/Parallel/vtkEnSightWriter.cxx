@@ -613,8 +613,8 @@ void vtkEnSightWriter::WriteData()
             }
           }
 
-          if(elementType != VTK_POLYHEDRON)
-          {
+          // if(elementType != VTK_POLYHEDRON)
+          // {
           // element connectivity information
           if (elementTypeWithoutGhostLevel == VTK_POLYGON)
           {
@@ -647,46 +647,95 @@ void vtkEnSightWriter::WriteData()
             // representation), we will use vtkUnstructuredGrid Faces and FaceLocations arrays to
             // write the connectivity.
 
-            vtkIdTypeArray* Faces = input->GetFaces();
-            vtkIdTypeArray* FaceLocations = input->GetFaceLocations();
+            // vtkIdTypeArray* Faces = input->GetFaces();
+            // vtkIdTypeArray* FaceLocations = input->GetFaceLocations();
 
-            // write number of faces per polyhedron
-            for (k = 0; k < CellsByElement[elementType].size(); k++)
+            // // write number of faces per polyhedron
+            // for (k = 0; k < CellsByElement[elementType].size(); k++)
+            // {
+            //   int CellId = CellsByElement[elementType][k];
+            //   int FacesIdx = FaceLocations->GetValue(CellId);
+            //   assert(FacesIdx >= 0);
+            //   int NumberOfFaces = Faces->GetValue(FacesIdx++);
+            //   this->WriteIntToFile(NumberOfFaces, fd);
+            // }
+
+            // // write number of nodes per face
+            // for (k = 0; k < CellsByElement[elementType].size(); k++)
+            // {
+            //   int CellId = CellsByElement[elementType][k];
+            //   int FacesIdx = FaceLocations->GetValue(CellId);
+            //   int NumberOfFaces = Faces->GetValue(FacesIdx++);
+            //   for (int m = 0; m < NumberOfFaces; m++)
+            //   {
+            //     int NumberOfNodes = Faces->GetValue(FacesIdx++);
+            //     FacesIdx += NumberOfNodes; // skip point IDs for the face
+            //     this->WriteIntToFile(NumberOfNodes, fd);
+            //   }
+            // }
+
+            // // write nodes for each face
+            // for (k = 0; k < CellsByElement[elementType].size(); k++)
+            // {
+            //   int CellId = CellsByElement[elementType][k];
+            //   int FacesIdx = FaceLocations->GetValue(CellId);
+            //   int NumberOfFaces = Faces->GetValue(FacesIdx++);
+            //   for (int m = 0; m < NumberOfFaces; m++)
+            //   {
+            //     int NumberOfNodes = Faces->GetValue(FacesIdx++);
+            //     for (int n = 0; n < NumberOfNodes; n++)
+            //     {
+            //       int PointId = Faces->GetValue(FacesIdx++);
+            //       this->WriteIntToFile(NodeIdToOrder[PointId], fd);
+            //     }
+            //   }
+            // }
+
+            // For each element write number of faces  per element
+            int numFaces=0;
+            for (k=0;k<CellsByElement[elementType].size();k++)
             {
-              int CellId = CellsByElement[elementType][k];
-              int FacesIdx = FaceLocations->GetValue(CellId);
-              assert(FacesIdx >= 0);
-              int NumberOfFaces = Faces->GetValue(FacesIdx++);
-              this->WriteIntToFile(NumberOfFaces, fd);
+              int CellId=CellsByElement[elementType][k];
+              vtkIdType nfaces;
+              vtkIdType const *ptids;
+              input->GetFaceStream(CellId,nfaces,ptids);
+
+              this->WriteIntToFile(nfaces,fd);
+
+              numFaces += nfaces;
             }
-
-            // write number of nodes per face
-            for (k = 0; k < CellsByElement[elementType].size(); k++)
+            // For each face number of nodes per face
+            for (k=0;k<CellsByElement[elementType].size();k++)
             {
-              int CellId = CellsByElement[elementType][k];
-              int FacesIdx = FaceLocations->GetValue(CellId);
-              int NumberOfFaces = Faces->GetValue(FacesIdx++);
-              for (int m = 0; m < NumberOfFaces; m++)
+              int CellId=CellsByElement[elementType][k];
+              vtkIdType nfaces;
+              vtkIdType const *ptids;
+              input->GetFaceStream(CellId,nfaces,ptids);
+              int count = 0;
+              for(int i = 0; i < nfaces; ++i)
               {
-                int NumberOfNodes = Faces->GetValue(FacesIdx++);
-                FacesIdx += NumberOfNodes; // skip point IDs for the face
-                this->WriteIntToFile(NumberOfNodes, fd);
+                int nnodes = ptids[count];
+                this->WriteIntToFile(nnodes,fd);
+                count += nnodes + 1;
               }
             }
 
-            // write nodes for each face
-            for (k = 0; k < CellsByElement[elementType].size(); k++)
+            for (k=0;k<CellsByElement[elementType].size();k++)
             {
-              int CellId = CellsByElement[elementType][k];
-              int FacesIdx = FaceLocations->GetValue(CellId);
-              int NumberOfFaces = Faces->GetValue(FacesIdx++);
-              for (int m = 0; m < NumberOfFaces; m++)
+              int CellId=CellsByElement[elementType][k];
+              vtkIdType nfaces;
+              vtkIdType const *ptids;
+              input->GetFaceStream(CellId,nfaces,ptids);
+              int count = 0;
+              for(int i = 0; i < nfaces; ++i)
               {
-                int NumberOfNodes = Faces->GetValue(FacesIdx++);
-                for (int n = 0; n < NumberOfNodes; n++)
+                int nnodes = ptids[count];
+                count++;
+                for(int l=0;l<nnodes;++l)
                 {
-                  int PointId = Faces->GetValue(FacesIdx++);
-                  this->WriteIntToFile(NodeIdToOrder[PointId], fd);
+                  int PointId = ptids[count];
+                  this->WriteIntToFile(NodeIdToOrder[PointId],fd);
+                  count++;
                 }
               }
             }
@@ -739,59 +788,6 @@ void vtkEnSightWriter::WriteData()
               this->WriteIntToFile(NodeIdToOrder[PointId], fd);
             }
           }
-<<<<<<< HEAD
-          }
-          else
-          {
-              // For each element write number of faces  per element
-              int numFaces=0;
-              for (k=0;k<CellsByElement[elementType].size();k++)
-                {
-                  int CellId=CellsByElement[elementType][k];
-                  vtkIdType nfaces;
-                  vtkIdType const *ptids;
-                  input->GetFaceStream(CellId,nfaces,ptids);
-
-                  this->WriteIntToFile(nfaces,fd);
-
-                  numFaces += nfaces;
-                }
-              // For each face number of nodes per face
-              for (k=0;k<CellsByElement[elementType].size();k++)
-                {
-                  int CellId=CellsByElement[elementType][k];
-                  vtkIdType nfaces;
-                  vtkIdType const *ptids;
-                  input->GetFaceStream(CellId,nfaces,ptids);
-                  int count = 0;
-                  for(int i = 0; i < nfaces; ++i)
-                  {
-                    int nnodes = ptids[count];
-                    this->WriteIntToFile(nnodes,fd);
-                    count += nnodes + 1;
-                  }
-                }
-
-              for (k=0;k<CellsByElement[elementType].size();k++)
-                {
-                  int CellId=CellsByElement[elementType][k];
-                  vtkIdType nfaces;
-                  vtkIdType const *ptids;
-                  input->GetFaceStream(CellId,nfaces,ptids);
-                  int count = 0;
-                  for(int i = 0; i < nfaces; ++i)
-                  {
-                    int nnodes = ptids[count];
-                    count++;
-                    for(int l=0;l<nnodes;++l)
-                    {
-                      int PointId = ptids[count];
-                      this->WriteIntToFile(NodeIdToOrder[PointId],fd);
-                      count++;
-                    }
-                  }
-                }
-=======
           else
           {
             // VTK cell types with fixed number of nodes are represented with corresponding
@@ -833,7 +829,6 @@ void vtkEnSightWriter::WriteData()
                 this->WriteIntToFile(NodeIdToOrder[PointId], fd);
               }
             }
->>>>>>> 702dc9d4f9f0b63998483b1f12c091f23628b8de
           }
         }
       }
