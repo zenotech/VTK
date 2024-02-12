@@ -384,13 +384,15 @@ int vtkOBJReader::RequestData(vtkInformation* vtkNotUsed(request),
         {
           if (vert < 0)
           {
-            pointElems->InsertCellPoint(pointCount + vert);
-          }
-          else
-          {
-            pointElems->InsertCellPoint(vert - 1);
+            vert = pointCount + vert + 1;
           }
 
+          if (vert <= 0)
+          {
+            vtkErrorMacro(<< "Unexpected point index value: " << vert);
+            return 0;
+          }
+          pointElems->InsertCellPoint(vert - 1);
           ++vertCount;
         }
         else if (result == vtkParseResult::Error)
@@ -440,13 +442,15 @@ int vtkOBJReader::RequestData(vtkInformation* vtkNotUsed(request),
         {
           if (vert < 0)
           {
-            lineElems->InsertCellPoint(pointCount + vert);
-          }
-          else
-          {
-            lineElems->InsertCellPoint(vert - 1);
+            vert = pointCount + vert + 1;
           }
 
+          if (vert <= 0)
+          {
+            vtkErrorMacro(<< "Unexpected point index value: " << vert);
+            return 0;
+          }
+          lineElems->InsertCellPoint(vert - 1);
           ++vertCount;
 
           char c = 0;
@@ -500,8 +504,8 @@ int vtkOBJReader::RequestData(vtkInformation* vtkNotUsed(request),
     else if (command == "f") // face
     {
       const auto globalVertexCount = points->GetNumberOfPoints();
-      const auto globalTcoordCount = normals->GetNumberOfTuples();
-      const auto globalNormalCount = tcoords->GetNumberOfTuples();
+      const auto globalTcoordCount = tcoords->GetNumberOfTuples();
+      const auto globalNormalCount = normals->GetNumberOfTuples();
 
       // We don't yet know how many points are to come
       vertexPolys->InsertNextCell(0);
@@ -532,6 +536,11 @@ int vtkOBJReader::RequestData(vtkInformation* vtkNotUsed(request),
             vertexAbs = vertex - 1;
           }
 
+          if (vertexAbs < 0)
+          {
+            vtkErrorMacro(<< "Unexpected point index value: " << vertexAbs);
+            return 0;
+          }
           vertexPolys->InsertCellPoint(vertexAbs);
 
           if (!cellWithNotTextureFound)
@@ -573,6 +582,11 @@ int vtkOBJReader::RequestData(vtkInformation* vtkNotUsed(request),
 
               tcoordCount++;
 
+              if (tcoordAbs < 0)
+              {
+                vtkErrorMacro(<< "Unexpected point index value: " << tcoordAbs);
+                return 0;
+              }
               tcoordPolys->InsertCellPoint(tcoordAbs);
 
               if (tcoordsMap.empty()) // no active tcoords, create the default one
@@ -627,6 +641,11 @@ int vtkOBJReader::RequestData(vtkInformation* vtkNotUsed(request),
                 normalAbs = normal - 1;
               }
 
+              if (normalAbs < 0)
+              {
+                vtkErrorMacro(<< "Unexpected point index value: " << normalAbs);
+                return 0;
+              }
               normalPolys->InsertCellPoint(normalAbs);
 
               if (normalAbs != vertexAbs)
@@ -711,7 +730,11 @@ int vtkOBJReader::RequestData(vtkInformation* vtkNotUsed(request),
   const bool hasMaterial =
     materialCount > 1 || (materialCount == 1 && materialNames->GetValue(0) != noMaterialName);
 
-  if (!normalsMatchVertices || !tcoordsMatchVertices)
+  // Fixing the OBJ is done because OBJ files can index normals, vertices and tcoords independently
+  // but VTK cannot.
+  const bool needFix = !normalsMatchVertices || !tcoordsMatchVertices;
+
+  if (needFix)
   {
     vtkDebugMacro(<< "Duplicating vertices so that tcoords and normals are correct");
 
@@ -909,12 +932,14 @@ int vtkOBJReader::RequestData(vtkInformation* vtkNotUsed(request),
   // Fill output
   output->SetPoints(points);
 
-  if (pointElems->GetNumberOfCells() > 0)
+  // TODO: Support fixing for points
+  if (pointElems->GetNumberOfCells() > 0 && !needFix)
   {
     output->SetVerts(pointElems);
   }
 
-  if (lineElems->GetNumberOfCells() > 0)
+  // TODO: Support fixing for lines
+  if (lineElems->GetNumberOfCells() > 0 && !needFix)
   {
     output->SetLines(lineElems);
   }

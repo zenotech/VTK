@@ -247,7 +247,8 @@ vtkPolyDataMapper::MapperHashType vtkOpenGLPolyDataMapper::GenerateHash(vtkPolyD
     polydata, this->ScalarMode, this->ArrayAccessMode, this->ArrayId, this->ArrayName, cellFlag);
   bool hasScalars = this->ScalarVisibility && (scalars != nullptr);
   bool hasPointScalars = hasScalars && !cellFlag;
-  bool hasCellScalars = hasScalars && cellFlag == 1;
+  // Field data scalar mode treats field data like cell data
+  bool hasCellScalars = hasScalars && (cellFlag == 1 || cellFlag == 2);
 
   bool usesPointNormals = polydata->GetPointData()->GetNormals() != nullptr;
   bool usesPointTexCoords = polydata->GetPointData()->GetTCoords() != nullptr;
@@ -2129,6 +2130,13 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderNormal(
         vtkShaderProgram::Substitute(VSSource, "//VTK::Normal::Impl",
           "//VTK::Normal::Impl\n"
           "  tangentVCVSOutput = normalMatrix * tangentMC;\n");
+        vtkShaderProgram::Substitute(GSSource, "//VTK::Normal::Dec",
+          "//VTK::Normal::Dec\n"
+          "in vec3 tangentVCVSOutput[];\n"
+          "out vec3 tangentVCGSOutput;");
+        vtkShaderProgram::Substitute(GSSource, "//VTK::Normal::Impl",
+          "//VTK::Normal::Impl\n"
+          "tangentVCGSOutput = tangentVCVSOutput[i];");
         vtkShaderProgram::Substitute(FSSource, "//VTK::Normal::Dec",
           "//VTK::Normal::Dec\n"
           "in vec3 tangentVCVSOutput;\n");

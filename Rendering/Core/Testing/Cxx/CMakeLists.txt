@@ -43,6 +43,8 @@ vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   TestCompositePolyDataMapperNaNPartial.cxx,NO_DATA
   TestCompositePolyDataMapperOverrideScalarArray.cxx,NO_DATA
   TestCompositePolyDataMapperOverrideLUT.cxx,NO_DATA
+  TestCompositePolyDataMapperPartialFieldData.cxx,NO_DATA
+  TestCompositePolyDataMapperPartialPointData.cxx,NO_DATA
   TestCompositePolyDataMapperPickability.cxx,NO_DATA
   TestCompositePolyDataMapperPicking.cxx,NO_DATA
   TestCompositePolyDataMapperScalars.cxx,NO_DATA
@@ -78,8 +80,6 @@ vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   TestManyActors.cxx,NO_VALID
   TestMapVectorsAsRGBColors.cxx
   TestMapVectorsToColors.cxx
-  TestMultiBlockPartialArrayFieldData.cxx
-  TestMultiBlockPartialArrayPointData.cxx
   TestOffAxisStereo.cxx
   TestOnAndOffScreenConeCxx.cxx
   TestOpacity.cxx
@@ -97,6 +97,7 @@ vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   TestSplitViewportStereoHorizontal.cxx
   TestStereoBackgroundLeft.cxx
   TestStereoBackgroundRight.cxx
+  TestStereoEyeSeparation.cxx
   TestTexturedBackground.cxx
   TestTexturedCylinder.cxx
   TestTextureRGBA.cxx
