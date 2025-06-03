@@ -492,7 +492,7 @@ int vtkHigherOrderTetra::EvaluatePosition(const double x[3], double closestPoint
 
     status = this->Tetra->EvaluatePosition(x, closest, ignoreId, pc, dist2, tempWeights);
 
-    if (status != -1 && dist2 < minDist2)
+    if (status != -1 && ((dist2 < minDist2) || ((dist2 == minDist2) && (returnStatus == 0))))
     {
       returnStatus = status;
       minDist2 = dist2;
@@ -780,6 +780,14 @@ void vtkHigherOrderTetra::SetParametricCoords()
     double order_d = static_cast<vtkIdType>(this->GetOrder());
     this->PointParametricCoordinates->SetNumberOfPoints(nPoints);
 
+#ifdef ENABLE_CACHING
+    if (static_cast<vtkIdType>(this->BarycentricIndexMap.size()) !=
+      4 * this->GetPointIds()->GetNumberOfIds())
+    {
+      vtkWarningMacro(<< this->GetClassName() << " has not been initialized");
+      return;
+    }
+#endif
     vtkIdType bindex[4];
     for (vtkIdType p = 0; p < nPoints; p++)
     {

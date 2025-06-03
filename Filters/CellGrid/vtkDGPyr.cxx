@@ -20,10 +20,10 @@ vtkStandardNewMacro(vtkDGPyr);
 static bool registerType = vtkCellMetadata::RegisterType<vtkDGPyr>();
 
 const std::array<std::array<double, 3>, 5> vtkDGPyr::Parameters{ {
-  { 0., 0., 0. },   // node 0
-  { +1., 0., 0. },  // node 1
+  { -1., -1., 0. }, // node 0
+  { +1., -1., 0. }, // node 1
   { +1., +1., 0. }, // node 2
-  { 0., +1., 0. },  // node 3
+  { -1., +1., 0. }, // node 3
   { 0., 0., +1. }   // node 4
 } };
 
@@ -31,6 +31,8 @@ const std::array<int, vtkDGPyr::Dimension + 3> vtkDGPyr::SideOffsets{ { 0, 1, 5,
 
 const std::array<vtkDGCell::Shape, vtkDGPyr::Dimension + 3> vtkDGPyr::SideShapes{ { Shape::Pyramid,
   Shape::Triangle, Shape::Quadrilateral, Shape::Edge, Shape::Vertex, Shape::None } };
+
+const std::array<int, vtkDGPyr::Dimension + 1> vtkDGPyr::SidesOfDimension{ { 1, 5, 8, 5 } };
 
 // WARNING: The order of sides **must** match the IOSS (Exodus) side order or side sets
 //   from Exodus files will not be rendered properly. Note that this order **coincidentally**
@@ -60,7 +62,16 @@ const std::array<std::vector<vtkIdType>, 19> vtkDGPyr::Sides{ {
   { 4 }              // vertex 4
 } };
 
-vtkDGPyr::vtkDGPyr() = default;
+/// SidesOfSides is generated from Sides by TestCellGridSideInfo.
+const std::array<std::vector<vtkIdType>, 19> vtkDGPyr::SidesOfSides{ { { 0, 1, 2, 3, 4 },
+  { 5, 10, 9 }, { 6, 11, 10 }, { 7, 12, 11 }, { 8, 9, 12 }, { 8, 7, 6, 5 }, { 13, 14 }, { 14, 15 },
+  { 16, 15 }, { 13, 16 }, { 13, 17 }, { 14, 17 }, { 15, 17 }, { 16, 17 }, {}, {}, {}, {}, {} } };
+
+vtkDGPyr::vtkDGPyr()
+{
+  this->CellSpec.SourceShape = this->GetShape();
+}
+
 vtkDGPyr::~vtkDGPyr() = default;
 
 void vtkDGPyr::PrintSelf(ostream& os, vtkIndent indent)
@@ -107,11 +118,11 @@ std::pair<int, int> vtkDGPyr::GetSideRangeForType(int sideType) const
 
 int vtkDGPyr::GetNumberOfSidesOfDimension(int dimension) const
 {
-  if (dimension < 0 || dimension >= this->Dimension)
+  if (dimension < -1 || dimension >= this->Dimension)
   {
     return 0;
   }
-  return this->SideOffsets[Dimension - dimension + 1] - this->SideOffsets[Dimension - dimension];
+  return this->SidesOfDimension[dimension + 1];
 }
 
 const std::vector<vtkIdType>& vtkDGPyr::GetSideConnectivity(int side) const
@@ -122,6 +133,16 @@ const std::vector<vtkIdType>& vtkDGPyr::GetSideConnectivity(int side) const
     return dummy;
   }
   return this->Sides[side + 1];
+}
+
+const std::vector<vtkIdType>& vtkDGPyr::GetSidesOfSide(int side) const
+{
+  if (side < -1 || side >= 19)
+  {
+    static std::vector<vtkIdType> dummy;
+    return dummy;
+  }
+  return this->SidesOfSides[side + 1];
 }
 
 vtkTypeFloat32Array* vtkDGPyr::GetReferencePoints() const

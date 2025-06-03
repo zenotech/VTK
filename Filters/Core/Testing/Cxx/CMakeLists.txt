@@ -4,6 +4,7 @@ vtk_add_test_cxx(vtkFiltersCoreCxxTests tests
   TestAppendDataSets.cxx,NO_VALID
   TestAppendFilter.cxx,NO_VALID
   TestAppendMolecule.cxx,NO_VALID
+  TestAppendPartitionedDataSetCollection.cxx,NO_VALID
   TestAppendPolyData.cxx,NO_VALID
   TestAppendSelection.cxx,NO_VALID
   TestArrayCalculator.cxx,NO_VALID
@@ -26,6 +27,7 @@ vtk_add_test_cxx(vtkFiltersCoreCxxTests tests
   TestDataObjectToPartitionedDataSetCollection.cxx,NO_VALID
   TestDecimatePolylineFilter.cxx
   TestDecimatePro.cxx,NO_VALID
+  TestDecimateProDegenerateTriangles.cxx,NO_VALID
   TestDelaunay2D.cxx
   TestDelaunay2DBestFittingPlane.cxx,NO_VALID
   TestDelaunay2DConstrained.cxx,NO_VALID
@@ -40,6 +42,7 @@ vtk_add_test_cxx(vtkFiltersCoreCxxTests tests
   TestFeatureEdges.cxx,NO_VALID
   TestFieldDataToDataSetAttribute.cxx,NO_VALID
   TestFlyingEdges.cxx
+  TestGenerateIdsHTG.cxx,NO_VALID,NO_OUTPUT
   TestGlyph3D.cxx
   TestGlyph3DFollowCamera.cxx,NO_VALID
   TestHedgeHog.cxx,NO_VALID
@@ -56,6 +59,7 @@ vtk_add_test_cxx(vtkFiltersCoreCxxTests tests
   TestPlaneCutter.cxx,NO_VALID
   TestPointDataToCellData.cxx,NO_VALID
   TestPolyDataConnectivityFilter.cxx,NO_VALID
+  TestPolyDataNormals.cxx,NO_VALID
   TestPolyDataTangents.cxx
   TestProbeFilter.cxx,NO_VALID
   TestProbeFilterImageInput.cxx
@@ -74,6 +78,8 @@ vtk_add_test_cxx(vtkFiltersCoreCxxTests tests
   TestStaticCleanPolyData.cxx,NO_VALID
   TestStripper.cxx,NO_VALID
   TestStructuredGridAppend.cxx,NO_VALID
+  TestSynchronizedTemplates2D.cxx,NO_VALID
+  TestSynchronizedTemplates2DRGB.cxx,NO_DATA,NO_VALID
   TestThreshold.cxx,NO_VALID
   TestThresholdPoints.cxx,NO_VALID
   TestTransposeTable.cxx,NO_VALID

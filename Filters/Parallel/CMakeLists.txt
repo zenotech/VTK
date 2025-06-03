@@ -3,6 +3,7 @@ set(classes
   vtkAggregateDataSetFilter
   vtkAlignImageDataSetFilter
   vtkAngularPeriodicFilter
+  vtkCleanArrays
   vtkCollectGraph
   vtkCollectPolyData
   vtkCollectTable
@@ -14,7 +15,11 @@ set(classes
   vtkExtractUnstructuredGridPiece
   vtkExtractUserDefinedPiece
   vtkGenerateProcessIds
+  vtkHyperTreeGridGenerateGlobalIds
+  vtkHyperTreeGridGenerateProcessIds
   vtkHyperTreeGridGhostCellsGenerator
+  vtkMergeBlocks
+  vtkMultiProcessControllerHelper
   vtkPHyperTreeGridProbeFilter
   vtkIntegrateAttributes
   vtkPeriodicFilter
@@ -54,6 +59,13 @@ set(classes
 set(headers
   vtkBlockDistribution.h)
 
+set(sources
+  vtkHyperTreeGridGhostCellsGeneratorInternals.cxx)
+
+set(private_headers
+  vtkHyperTreeGridGhostCellsGeneratorInternals.h)
+
+
 vtk_object_factory_declare(
   BASE vtkConvertToMultiBlockDataSet
   OVERRIDE vtkPConvertToMultiBlockDataSet
@@ -68,7 +80,7 @@ vtk_object_factory_configure(
 vtk_module_add_module(VTK::FiltersParallel
   CLASSES ${classes}
   HEADERS ${headers}
-  SOURCES ${vtk_object_factory_source}
-  PRIVATE_HEADERS ${vtk_object_factory_header}
+  SOURCES ${vtk_object_factory_source} ${sources}
+  PRIVATE_HEADERS ${vtk_object_factory_header} ${private_headers}
   )
 vtk_add_test_mangling(VTK::FiltersParallel)

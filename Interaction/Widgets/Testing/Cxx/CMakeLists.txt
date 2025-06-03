@@ -4,6 +4,7 @@ vtk_add_test_cxx(vtkInteractionWidgetsCxxTests tests
   BoxWidget.cxx
   BoxWidget2.cxx
   ImagePlaneWidget.cxx
+  ImagePlaneWidgetOriented.cxx
   TerrainPolylineEditor.cxx
   TestAffineWidget.cxx
   TestAngleWidget2D.cxx
@@ -33,6 +34,8 @@ vtk_add_test_cxx(vtkInteractionWidgetsCxxTests tests
   TestHandleWidget.cxx
   TestHandleWidget2D.cxx
   TestImageActorContourWidget.cxx
+  TestImplicitAnnulusWidget.cxx
+  TestImplicitConeWidget.cxx
   TestImplicitCylinderWidget.cxx
   TestImplicitCylinderWidget2.cxx
   TestImplicitPlaneWidget.cxx
@@ -132,11 +135,9 @@ vtk_add_test_cxx(vtkInteractionWidgetsCxxTests data_tests
   TestImageTracerWidget.cxx
   )
 
-if(NOT VTK_OPENGL_HAS_OSMESA)
-  vtk_add_test_cxx(vtkInteractionWidgetsCxxTests ogl_tests
-    TestPickingManagerWidgets.cxx
-    )
-endif()
+vtk_add_test_cxx(vtkInteractionWidgetsCxxTests ogl_tests
+  TestPickingManagerWidgets.cxx
+  )
 
 set(all_tests
   ${tests}
@@ -151,19 +152,17 @@ vtk_test_cxx_executable(vtkInteractionWidgetsCxxTests all_tests
 
 # Allow local customization of timeout for this test.
 if(NOT VTK_TEST_TIMEOUT_TerrainPolylineEditor)
-  set(VTK_TEST_TIMEOUT_TerrainPolylineEditor 90)
+  set(VTK_TEST_TIMEOUT_TerrainPolylineEditor 350)
 endif()
 set_tests_properties(VTK::InteractionWidgetsCxx-TerrainPolylineEditor
   PROPERTIES TIMEOUT ${VTK_TEST_TIMEOUT_TerrainPolylineEditor})
 
-if(NOT VTK_OPENGL_HAS_OSMESA)
-  # Allow local customization of timeout for this test.
-  if(NOT VTK_TEST_TIMEOUT_TestPickingManagerSeedWidget)
-    set(VTK_TEST_TIMEOUT_TestPickingManagerSeedWidget 60)
-  endif()
-  set_tests_properties(VTK::InteractionWidgetsCxx-TestPickingManagerSeedWidget
-    PROPERTIES TIMEOUT ${VTK_TEST_TIMEOUT_TestPickingManagerSeedWidget})
+# Allow local customization of timeout for this test.
+if(NOT VTK_TEST_TIMEOUT_TestPickingManagerSeedWidget)
+  set(VTK_TEST_TIMEOUT_TestPickingManagerSeedWidget 400)
 endif()
+set_tests_properties(VTK::InteractionWidgetsCxx-TestPickingManagerSeedWidget
+  PROPERTIES TIMEOUT ${VTK_TEST_TIMEOUT_TestPickingManagerSeedWidget})
 
 # On some machines this test takes ~220 seconds to complete, allow for some
 # extra time
@@ -172,4 +171,12 @@ if(NOT VTK_TEST_TIMEOUT_TestSphereHandleWidget)
 endif()
 set_tests_properties(VTK::InteractionWidgetsCxx-TestSphereHandleWidget
     PROPERTIES TIMEOUT ${VTK_TEST_TIMEOUT_TestSphereHandleWidget}
+               RUN_SERIAL ON)
+
+# TestOrthoPlanes can take a long time
+if(NOT VTK_TEST_TIMEOUT_TestOrthoPlanes)
+  set(VTK_TEST_TIMEOUT_TestOrthoPlanes 300)
+endif()
+set_tests_properties(VTK::InteractionWidgetsCxx-TestOrthoPlanes
+    PROPERTIES TIMEOUT ${VTK_TEST_TIMEOUT_TestOrthoPlanes}
                RUN_SERIAL ON)

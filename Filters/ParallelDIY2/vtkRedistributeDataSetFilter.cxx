@@ -515,9 +515,20 @@ int vtkRedistributeDataSetFilter::RequestData(
   std::vector<vtkDataSet*> resultVector = vtkCompositeDataSet::GetDataSets(result);
   for (vtkDataSet* ds : resultVector)
   {
-    // Ghost arrays become irrelevant after this filter is done, we remove them.
-    ds->GetPointData()->RemoveArray(vtkDataSetAttributes::GhostArrayName());
-    ds->GetCellData()->RemoveArray(vtkDataSetAttributes::GhostArrayName());
+    // We cannot keep duplicate ghost points as the partitionning changed, invalidating previous
+    // duplicate ghost tagging
+    if (vtkUnsignedCharArray* ghostArray = ds->GetPointData()->GetGhostArray())
+    {
+      auto ghosts = vtk::DataArrayValueRange<1>(ghostArray);
+      vtkSMPTools::For(0, ghosts.size(),
+        [&](vtkIdType begin, vtkIdType end)
+        {
+          for (vtkIdType id = begin; id < end; ++id)
+          {
+            ghosts[id] &= ~vtkDataSetAttributes::DUPLICATEPOINT;
+          }
+        });
+    };
   }
 
   // ******************************************************
@@ -1068,23 +1079,25 @@ void vtkRedistributeDataSetFilter::MarkGhostCells(vtkPartitionedDataSet* pieces)
       ghostCells->FastDelete();
     }
 
-    vtkSMPTools::For(0, dataset->GetNumberOfCells(), [&](vtkIdType start, vtkIdType end) {
-      for (vtkIdType cc = start; cc < end; ++cc)
+    vtkSMPTools::For(0, dataset->GetNumberOfCells(),
+      [&](vtkIdType start, vtkIdType end)
       {
-        // any cell now owned by the current part is marked as a ghost cell.
-        const auto cell_owner = cell_ownership->GetTypedComponent(cc, 0);
-        auto gflag = ghostCells->GetTypedComponent(cc, 0);
-        if (static_cast<int>(partId) == cell_owner)
+        for (vtkIdType cc = start; cc < end; ++cc)
         {
-          gflag &= (~vtkDataSetAttributes::DUPLICATECELL);
+          // any cell now owned by the current part is marked as a ghost cell.
+          const auto cell_owner = cell_ownership->GetTypedComponent(cc, 0);
+          auto gflag = ghostCells->GetTypedComponent(cc, 0);
+          if (static_cast<int>(partId) == cell_owner)
+          {
+            gflag &= (~vtkDataSetAttributes::DUPLICATECELL);
+          }
+          else
+          {
+            gflag |= vtkDataSetAttributes::DUPLICATECELL;
+          }
+          ghostCells->SetTypedComponent(cc, 0, gflag);
         }
-        else
-        {
-          gflag |= vtkDataSetAttributes::DUPLICATECELL;
-        }
-        ghostCells->SetTypedComponent(cc, 0, gflag);
-      }
-    });
+      });
   }
 }
 

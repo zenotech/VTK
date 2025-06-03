@@ -14,14 +14,17 @@
 #include "vtkCellArray.h"
 #include "vtkCellCenters.h"
 #include "vtkCellData.h"
+#include "vtkCellTypeSource.h"
 #include "vtkCommunicator.h"
+#include "vtkConeSource.h"
 #include "vtkDataArray.h"
 #include "vtkDataSet.h"
 #include "vtkDoubleArray.h"
+#include "vtkGenerateTimeSteps.h"
 #include "vtkGhostCellsGenerator.h"
+#include "vtkGroupDataSetsFilter.h"
 #include "vtkIdTypeArray.h"
 #include "vtkImageData.h"
-#include "vtkIntArray.h"
 #include "vtkLogger.h"
 #include "vtkMathUtilities.h"
 #include "vtkMultiBlockDataSet.h"
@@ -34,6 +37,7 @@
 #include "vtkPointDataToCellData.h"
 #include "vtkPoints.h"
 #include "vtkPolyData.h"
+#include "vtkRandomAttributeGenerator.h"
 #include "vtkRectilinearGrid.h"
 #include "vtkRemoveGhosts.h"
 #include "vtkStaticPointLocator.h"
@@ -1977,12 +1981,12 @@ vtkSmartPointer<vtkUnstructuredGrid> Convert3DImageToUnstructuredGrid(
   }
 
   const int* extent = input->GetExtent();
-  vtkNew<vtkIdTypeArray> faces;
-  // half cells * number of faces in voxel [6] * (number of points in face + 1) [4 + 1]
-  faces->SetNumberOfValues((numberOfCells / 2) * (6 * 5 + 1));
+  vtkNew<vtkCellArray> faces;
+  // half cells * number of faces in voxel [6] * (number of points in face) [4]
+  faces->AllocateExact((numberOfCells / 2) * 6, (numberOfCells / 2) * (6 * 4));
 
-  vtkNew<vtkIdTypeArray> faceLocations;
-  faceLocations->SetNumberOfValues(numberOfCells);
+  vtkNew<vtkCellArray> faceLocations;
+  faceLocations->AllocateExact(numberOfCells, (numberOfCells / 2) * 6);
 
   vtkNew<vtkUnsignedCharArray> types;
   types->SetNumberOfValues(numberOfCells);
@@ -2009,72 +2013,70 @@ vtkSmartPointer<vtkUnstructuredGrid> Convert3DImageToUnstructuredGrid(
 
     if (producePolyhedrons && cellId % 2)
     {
-      vtkIdType id = ((cellId / 2) * (5 * 6 + 1));
-      faceLocations->SetValue(cellId, id);
+      vtkIdType pos = (cellId / 2) * 6;
+      faceLocations->InsertNextCell(6); // 6 faces.
+      faceLocations->InsertCellPoint(pos + 0);
+      faceLocations->InsertCellPoint(pos + 1);
+      faceLocations->InsertCellPoint(pos + 2);
+      faceLocations->InsertCellPoint(pos + 3);
+      faceLocations->InsertCellPoint(pos + 4);
+      faceLocations->InsertCellPoint(pos + 5);
 
       types->SetValue(cellId, VTK_POLYHEDRON);
 
-      faces->SetValue(id, 6); // 6 faces.
-      ++id;
-
       vtkIdType offsetId = connectivityId - 8;
-      faces->SetValue(id, 4); // 4 points per face.
+      faces->InsertNextCell(4); // 4 points per face.
       // Bottom face
-      faces->SetValue(id + 1, connectivity->GetValue(offsetId + 0));
-      faces->SetValue(id + 2, connectivity->GetValue(offsetId + 1));
-      faces->SetValue(id + 3, connectivity->GetValue(offsetId + 3));
-      faces->SetValue(id + 4, connectivity->GetValue(offsetId + 2));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 0));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 1));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 3));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 2));
 
-      id += 5;
-      faces->SetValue(id, 4); // 4 points per face.
+      faces->InsertNextCell(4); // 4 points per face.
       // Top face
-      faces->SetValue(id + 1, connectivity->GetValue(offsetId + 4));
-      faces->SetValue(id + 2, connectivity->GetValue(offsetId + 5));
-      faces->SetValue(id + 3, connectivity->GetValue(offsetId + 7));
-      faces->SetValue(id + 4, connectivity->GetValue(offsetId + 6));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 4));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 5));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 7));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 6));
 
-      id += 5;
-      faces->SetValue(id, 4); // 4 points per face.
+      faces->InsertNextCell(4); // 4 points per face.
       // Front face
-      faces->SetValue(id + 1, connectivity->GetValue(offsetId + 0));
-      faces->SetValue(id + 2, connectivity->GetValue(offsetId + 1));
-      faces->SetValue(id + 3, connectivity->GetValue(offsetId + 5));
-      faces->SetValue(id + 4, connectivity->GetValue(offsetId + 4));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 0));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 1));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 5));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 4));
 
-      id += 5;
-      faces->SetValue(id, 4); // 4 points per face.
+      faces->InsertNextCell(4); // 4 points per face.
       // Back face
-      faces->SetValue(id + 1, connectivity->GetValue(offsetId + 2));
-      faces->SetValue(id + 2, connectivity->GetValue(offsetId + 3));
-      faces->SetValue(id + 3, connectivity->GetValue(offsetId + 7));
-      faces->SetValue(id + 4, connectivity->GetValue(offsetId + 6));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 2));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 3));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 7));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 6));
 
-      id += 5;
-      faces->SetValue(id, 4); // 4 points per face.
+      faces->InsertNextCell(4); // 4 points per face.
       // Left face
-      faces->SetValue(id + 1, connectivity->GetValue(offsetId + 0));
-      faces->SetValue(id + 2, connectivity->GetValue(offsetId + 2));
-      faces->SetValue(id + 3, connectivity->GetValue(offsetId + 6));
-      faces->SetValue(id + 4, connectivity->GetValue(offsetId + 4));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 0));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 2));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 6));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 4));
 
-      id += 5;
-      faces->SetValue(id, 4); // 4 points per face.
+      faces->InsertNextCell(4); // 4 points per face.
       // Right face
-      faces->SetValue(id + 1, connectivity->GetValue(offsetId + 1));
-      faces->SetValue(id + 2, connectivity->GetValue(offsetId + 3));
-      faces->SetValue(id + 3, connectivity->GetValue(offsetId + 7));
-      faces->SetValue(id + 4, connectivity->GetValue(offsetId + 5));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 1));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 3));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 7));
+      faces->InsertCellPoint(connectivity->GetValue(offsetId + 5));
     }
     else
     {
-      faceLocations->SetValue(cellId, -1);
+      faceLocations->InsertNextCell(0);
       types->SetValue(cellId, VTK_VOXEL);
     }
   }
 
   if (producePolyhedrons)
   {
-    output->SetCells(types, cells, faceLocations, faces);
+    output->SetPolyhedralCells(types, cells, faceLocations, faces);
   }
   else
   {
@@ -3342,6 +3344,101 @@ bool TestPointPrecision(vtkMultiProcessController* controller, int myrank)
 
   return retVal;
 }
+
+int TestNonlinearCells(vtkMultiProcessController* controller)
+{
+  const std::set<int> SupportedCellTypes = {
+    VTK_TRIQUADRATIC_HEXAHEDRON,
+    VTK_LAGRANGE_HEXAHEDRON,
+    VTK_BEZIER_HEXAHEDRON,
+  };
+  bool retVal = true;
+
+  for (const auto cellType : SupportedCellTypes)
+  {
+
+    vtkNew<vtkCellTypeSource> cellTypeSource;
+    cellTypeSource->SetBlocksDimensions(2, 1, 1);
+    cellTypeSource->SetCellOrder(2);
+    cellTypeSource->SetCellType(cellType);
+    cellTypeSource->Update();
+
+    vtkNew<vtkGhostCellsGenerator> generator;
+    generator->SetInputData(cellTypeSource->GetOutput());
+    generator->GenerateGlobalIdsOn();
+    generator->GenerateProcessIdsOn();
+    generator->SetNumberOfGhostLayers(1);
+    generator->SetController(controller);
+    generator->BuildIfRequiredOff();
+    generator->Update();
+
+    auto output = vtkUnstructuredGrid::SafeDownCast(generator->GetOutputDataObject(0));
+    if (output->GetNumberOfPoints() != 48)
+    {
+      vtkLog(
+        ERROR, "The number of point is supposed to be 48 but is " << output->GetNumberOfPoints());
+      retVal = false;
+    }
+  }
+  return retVal;
+}
+
+bool TestStaticMeshCache()
+{
+  vtkLog(INFO, "Testing static mesh cache");
+
+  // Create the pipeline to produce the initial grid
+  vtkNew<vtkConeSource> cone1;
+  cone1->SetResolution(15);
+
+  vtkNew<vtkConeSource> cone2;
+  cone2->SetResolution(12);
+  cone2->SetCenter(2, 2, 2);
+
+  vtkNew<vtkGroupDataSetsFilter> group;
+  group->SetInputConnection(0, cone1->GetOutputPort());
+  group->AddInputConnection(0, cone2->GetOutputPort());
+  group->SetOutputTypeToPartitionedDataSetCollection();
+
+  vtkNew<vtkGenerateTimeSteps> addTime;
+  addTime->SetInputConnection(group->GetOutputPort());
+  addTime->AddTimeStepValue(0);
+  addTime->AddTimeStepValue(1);
+  addTime->AddTimeStepValue(2);
+  addTime->AddTimeStepValue(3);
+
+  vtkNew<vtkRandomAttributeGenerator> addScalars;
+  addScalars->SetInputConnection(addTime->GetOutputPort());
+  addScalars->GenerateAllDataOff();
+  addScalars->GenerateCellScalarsOn();
+  addScalars->SetDataTypeToDouble();
+  addScalars->SetComponentRange(0, 30);
+
+  vtkNew<vtkGhostCellsGenerator> ghostCellGenerator;
+  ghostCellGenerator->SetInputConnection(addScalars->GetOutputPort());
+  ghostCellGenerator->SetUseStaticMeshCache(true);
+  ghostCellGenerator->SetBuildIfRequired(true);
+  ghostCellGenerator->Update();
+
+  auto outputPDC =
+    vtkPartitionedDataSetCollection::SafeDownCast(ghostCellGenerator->GetOutputDataObject(0));
+  auto outputPD = vtkPolyData::SafeDownCast(outputPDC->GetPartitionAsDataObject(0, 0));
+  const auto initMeshTime = outputPD->GetMeshMTime();
+
+  ghostCellGenerator->UpdateTimeStep(2); // update scalars, not mesh
+
+  outputPDC =
+    vtkPartitionedDataSetCollection::SafeDownCast(ghostCellGenerator->GetOutputDataObject(0));
+  outputPD = vtkPolyData::SafeDownCast(outputPDC->GetPartitionAsDataObject(0, 0));
+
+  if (outputPD->GetMeshMTime() != initMeshTime)
+  {
+    vtkLog(ERROR, "GetMeshMTime has changed, mesh was not properly cached");
+    return false;
+  }
+
+  return true;
+}
 } // anonymous namespace
 
 //----------------------------------------------------------------------------
@@ -3385,6 +3482,16 @@ int TestGhostCellsGenerator(int argc, char* argv[])
   }
 
   if (!TestGhostDataSynchronization(contr, myrank))
+  {
+    retVal = EXIT_FAILURE;
+  }
+
+  if (!TestNonlinearCells(contr))
+  {
+    retVal = EXIT_FAILURE;
+  }
+
+  if (!TestStaticMeshCache())
   {
     retVal = EXIT_FAILURE;
   }

@@ -43,7 +43,15 @@ const std::array<std::vector<vtkIdType>, 7> vtkDGTri::Sides{ {
   { 2 }        // vertex 2
 } };
 
-vtkDGTri::vtkDGTri() = default;
+/// SidesOfSides is generated from Sides by TestCellGridSideInfo.
+const std::array<std::vector<vtkIdType>, 7> vtkDGTri::SidesOfSides{ { { 0, 1, 2 }, { 3, 4 },
+  { 4, 5 }, { 5, 3 }, {}, {}, {} } };
+
+vtkDGTri::vtkDGTri()
+{
+  this->CellSpec.SourceShape = this->GetShape();
+}
+
 vtkDGTri::~vtkDGTri() = default;
 
 void vtkDGTri::PrintSelf(ostream& os, vtkIndent indent)
@@ -91,21 +99,35 @@ std::pair<int, int> vtkDGTri::GetSideRangeForType(int sideType) const
 
 int vtkDGTri::GetNumberOfSidesOfDimension(int dimension) const
 {
-  if (dimension < 0 || dimension >= this->Dimension)
+  if (dimension < -1 || dimension >= this->Dimension)
   {
     return 0;
+  }
+  else if (dimension == -1)
+  {
+    return 1;
   }
   return this->SideOffsets[Dimension - dimension + 1] - this->SideOffsets[Dimension - dimension];
 }
 
 const std::vector<vtkIdType>& vtkDGTri::GetSideConnectivity(int side) const
 {
-  if (side < -1 || side >= 14)
+  if (side < -1 || side >= 7)
   {
     static std::vector<vtkIdType> dummy;
     return dummy;
   }
   return this->Sides[side + 1];
+}
+
+const std::vector<vtkIdType>& vtkDGTri::GetSidesOfSide(int side) const
+{
+  if (side < -1 || side >= 7)
+  {
+    static std::vector<vtkIdType> dummy;
+    return dummy;
+  }
+  return this->SidesOfSides[side + 1];
 }
 
 vtkTypeFloat32Array* vtkDGTri::GetReferencePoints() const

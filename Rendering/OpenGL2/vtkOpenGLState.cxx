@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
 // SPDX-License-Identifier: BSD-3-Clause
 #include "vtkOpenGLState.h"
-#include "vtk_glew.h"
+#include "vtk_glad.h"
 
 #include "vtkObjectFactory.h"
 #include "vtkOpenGLFramebufferObject.h"
@@ -1199,6 +1199,11 @@ void vtkOpenGLState::vtkglGetIntegerv(GLenum pname, GLint* params)
     case GL_BLEND_DST_ALPHA:
       *params = cs.BlendFunc[3];
       break;
+#ifdef GL_ARB_tessellation_shader
+    case GL_MAX_TESS_GEN_LEVEL:
+      *params = this->MaxTessellationLevel;
+      break;
+#endif
     case GL_MAX_TEXTURE_SIZE:
       *params = this->MaxTextureSize;
       break;
@@ -1592,6 +1597,9 @@ void vtkOpenGLState::Initialize(vtkOpenGLRenderWindow*)
   ::glBlendEquationSeparate(cs.BlendEquationValue1, cs.BlendEquationValue2);
 
   // strictly query values below here
+#ifdef GL_ARB_tessellation_shader
+  ::glGetIntegerv(GL_MAX_TESS_GEN_LEVEL, &this->MaxTessellationLevel);
+#endif
   ::glGetIntegerv(GL_MAX_TEXTURE_SIZE, &this->MaxTextureSize);
   ::glGetIntegerv(GL_MAJOR_VERSION, &this->MajorVersion);
   ::glGetIntegerv(GL_MINOR_VERSION, &this->MinorVersion);
@@ -1841,12 +1849,13 @@ vtkStandardNewMacro(vtkOpenGLState);
 void vtkOpenGLState::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
-  os << indent << "MajorVersion: " << this->MajorVersion << endl;
-  os << indent << "MinorVersion: " << this->MinorVersion << endl;
-  os << indent << "MaxTextureSize: " << this->MaxTextureSize << endl;
-  os << indent << "Vendor: " << this->Vendor << endl;
-  os << indent << "Renderer: " << this->Renderer << endl;
-  os << indent << "Version: " << this->Version << endl;
+  os << indent << "MajorVersion: " << this->MajorVersion << '\n'
+     << indent << "MinorVersion: " << this->MinorVersion << '\n'
+     << indent << "MaxTessellationLevel: " << this->MaxTessellationLevel << '\n'
+     << indent << "MaxTextureSize: " << this->MaxTextureSize << '\n'
+     << indent << "Vendor: " << this->Vendor << '\n'
+     << indent << "Renderer: " << this->Renderer << '\n'
+     << indent << "Version: " << this->Version << '\n';
 }
 
 vtkCxxSetObjectMacro(vtkOpenGLState, VBOCache, vtkOpenGLVertexBufferObjectCache);
@@ -1872,6 +1881,10 @@ vtkCxxSetObjectMacro(vtkOpenGLState, VBOCache, vtkOpenGLVertexBufferObjectCache)
 // not required.
 //
 vtkOpenGLState::vtkOpenGLState()
+  : MajorVersion(-1)
+  , MinorVersion(-1)
+  , MaxTessellationLevel(-1)
+  , MaxTextureSize(-1)
 {
   this->ShaderCache = vtkOpenGLShaderCache::New();
   this->VBOCache = vtkOpenGLVertexBufferObjectCache::New();
@@ -2158,7 +2171,7 @@ void vtkOpenGLState::InitializeTextureInternalFormats()
   // that is due to expire in the US in summer 2018
 #ifndef GL_ES_VERSION_3_0
   const char* glVersion = reinterpret_cast<const char*>(glGetString(GL_VERSION));
-  if (glVersion && strstr(glVersion, "Mesa") != nullptr && !GLEW_ARB_texture_float)
+  if (glVersion && strstr(glVersion, "Mesa") != nullptr && !GLAD_GL_ARB_texture_float)
   {
     // mesa without float support cannot even use
     // uchar textures with underlying float data

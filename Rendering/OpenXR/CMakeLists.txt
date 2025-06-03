@@ -32,7 +32,8 @@ vtk_module_add_module(VTK::RenderingOpenXR
 
 vtk_module_link(VTK::RenderingOpenXR
   PUBLIC
-    OpenXR::OpenXR)
+    OpenXR::openxr_loader
+    OpenXR::headers)
 
 set(openxr_input_files
   vtk_openxr_actions.json
@@ -46,7 +47,7 @@ set(openxr_input_files
 foreach(inputfile ${openxr_input_files})
   configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/${inputfile}
-    ${CMAKE_CURRENT_BINARY_DIR}/${input_file}
+    ${CMAKE_CURRENT_BINARY_DIR}/${inputfile}
     COPYONLY)
 endforeach()
 

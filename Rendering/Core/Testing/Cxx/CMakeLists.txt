@@ -6,6 +6,18 @@ if (VTK_USE_X)
   list(APPEND extra_opengl2_tests TestInteractorTimers.cxx,NO_VALID)
 endif()
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  set(_vtk_test_cxx_wasm_enabled_in_browser ON)
+  set(_vtk_test_emscripten_extra_linker_args
+    "-sASSERTIONS=1"
+    # O2 or higher make wasm-opt terribly slow.
+    # test executables take a minute to link.
+    # we need emscripten to emit code that handles exit code and atexit(s)
+    "-sEXIT_RUNTIME=1"
+    # tests dynamically allocate memory, can easily go over the preset limit.
+    "-sALLOW_MEMORY_GROWTH=1")
+endif ()
+
 vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   ${extra_opengl2_tests}
   FrustumClip.cxx
@@ -15,7 +27,7 @@ vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   otherLookupTableWithEnabling.cxx,NO_VALID
   RenderNonFinite.cxx
   RGrid.cxx
-  SurfacePlusEdges.cxx
+# SurfacePlusEdges.cxx #19221
   TestActor2D.cxx
   TestActor2DTextures.cxx
   TestActorLightingFlag.cxx
@@ -48,9 +60,11 @@ vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   TestCompositePolyDataMapperPickability.cxx,NO_DATA
   TestCompositePolyDataMapperPicking.cxx,NO_DATA
   TestCompositePolyDataMapperScalars.cxx,NO_DATA
-  TestCompositePolyDataMapperScalarsSurfaceOpacity.cxx,NO_DATA
+# TestCompositePolyDataMapperScalarsSurfaceOpacity.cxx,NO_DATA #19221
   TestCompositePolyDataMapperSharedArray.cxx,NO_DATA
+  TestCompositePolyDataMapperStaticBounds.cxx,NO_DATA,NO_VALID
   TestCompositePolyDataMapperSpheres.cxx,NO_DATA
+  TestCompositePolyDataMapperToggleScalarVisibilities.cxx,NO_DATA
   TestCompositePolyDataMapperVertices.cxx,NO_DATA
   TestDirectScalarsToColors.cxx
   TestDiscretizableColorTransferFunction.cxx,NO_VALID
@@ -63,6 +77,7 @@ vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   TestGlyph3DMapper.cxx
   TestGlyph3DMapper2.cxx,NO_VALID,NO_RT,NO_DATA
   TestGlyph3DMapperArrow.cxx
+  TestGlyph3DMapperBackfaceColor.cxx
   TestGlyph3DMapperCompositeDisplayAttributeInheritance.cxx,NO_DATA
   TestGlyph3DMapperIndexing.cxx,NO_DATA
   TestGlyph3DMapperMasking.cxx
@@ -71,6 +86,8 @@ vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   TestGlyph3DMapperQuaternionArray.cxx
   TestGlyph3DMapperTreeIndexing.cxx,NO_DATA
   TestGradientBackground.cxx
+  TestGradientBackgroundWithTiledViewport.cxx,NO_DATA
+  TestGradientBackgroundWithTiledViewports.cxx,NO_DATA
   TestHomogeneousTransformOfActor.cxx
   TestImageAndAnnotations.cxx,NO_DATA
   TestInteractorStyleImageProperty.cxx,NO_VALID
@@ -78,6 +95,7 @@ vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   TestLabeledContourMapperNoLabels.cxx
   TestLabeledContourMapperWithActorMatrix.cxx
   TestManyActors.cxx,NO_VALID
+  TestManyRenderWindows.cxx,NO_VALID,NO_RT,NO_DATA
   TestMapVectorsAsRGBColors.cxx
   TestMapVectorsToColors.cxx
   TestOffAxisStereo.cxx
@@ -90,6 +108,8 @@ vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   TestPointSelection.cxx,NO_VALID
   TestPointSelectionWithCellData.cxx,NO_VALID
   TestPolygonSelection.cxx
+  TestPolyDataMapperNormals.cxx
+  TestRenderLinesAsTubes.cxx
   TestResetCameraScreenSpace.cxx
   TestResetCameraVerticalAspectRatio.cxx
   TestResetCameraVerticalAspectRatioParallel.cxx

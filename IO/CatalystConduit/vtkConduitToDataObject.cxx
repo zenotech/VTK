@@ -454,30 +454,23 @@ vtkSmartPointer<vtkImageData> CreateImageData(const conduit_cpp::Node& coordset)
 }
 
 //----------------------------------------------------------------------------
+/**
+ * The "const" of values_xyz is necessary to avoid creating a new object.
+ * If value_xyz is not const, coordset["values/xyz"] must NOT be const either
+ * to call the correct copy constructor.
+ */
 vtkSmartPointer<vtkRectilinearGrid> CreateRectilinearGrid(const conduit_cpp::Node& coordset)
 {
   auto rectilinearGrid = vtkSmartPointer<vtkRectilinearGrid>::New();
 
-  conduit_cpp::Node values_x;
   const bool has_x_values = coordset.has_path("values/x");
-  if (has_x_values)
-  {
-    values_x = coordset["values/x"];
-  }
+  const conduit_cpp::Node values_x = has_x_values ? coordset["values/x"] : conduit_cpp::Node();
 
-  conduit_cpp::Node values_y;
   const bool has_y_values = coordset.has_path("values/y");
-  if (has_y_values)
-  {
-    values_y = coordset["values/y"];
-  }
+  const conduit_cpp::Node values_y = has_y_values ? coordset["values/y"] : conduit_cpp::Node();
 
-  conduit_cpp::Node values_z;
   const bool has_z_values = coordset.has_path("values/z");
-  if (has_z_values)
-  {
-    values_z = coordset["values/z"];
-  }
+  const conduit_cpp::Node values_z = has_z_values ? coordset["values/z"] : conduit_cpp::Node();
 
   vtkIdType x_dimension = 1;
   vtkSmartPointer<vtkDataArray> xArray;
@@ -644,8 +637,9 @@ struct MixedPolyhedralCells
 
     const vtkNew<vtkUnsignedCharArray> cellTypes;
     const vtkNew<vtkCellArray> connectivity;
-    const vtkNew<vtkIdTypeArray> faces;
-    const vtkNew<vtkIdTypeArray> faceLocations;
+    const vtkNew<vtkCellArray> faces;
+    const vtkNew<vtkCellArray> faceLocations;
+    vtkIdType numFace = 0;
 
     for (const auto& cellType : elementShapesRange)
     {
@@ -659,9 +653,7 @@ struct MixedPolyhedralCells
         std::set<vtkIdType> cellPointSet;
         auto nCellFaces = static_cast<vtkIdType>(*elementSizesIterator++);
         auto offset = static_cast<vtkIdType>(*elementOffsetsIterator++);
-        const vtkIdType faceMaxId = faces->GetMaxId() + 1;
-        faceLocations->InsertNextValue(faceMaxId);
-        faces->InsertNextValue(nCellFaces);
+        faceLocations->InsertNextCell(nCellFaces);
 
         auto elementRange =
           vtk::DataArrayValueRange(elementConnectivity, offset, offset + nCellFaces);
@@ -670,14 +662,15 @@ struct MixedPolyhedralCells
         {
           const vtkIdType nFacePts = subElementSizesArray->GetVariantValue(faceId).ToLongLong();
           const vtkIdType faceOffset = subElementOffsetsArray->GetVariantValue(faceId).ToLongLong();
+          faceLocations->InsertCellPoint(numFace++);
 
           auto facePtRange =
             vtk::DataArrayValueRange(subElementConnectivity, faceOffset, faceOffset + nFacePts);
 
-          faces->InsertNextValue(nFacePts);
+          faces->InsertNextCell(nFacePts);
           for (const SubConnectivityArrayType ptId : facePtRange)
           {
-            faces->InsertNextValue(ptId);
+            faces->InsertCellPoint(ptId);
             cellPointSet.insert(ptId);
           }
         }
@@ -699,17 +692,17 @@ struct MixedPolyhedralCells
         {
           connectivity->InsertCellPoint(static_cast<vtkIdType>(item));
         }
-        faceLocations->InsertNextValue(-1);
+        faceLocations->InsertNextCell(0);
       }
     }
 
-    if (faces->GetNumberOfValues() > 0)
+    if (faces->GetNumberOfCells() > 0)
     {
-      ug->SetCells(cellTypes, connectivity, faceLocations, faces);
+      ug->SetPolyhedralCells(cellTypes, connectivity, faceLocations, faces);
     }
     else
     {
-      ug->SetCells(cellTypes, connectivity, nullptr, nullptr);
+      ug->SetPolyhedralCells(cellTypes, connectivity, nullptr, nullptr);
     }
   }
 };
@@ -846,7 +839,7 @@ bool AddFieldData(vtkDataObject* output, const conduit_cpp::Node& stateFields, b
           }
         }
 
-        if ((field_name == "time" || field_name == "TimeValue") && field_node.dtype().is_float())
+        if ((field_name == "time" || field_name == "TimeValue") && field_node.dtype().is_number())
         {
           // let's also set DATA_TIME_STEP.
           output->GetInformation()->Set(vtkDataObject::DATA_TIME_STEP(), field_node.to_float64());
@@ -896,17 +889,19 @@ void SetPolyhedralCells(
   vtkUnstructuredGrid* grid, vtkCellArray* elements, vtkCellArray* subelements)
 {
   vtkNew<vtkCellArray> connectivity;
-  vtkNew<vtkIdTypeArray> faces;
-  vtkNew<vtkIdTypeArray> faceLocations;
+  vtkNew<vtkCellArray> faces;
+  vtkNew<vtkCellArray> faceLocations;
 
   connectivity->AllocateEstimate(elements->GetNumberOfCells(), 10);
-  faces->Allocate(subelements->GetConnectivityArray()->GetNumberOfTuples());
-  faceLocations->Allocate(elements->GetNumberOfCells());
+  faces->AllocateExact(
+    subelements->GetNumberOfCells(), subelements->GetConnectivityArray()->GetNumberOfTuples());
+  faceLocations->AllocateExact(elements->GetNumberOfCells(), subelements->GetNumberOfCells());
 
   auto eIter = vtk::TakeSmartPointer(elements->NewIterator());
   auto seIter = vtk::TakeSmartPointer(subelements->NewIterator());
 
   std::vector<vtkIdType> cellPoints;
+  vtkIdType faceNum = 0;
   for (eIter->GoToFirstCell(); !eIter->IsDoneWithTraversal(); eIter->GoToNextCell())
   {
     // init;
@@ -917,21 +912,16 @@ void SetPolyhedralCells(
     vtkIdType const* seIds;
     eIter->GetCurrentCell(size, seIds);
 
-    faceLocations->InsertNextValue(faces->GetNumberOfTuples());
-    faces->InsertNextValue(size); // number-of-cell-faces.
+    faceLocations->InsertNextCell(size);
     for (vtkIdType fIdx = 0; fIdx < size; ++fIdx)
     {
+      faceLocations->InsertCellPoint(faceNum++);
       seIter->GoToCell(seIds[fIdx]);
 
       vtkIdType ptSize;
       vtkIdType const* ptIds;
       seIter->GetCurrentCell(ptSize, ptIds);
-      faces->InsertNextValue(ptSize); // number-of-face-points.
-      for (vtkIdType ptIdx = 0; ptIdx < ptSize; ++ptIdx)
-      {
-        faces->InsertNextValue(ptIds[ptIdx]);
-      }
-
+      faces->InsertNextCell(ptSize, ptIds);
       // accumulate pts from all faces in this cell to build the 'connectivity' array.
       std::copy(ptIds, ptIds + ptSize, std::back_inserter(cellPoints));
     }
@@ -947,7 +937,7 @@ void SetPolyhedralCells(
   vtkNew<vtkUnsignedCharArray> cellTypes;
   cellTypes->SetNumberOfTuples(connectivity->GetNumberOfCells());
   cellTypes->FillValue(static_cast<unsigned char>(VTK_POLYHEDRON));
-  grid->SetCells(cellTypes, connectivity, faceLocations, faces);
+  grid->SetPolyhedralCells(cellTypes, connectivity, faceLocations, faces);
 }
 
 //----------------------------------------------------------------------------

@@ -16,12 +16,13 @@
 
 #include "vtkCommonCoreModule.h" // For export macro
 #include "vtkObject.h"
+#include "vtkWrappingHints.h" // For VTK_MARSHALAUTO
 
 VTK_ABI_NAMESPACE_BEGIN
 class vtkImageData;
 class vtkUnsignedCharArray;
 
-class VTKCOMMONCORE_EXPORT vtkWindow : public vtkObject
+class VTKCOMMONCORE_EXPORT VTK_MARSHALAUTO vtkWindow : public vtkObject
 {
 public:
   vtkTypeMacro(vtkWindow, vtkObject);
@@ -42,6 +43,8 @@ public:
   virtual void* GetGenericDrawable() { return nullptr; }
   virtual void SetWindowInfo(const char*) {}
   virtual void SetParentInfo(const char*) {}
+  virtual bool EnsureDisplay() { return true; }
+
   ///@}
 
   ///@{
@@ -101,6 +104,7 @@ public:
   /**
    * Show or not Show the window
    */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_IS_INTERNAL)
   vtkGetMacro(ShowWindow, bool);
   vtkSetMacro(ShowWindow, bool);
   vtkBooleanMacro(ShowWindow, bool);
@@ -112,6 +116,7 @@ public:
    * All four combinations of ShowWindow and UseOffScreenBuffers
    * should work for most rendering backends.
    */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_IS_INTERNAL)
   vtkSetMacro(UseOffScreenBuffers, bool);
   vtkGetMacro(UseOffScreenBuffers, bool);
   vtkBooleanMacro(UseOffScreenBuffers, bool);
@@ -156,6 +161,7 @@ public:
    * Ask each viewport owned by this Window to render its image and
    * synchronize this process.
    */
+  VTK_UNBLOCKTHREADS
   virtual void Render() {}
 
   /**
@@ -195,6 +201,7 @@ public:
    * Return a best estimate to the dots per inch of the display
    * device being rendered (or printed).
    */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_IS_INTERNAL)
   vtkGetMacro(DPI, int);
   vtkSetClampMacro(DPI, int, 1, VTK_INT_MAX);
   ///@}
@@ -211,6 +218,7 @@ public:
   /**
    * Convenience to set SHowWindow and UseOffScreenBuffers in one call
    */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_IS_INTERNAL)
   void SetOffScreenRendering(vtkTypeBool val)
   {
     this->SetShowWindow(val == 0);
@@ -223,6 +231,7 @@ public:
    * Deprecated, directly use GetShowWindow and GetOffScreenBuffers
    * instead.
    */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_IS_INTERNAL)
   vtkTypeBool GetOffScreenRendering() { return this->GetShowWindow() ? 0 : 1; }
 
   /**

@@ -30,12 +30,6 @@ bool vtkDGBoundsResponder::Query(
 
   auto* grid = cellType->GetCellGrid();
   std::string cellTypeName = cellType->GetClassName();
-  if (!grid->GetShapeAttribute())
-  {
-    vtkErrorMacro("Cells of type \"" << cellTypeName << "\" have no parent grid.");
-    return false;
-  }
-
   auto* shape = grid->GetShapeAttribute();
   if (!shape)
   {
@@ -44,10 +38,10 @@ bool vtkDGBoundsResponder::Query(
   }
 
   vtkStringToken cellTypeToken(cellTypeName);
-  auto shapeArrays = shape->GetArraysForCellType(cellTypeToken);
+  auto shapeArrays = shape->GetCellTypeInfo(cellTypeToken).ArraysByRole;
   auto* pts = vtkDataArray::SafeDownCast(shapeArrays["values"_token]);
-  auto* conn = vtkTypeInt64Array::SafeDownCast(shapeArrays["connectivity"_token]);
-  if (!pts || !conn)
+  auto* conn = vtkDataArray::SafeDownCast(shapeArrays["connectivity"_token]);
+  if (!pts || !conn || !conn->IsIntegral())
   {
     vtkErrorMacro("Shape for \"" << cellTypeName << "\" missing points or connectivity.");
     return false;
@@ -59,7 +53,7 @@ bool vtkDGBoundsResponder::Query(
   entry.resize(nc);
   for (vtkIdType ii = 0; ii < conn->GetNumberOfTuples(); ++ii)
   {
-    conn->GetTypedTuple(ii, entry.data());
+    conn->GetIntegerTuple(ii, entry.data());
     for (int jj = 0; jj < nc; ++jj)
     {
       pointIDs.insert(entry[jj]);
@@ -73,8 +67,10 @@ bool vtkDGBoundsResponder::Query(
 
     // Initialize the bounds:
     vtkBoundingBox bbox;
-    pts->GetTuple(
-      0, pcoord.data()); // TODO: Check isnan/isinf() on each component and iterate if true.
+    // TODO: Check isnan/isinf() on each component and iterate through points if true
+    //       until we find a valid point to serve as the infinitesimal starting bounds.
+    //       For now, just grab the first point:
+    pts->GetTuple(pointIDs.empty() ? 0 : *pointIDs.begin(), pcoord.data());
     bbox.SetMinPoint(pcoord.data());
     bbox.SetMaxPoint(pcoord.data());
 

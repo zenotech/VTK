@@ -1953,7 +1953,7 @@ void vtkImageResliceExecute(vtkImageReslice* self, vtkDataArray* scalars,
 {
   void (*convertpixels)(void*& out, const F* in, int numscalars, int n) = nullptr;
   void (*setpixels)(void*& out, const void* in, int numscalars, int n) = nullptr;
-  void (*composite)(F * in, int numscalars, int n) = nullptr;
+  void (*composite)(F* in, int numscalars, int n) = nullptr;
 
   // get the input stencil
   vtkImageStencilData* stencil = self->GetStencil();
@@ -2821,7 +2821,7 @@ void vtkReslicePermuteExecute(vtkImageReslice* self, vtkDataArray* scalars,
   vtkGetSetPixelsFunc(&setpixels, scalarType, outComponents);
 
   // get the slab compositing function
-  void (*composite)(F * op, const F* ip, int nc, int count, int i, int n) = nullptr;
+  void (*composite)(F* op, const F* ip, int nc, int count, int i, int n) = nullptr;
   vtkGetRowCompositeFunc(&composite, self->GetSlabMode(), self->GetSlabTrapezoidIntegration());
 
   // get temp float space for type conversion
@@ -3256,6 +3256,11 @@ void vtkImageReslice::ThreadedRequestData(vtkInformation* vtkNotUsed(request),
 
   // Get the input scalars
   vtkDataArray* scalars = inData[0][0]->GetPointData()->GetScalars();
+  if (!scalars)
+  {
+    // no data to reslice
+    return;
+  }
 
   // Get the output pointer
   void* outPtr = outData[0]->GetScalarPointerForExtent(outExt);

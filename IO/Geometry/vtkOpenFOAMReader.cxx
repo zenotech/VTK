@@ -1576,7 +1576,8 @@ public:
 
 protected:
   tokenType Type = tokenType::UNDEFINED;
-  union {
+  union
+  {
     char Char;
     vtkTypeInt64 Int;
     double Double;
@@ -1704,14 +1705,16 @@ public:
   float ToFloat() const noexcept
   {
     return this->Type == LABEL ? static_cast<float>(this->Int)
-                               : this->Type == SCALAR ? static_cast<float>(this->Double) : 0.0F;
+      : this->Type == SCALAR   ? static_cast<float>(this->Double)
+                               : 0.0F;
   }
 
   // Mostly the same as To<double>, with additional check
   double ToDouble() const noexcept
   {
     return this->Type == LABEL ? static_cast<double>(this->Int)
-                               : this->Type == SCALAR ? this->Double : 0.0;
+      : this->Type == SCALAR   ? this->Double
+                               : 0.0;
   }
 
   std::string ToString() const { return *this->StringPtr; }
@@ -7188,7 +7191,8 @@ void vtkOpenFOAMReaderPrivate::InsertCellsToGrid(
 {
   // Scratch arrays
   vtkFoamStackVector<vtkIdType, 256> cellPoints;  // For inserting primitive cell points
-  vtkFoamStackVector<vtkIdType, 1024> polyPoints; // For inserting polyhedral faces and sizes
+  vtkFoamStackVector<vtkIdType, 256> polyOffsets; // For inserting polyhedral faces offsets
+  vtkFoamStackVector<vtkIdType, 1024> polyPoints; // For inserting polyhedral faces
   vtkFoamLabelListList::CellType cellFaces;       // For analyzing cell types (shapes)
   vtkFoamLabelListList::CellType facePoints;      // For processing individual cell faces
 
@@ -7918,12 +7922,14 @@ void vtkOpenFOAMReaderPrivate::InsertCellsToGrid(
 
         cellPoints.copy_resize(0);
         polyPoints.copy_resize(0);
+        polyOffsets.copy_resize(0);
         cellPoints.copy_reserve(nPolyPoints / 3);
-        polyPoints.copy_reserve(nPolyPoints + cellFaces.size());
+        polyPoints.copy_reserve(nPolyPoints);
+        polyOffsets.copy_reserve(cellFaces.size() + 1);
 
         size_t nCellPoints = 0;
         nPolyPoints = 0; // Reset
-
+        polyOffsets[0] = 0;
         for (size_t facei = 0; facei < cellFaces.size(); ++facei)
         {
           const vtkTypeInt64 cellFacei = cellFaces[facei];
@@ -7935,8 +7941,8 @@ void vtkOpenFOAMReaderPrivate::InsertCellsToGrid(
 
           // Pass 1: add face points, and mark up duplicates on the way
 
-          polyPoints.copy_resize(nPolyPoints + nFacePoints + 1);
-          polyPoints[nPolyPoints++] = static_cast<vtkIdType>(nFacePoints);
+          polyPoints.copy_resize(nPolyPoints + nFacePoints);
+          polyOffsets[facei + 1] = polyOffsets[facei] + static_cast<vtkIdType>(nFacePoints);
 
           if (!nFacePoints)
           {
@@ -8000,10 +8006,16 @@ void vtkOpenFOAMReaderPrivate::InsertCellsToGrid(
             }
           }
         }
+        vtkNew<vtkIdTypeArray> offsets;
+        vtkNew<vtkIdTypeArray> connectivity;
+        vtkNew<vtkCellArray> faces;
+        offsets->SetArray(polyOffsets.data(), cellFaces.size() + 1, 1);
+        connectivity->SetArray(polyPoints.data(), nPolyPoints, 1);
+        faces->SetData(offsets, connectivity);
 
         // Create the poly cell and insert it into the mesh
-        internalMesh->InsertNextCell(VTK_POLYHEDRON, static_cast<vtkIdType>(nCellPoints),
-          cellPoints.data(), static_cast<vtkIdType>(cellFaces.size()), polyPoints.data());
+        internalMesh->InsertNextCell(
+          VTK_POLYHEDRON, static_cast<vtkIdType>(nCellPoints), cellPoints.data(), faces);
       }
     }
   }
@@ -8127,8 +8139,9 @@ void vtkOpenFOAMReaderPrivate::InsertFacesToGrid(vtkPolyData* boundaryMesh,
       }
     }
 
-    const int vtkFaceType =
-      (nFacePoints == 3 ? VTK_TRIANGLE : nFacePoints == 4 ? VTK_QUAD : VTK_POLYGON);
+    const int vtkFaceType = (nFacePoints == 3 ? VTK_TRIANGLE
+        : nFacePoints == 4                    ? VTK_QUAD
+                                              : VTK_POLYGON);
     bm.InsertNextCell(vtkFaceType, nFacePoints, facePointIds.data());
   }
 }
@@ -8155,6 +8168,7 @@ vtkMultiBlockDataSet* vtkOpenFOAMReaderPrivate::MakeBoundaryMesh(
   if (this->Parent->GetCreateCellToPoint())
   {
     this->AllBoundaries = vtkPolyData::New();
+    this->AllBoundaries->EditableOn();
     this->AllBoundaries->AllocateEstimate(
       // ==> nBoundaryFaces
       meshFaces.GetNumberOfElements() - patches.startFace(), 1);
@@ -8566,19 +8580,21 @@ void vtkOpenFOAMReaderPrivate::InterpolateCellToPoint(vtkFloatArray* pData, vtkF
       auto area = vtk::DataArrayValueRange<1>(cData->GetArray("Area"));
       auto volume = vtk::DataArrayValueRange<1>(cData->GetArray("Volume"));
       auto reduce = vtk::DataArrayValueRange<1>(buffer);
-      vtkSMPTools::For(0, mesh->GetNumberOfCells(), [&](vtkIdType first, vtkIdType last) {
-        auto volIt = volume.begin() + first;
-        auto areaIt = area.begin() + first;
-        auto lenIt = length.begin() + first;
-        auto vcIt = vc.begin() + first;
-        for (auto it = reduce.begin() + first; it != reduce.begin() + last;
-             ++it, ++volIt, ++areaIt, ++lenIt, ++vcIt)
+      vtkSMPTools::For(0, mesh->GetNumberOfCells(),
+        [&](vtkIdType first, vtkIdType last)
         {
-          *it = (*volIt > 0
-              ? *volIt
-              : (*areaIt > 0 ? *areaIt : (*lenIt > 0 ? *lenIt : (*vcIt > 0 ? *vcIt : -1.0))));
-        }
-      });
+          auto volIt = volume.begin() + first;
+          auto areaIt = area.begin() + first;
+          auto lenIt = length.begin() + first;
+          auto vcIt = vc.begin() + first;
+          for (auto it = reduce.begin() + first; it != reduce.begin() + last;
+               ++it, ++volIt, ++areaIt, ++lenIt, ++vcIt)
+          {
+            *it = (*volIt > 0
+                ? *volIt
+                : (*areaIt > 0 ? *areaIt : (*lenIt > 0 ? *lenIt : (*vcIt > 0 ? *vcIt : -1.0))));
+          }
+        });
       // this sanity check is necessary since the cell size filter does not yet seem able to support
       // all cell types. In certain configurations, all measures are 0
       bool sanityCheckWeights = true;
@@ -11743,28 +11759,6 @@ void vtkOpenFOAMReader::UpdateProgress(double amount)
   this->vtkAlgorithm::UpdateProgress(
     (static_cast<double>(this->Parent->CurrentReaderIndex) + amount) /
     static_cast<double>(this->Parent->NumberOfReaders));
-}
-
-//------------------------------------------------------------------------------
-// Like using the set macro, but with deprecation / disabled warning
-void vtkOpenFOAMReader::SetDecomposePolyhedra(vtkTypeBool _arg)
-{
-#if defined(VTK_FOAMFILE_DECOMPOSE_POLYHEDRA) && VTK_FOAMFILE_DECOMPOSE_POLYHEDRA
-  if (this->DecomposePolyhedra != _arg)
-  {
-    this->DecomposePolyhedra = _arg;
-    this->Modified();
-    if (_arg)
-    {
-      vtkWarningMacro(<< "Decompose polyhedra is highly deprecated. Will be removed in the future");
-    }
-  }
-#else
-  if (_arg)
-  {
-    vtkWarningMacro(<< "Decompose polyhedra is compile-time disabled");
-  }
-#endif
 }
 
 VTK_ABI_NAMESPACE_END

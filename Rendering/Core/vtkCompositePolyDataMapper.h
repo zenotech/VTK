@@ -21,6 +21,7 @@
 #include "vtkDeprecation.h"         // for VTK_DEPRECATED_IN_9_3_0
 #include "vtkRenderingCoreModule.h" // for export macro
 #include "vtkStateStorage.h"        // for ivar
+#include "vtkWrappingHints.h"       // For VTK_MARSHALAUTO
 
 #include <array>  // for ColorResult. Remove when double* GetBlockColor gets removed.
 #include <memory> // for unique_ptr
@@ -36,7 +37,7 @@ class vtkInformation;
 class vtkPolyData;
 class vtkRenderer;
 
-class VTKRENDERINGCORE_EXPORT vtkCompositePolyDataMapper : public vtkPolyDataMapper
+class VTKRENDERINGCORE_EXPORT VTK_MARSHALAUTO vtkCompositePolyDataMapper : public vtkPolyDataMapper
 {
 public:
   static vtkCompositePolyDataMapper* New();
@@ -253,6 +254,7 @@ public:
    * If this class should override the process id using a data-array,
    * set this variable to the name of the array to use. It must be a
    * point-array.
+   * The array's DataType *MUST* be VTK_UNSIGNED_INT.
    */
   vtkSetStringMacro(ProcessIdArrayName);
   vtkGetStringMacro(ProcessIdArrayName);
@@ -266,7 +268,8 @@ public:
    * to provide a cell array that can be used to render in the composite id in
    * selection passes. Set to NULL (default) to not override the composite id
    * color set by vtkCompositePainter if any.
-   * The array *MUST* be a cell array and of type vtkUnsignedIntArray.
+   * The array *MUST* be a cell array.
+   * The array's DataType *MUST* be VTK_UNSIGNED_INT.
    */
   vtkSetStringMacro(CompositeIdArrayName);
   vtkGetStringMacro(CompositeIdArrayName);

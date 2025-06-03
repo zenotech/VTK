@@ -9,11 +9,16 @@
 #include "vtkProperty.h"
 #include "vtkTexture.h"
 #include "vtkTransform.h"
+#include "vtkWebGPUComputePointCloudMapper.h"
 #include "vtkWebGPURenderWindow.h"
 #include "vtkWebGPURenderer.h"
 #include "vtkWindow.h"
 
 #include <algorithm>
+
+#if defined(__EMSCRIPTEN__)
+#include "emscripten/version.h"
+#endif
 
 VTK_ABI_NAMESPACE_BEGIN
 
@@ -79,8 +84,9 @@ wgpu::RenderBundle vtkWebGPUActor::RenderToBundle(vtkRenderer* ren, vtkMapper* m
     const int sampleCount = wgpuRenWin->GetMultiSamples() ? wgpuRenWin->GetMultiSamples() : 1;
 
     wgpu::RenderBundleEncoderDescriptor bundleEncDesc;
-#if __EMSCRIPTEN__
-    // FIXME: Update this after emscripten webgpu updates to colorFormatCount
+#if defined(__EMSCRIPTEN__) &&                                                                     \
+  ((__EMSCRIPTEN_major__ < 3) || ((__EMSCRIPTEN_major__ <= 3) && (__EMSCRIPTEN_minor__ < 1)) ||    \
+    ((__EMSCRIPTEN_major__ <= 3) && (__EMSCRIPTEN_minor__ <= 1) && (__EMSCRIPTEN_tiny__ < 54)))
     bundleEncDesc.colorFormatsCount = 1;
 #else
     bundleEncDesc.colorFormatCount = 1;
@@ -112,6 +118,21 @@ wgpu::RenderBundle vtkWebGPUActor::RenderToBundle(vtkRenderer* ren, vtkMapper* m
   auto bundle = this->CurrentBundler.Finish();
   this->CurrentBundler = nullptr;
   return bundle;
+}
+
+//------------------------------------------------------------------------------
+bool vtkWebGPUActor::SupportRenderBundles()
+{
+  vtkWebGPUComputePointCloudMapper* pointCloudMapper =
+    vtkWebGPUComputePointCloudMapper::SafeDownCast(this->GetMapper());
+  if (pointCloudMapper != nullptr)
+  {
+    // This actor is using the point cloud mapper which doesn't support render bundles.
+    return false;
+  }
+
+  // Assuming that any other mapper supports render bundles
+  return true;
 }
 
 //------------------------------------------------------------------------------

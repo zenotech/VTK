@@ -25,11 +25,10 @@
 #ifndef vtkDisplaySizedImplicitPlaneRepresentation_h
 #define vtkDisplaySizedImplicitPlaneRepresentation_h
 
-#include "vtkDeprecation.h"              // For VTK_DEPRECATED_IN_9_3_0
 #include "vtkInteractionWidgetsModule.h" // For export macro
-#include "vtkLegacy.h"                   // for VTK_LEGACY_REMOVE
 #include "vtkNew.h"                      // For vtkNew command
 #include "vtkWidgetRepresentation.h"
+#include "vtkWrappingHints.h" // For VTK_MARSHALAUTO
 
 VTK_ABI_NAMESPACE_BEGIN
 class vtkActor;
@@ -53,7 +52,7 @@ class vtkSphereSource;
 class vtkTransform;
 class vtkTubeFilter;
 
-class VTKINTERACTIONWIDGETS_EXPORT vtkDisplaySizedImplicitPlaneRepresentation
+class VTKINTERACTIONWIDGETS_EXPORT VTK_MARSHALAUTO vtkDisplaySizedImplicitPlaneRepresentation
   : public vtkWidgetRepresentation
 {
 public:
@@ -264,6 +263,7 @@ public:
    * vtkImplicitFunction, meaning that it can be used by a variety of filters
    * to perform clipping, cutting, and selection of data.
    */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_IS_INTERNAL)
   void GetPlane(vtkPlane* plane);
 
   /**
@@ -271,6 +271,7 @@ public:
    * the plane provided is copied into the internal instance of the class
    * cutting vtkPlane.
    */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_IS_INTERNAL)
   void SetPlane(vtkPlane* plane);
 
   /**
@@ -453,10 +454,6 @@ public:
     ResizeDiskRadius,
     Scaling
   };
-#if !defined(VTK_LEGACY_REMOVE)
-  VTK_DEPRECATED_IN_9_2_0("because leading underscore is reserved")
-  typedef InteractionStateType _InteractionState;
-#endif
 
   ///@{
   /**

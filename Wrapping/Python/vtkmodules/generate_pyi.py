@@ -35,7 +35,8 @@ To generate pyi files for your own modules in your own package:
 
 """
 
-from vtkmodules.vtkCommonCore import vtkObject, vtkSOADataArrayTemplate
+from vtkmodules.vtkCommonCore import vtkObjectBase, vtkSOADataArrayTemplate
+from keyword import iskeyword
 
 import sys
 import os
@@ -62,7 +63,7 @@ ismethod = inspect.isroutine
 isclass = inspect.isclass
 
 # VTK methods have a special type
-vtkmethod = type(vtkObject.IsA)
+vtkmethod = type(vtkObjectBase.IsA)
 template = type(vtkSOADataArrayTemplate)
 
 def isvtkmethod(m):
@@ -341,9 +342,9 @@ def get_constructors(c):
         if signature.startswith("def " + name + "("):
             signature = re.sub("-> \'?" + name + "\'?", "-> None", signature)
             if signature.startswith("def " + name + "()"):
-                constructors.append(re.sub(name + r"\(", "__init__(self", signature, 1))
+                constructors.append(re.sub(name + r"\(", "__init__(self", signature, count=1))
             else:
-                constructors.append(re.sub(name + r"\(", "__init__(self, ", signature, 1))
+                constructors.append(re.sub(name + r"\(", "__init__(self, ", signature, count=1))
     return constructors
 
 def handle_static(o, signature):
@@ -419,7 +420,7 @@ def class_pyi(c):
     items = others
     others = []
     for m,o in items:
-        if not m.startswith("__") and not ismethod(o) and not isclass(o):
+        if not m.startswith("__") and not ismethod(o) and not isclass(o) and not iskeyword(m):
             out += "    " + m + ":" + typename_forward(o) + "\n"
             count += 1
         else:
@@ -428,10 +429,9 @@ def class_pyi(c):
     # do the __init__ methods
     constructors = get_constructors(c)
     if len(constructors) == 0:
-        #if hasattr(c, "__init__") and not issubclass(c, int):
-        #    out += "    def __init__() -> None: ...\n"
-        #    count += 1
-        pass
+        if hasattr(c, "__init__") and issubclass(c, vtkObjectBase):
+            out += "    def __init__(self, **properties:Any) -> None: ...\n"
+            count += 1
     else:
         count += 1
         if len(constructors) == 1:

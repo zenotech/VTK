@@ -1,17 +1,5 @@
-/*=========================================================================
-
-  Program:   Visualization Toolkit
-  Module:    vtkXWebGPURenderWindow.h
-
-  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
-  All rights reserved.
-  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
-
-  This software is distributed WITHOUT ANY WARRANTY; without even
-  the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-  PURPOSE.  See the above copyright notice for more information.
-
-=========================================================================*/
+// SPDX-FileCopyrightText: Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+// SPDX-License-Identifier: BSD-3-Clause
 /**
  * @class vtkXWebGPURenderWindow
  * @brief WebGPU rendering window for the X Window system
@@ -63,7 +51,7 @@ public:
    * should be possible to call them multiple times, even changing WindowId
    * in-between.  This is what WindowRemap does.
    */
-  bool Initialize() override;
+  bool WindowSetup() override;
 
   /**
    * "Deinitialize" the rendering window.  This will shutdown all system-specific
@@ -149,6 +137,11 @@ public:
    * Get this RenderWindow's X display id.
    */
   Display* GetDisplayId();
+
+  /**
+   * Ensure RenderWindow's X display is opened
+   */
+  bool EnsureDisplay() override;
 
   ///@{
   /**

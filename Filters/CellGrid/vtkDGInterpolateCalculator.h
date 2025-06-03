@@ -8,7 +8,11 @@
 #ifndef vtkDGInterpolateCalculator_h
 #define vtkDGInterpolateCalculator_h
 
-#include "vtkDGCell.h" // For ivar.
+#include "vtkCellAttribute.h"         // For CellTypeInfo.
+#include "vtkDGArrayOutputAccessor.h" // For ivars.
+#include "vtkDGArraysInputAccessor.h" // For ivars.
+#include "vtkDGCell.h"                // For ivar.
+#include "vtkDGOperation.h"           // For ivars.
 #include "vtkInterpolateCalculator.h"
 #include "vtkSmartPointer.h" // For ivar.
 #include "vtkStringToken.h"  // For ivar.
@@ -16,6 +20,7 @@
 VTK_ABI_NAMESPACE_BEGIN
 
 class vtkCellAttribute;
+class vtkDGRangeResponder;
 class vtkDataArray;
 class vtkTypeInt64Array;
 
@@ -30,42 +35,56 @@ public:
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
   void Evaluate(vtkIdType cellId, const vtkVector3d& rst, std::vector<double>& value) override;
+  void Evaluate(vtkIdTypeArray* cellIds, vtkDataArray* rst, vtkDataArray* result) override;
+
   bool AnalyticDerivative() const override;
   void EvaluateDerivative(vtkIdType cellId, const vtkVector3d& rst, std::vector<double>& jacobian,
     double neighborhood) override;
-
-protected:
-  vtkDGInterpolateCalculator() = default;
-  ~vtkDGInterpolateCalculator() override = default;
+  void EvaluateDerivative(
+    vtkIdTypeArray* cellIds, vtkDataArray* rst, vtkDataArray* result) override;
 
   vtkSmartPointer<vtkCellAttributeCalculator> PrepareForGrid(
     vtkCellMetadata* cell, vtkCellAttribute* field) override;
+
+protected:
+  friend class vtkDGRangeResponder;
+  vtkDGInterpolateCalculator() = default;
+  ~vtkDGInterpolateCalculator() override = default;
 
   template <bool UseShape>
   void InternalDerivative(
     vtkIdType cellId, const vtkVector3d& rst, std::vector<double>& jacobian, double neighborhood);
 
-  /// Array pointers populated by PrepareForGrid.
+  /// The cell-type for which interpolation will be performed.
   ///
-  /// These arrays are used to look up values used to interpolate within cells.
-  vtkSmartPointer<vtkTypeInt64Array> FieldConnectivity;
-  vtkSmartPointer<vtkDataArray> FieldValues;
-  vtkSmartPointer<vtkTypeInt64Array> ShapeConnectivity;
-  vtkSmartPointer<vtkDataArray> ShapeValues;
+  /// This is set by PrepareForGrid().
+  vtkDGCell* CellType{ nullptr };
+  /// The cell-attribute for which interpolation will be performed.
+  ///
+  /// This is set by PrepareForGrid().
+  vtkCellAttribute* Field{ nullptr };
 
-  /// The number of components in the field
-  int NumberOfComponents{ 0 };
-  /// The number of basis functions for the current cell-type's shape
-  int NumberOfBasisFunctions{ 0 };
+  /// Used to compute a field value for a cell.
+  vtkDGOperation<vtkDGArraysInputAccessor, vtkDGArrayOutputAccessor> FieldEvaluator;
+  /// Used to compute a field derivative for a cell.
+  vtkDGOperation<vtkDGArraysInputAccessor, vtkDGArrayOutputAccessor> FieldDerivative;
+
+  /// Used when an array passed to Evaluate()/EvaluateDerivative() is not a double-array.
+  ///
+  /// The basis operators only process doubles (on the CPU).
+  /// If needed, we copy the parameter and/or output arrays to/from a "local"
+  /// double-valued array into what was passed.
+  vtkNew<vtkDoubleArray> LocalField;
+
   /// The parametric dimension of the current cell-type.
   int Dimension{ 3 };
   /// The shape of the current cell type.
   vtkDGCell::Shape CellShape{ vtkDGCell::Shape::None };
 
-  /// The function space of the target field.
+  /// The function space, basis, etc. of the target field.
   ///
   /// This is populated by PrepareForGrid.
-  vtkStringToken FunctionSpace;
+  vtkCellAttribute::CellTypeInfo FieldCellInfo;
 
 private:
   vtkDGInterpolateCalculator(const vtkDGInterpolateCalculator&) = delete;

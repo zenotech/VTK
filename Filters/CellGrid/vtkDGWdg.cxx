@@ -33,6 +33,8 @@ const std::array<int, vtkDGWdg::Dimension + 3> vtkDGWdg::SideOffsets{ { 0, 1, 4,
 const std::array<vtkDGCell::Shape, vtkDGWdg::Dimension + 3> vtkDGWdg::SideShapes{ { Shape::Wedge,
   Shape::Quadrilateral, Shape::Triangle, Shape::Edge, Shape::Vertex, Shape::None } };
 
+const std::array<int, vtkDGWdg::Dimension + 1> vtkDGWdg::SidesOfDimension{ { 1, 6, 9, 5 } };
+
 // WARNING: The order of sides **must** match the IOSS (Exodus) side order or side sets
 //   from Exodus files will not be rendered properly. Note that this order **coincidentally**
 //   matches the Intrepid face ordering for HDiv face-coefficients but does **not** match
@@ -63,7 +65,17 @@ const std::array<std::vector<vtkIdType>, 21> vtkDGWdg::Sides{ {
   { 5 }                 // vertex 5
 } };
 
-vtkDGWdg::vtkDGWdg() = default;
+/// SidesOfSides is generated from Sides by TestCellGridSideInfo.
+const std::array<std::vector<vtkIdType>, 21> vtkDGWdg::SidesOfSides{ { { 0, 1, 2, 3, 4 },
+  { 5, 9, 11, 8 }, { 6, 10, 12, 9 }, { 8, 13, 10, 7 }, { 7, 6, 5 }, { 11, 12, 13 }, { 14, 15 },
+  { 15, 16 }, { 14, 16 }, { 14, 17 }, { 15, 18 }, { 16, 19 }, { 17, 18 }, { 18, 19 }, { 19, 17 },
+  {}, {}, {}, {}, {}, {} } };
+
+vtkDGWdg::vtkDGWdg()
+{
+  this->CellSpec.SourceShape = this->GetShape();
+}
+
 vtkDGWdg::~vtkDGWdg() = default;
 
 void vtkDGWdg::PrintSelf(ostream& os, vtkIndent indent)
@@ -112,11 +124,11 @@ std::pair<int, int> vtkDGWdg::GetSideRangeForType(int sideType) const
 
 int vtkDGWdg::GetNumberOfSidesOfDimension(int dimension) const
 {
-  if (dimension < 0 || dimension >= this->Dimension)
+  if (dimension < -1 || dimension >= this->Dimension)
   {
     return 0;
   }
-  return this->SideOffsets[Dimension - dimension + 1] - this->SideOffsets[Dimension - dimension];
+  return vtkDGWdg::SidesOfDimension[dimension + 1];
 }
 
 const std::vector<vtkIdType>& vtkDGWdg::GetSideConnectivity(int side) const
@@ -127,6 +139,16 @@ const std::vector<vtkIdType>& vtkDGWdg::GetSideConnectivity(int side) const
     return dummy;
   }
   return this->Sides[side + 1];
+}
+
+const std::vector<vtkIdType>& vtkDGWdg::GetSidesOfSide(int side) const
+{
+  if (side < -1 || side >= 21)
+  {
+    static std::vector<vtkIdType> dummy;
+    return dummy;
+  }
+  return this->SidesOfSides[side + 1];
 }
 
 vtkTypeFloat32Array* vtkDGWdg::GetReferencePoints() const

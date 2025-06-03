@@ -46,15 +46,20 @@
         - if: '$CI_PROJECT_PATH == "vtk/vtk"'
           changes: *code_change
           when: delayed
-          start_in: 30 minutes
+          start_in: 4 hours
         - when: never
 
 .merged_only:
     rules:
         - if: '$CI_MERGE_REQUEST_ID'
           when: never
-        - if: '$CI_PROJECT_PATH == "vtk/vtk"'
+        - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_PROJECT_PATH == "vtk/vtk"'
+          changes: *code_change
           when: on_success
+        - if: '$CI_PROJECT_PATH == "vtk/vtk"'
+          changes: *code_change
+          when: delayed
+          start_in: 4 hours
         - when: never
 
 .release_only:

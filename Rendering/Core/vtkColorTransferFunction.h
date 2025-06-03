@@ -17,6 +17,8 @@
  * See the description of class vtkPiecewiseFunction for an explanation of
  * midpoint and sharpness.
  *
+ * Note that transparency (alpha) is only supported in NanColorRGBA feature.
+ *
  * @sa
  * vtkPiecewiseFunction
  */
@@ -26,6 +28,7 @@
 
 #include "vtkRenderingCoreModule.h" // For export macro
 #include "vtkScalarsToColors.h"
+#include "vtkWrappingHints.h" // For VTK_MARSHALMANUAL
 
 VTK_ABI_NAMESPACE_BEGIN
 class vtkColorTransferFunctionInternals;
@@ -41,7 +44,7 @@ class vtkDoubleArray;
 #define VTK_CTF_LINEAR 0
 #define VTK_CTF_LOG10 1
 
-class VTKRENDERINGCORE_EXPORT vtkColorTransferFunction : public vtkScalarsToColors
+class VTKRENDERINGCORE_EXPORT VTK_MARSHALMANUAL vtkColorTransferFunction : public vtkScalarsToColors
 {
 public:
   static vtkColorTransferFunction* New();
@@ -428,12 +431,14 @@ protected:
    */
   int TableSize;
 
+  ///@{
   /**
    * Set the range of scalars being mapped. This method has no functionality
    * in this subclass of vtkScalarsToColors.
    */
   void SetRange(double, double) override {}
   void SetRange(const double rng[2]) override { this->SetRange(rng[0], rng[1]); }
+  ///@}
 
   /**
    * Internal method to sort the vector and update the

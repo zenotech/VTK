@@ -18,6 +18,7 @@
 #include "vtkHardwareSelector.h"         // For ivar
 #include "vtkOpenGLShaderDeclaration.h"  // For ivar
 #include "vtkRenderingOpenGL2Module.h"   // For export macro
+#include "vtkWrappingHints.h"            // For VTK_MARSHALAUTO
 
 #include <array>   // for array
 #include <set>     // for set
@@ -31,7 +32,7 @@ class vtkOpenGLLowMemoryVerticesAgent;
 class vtkOpenGLLowMemoryLinesAgent;
 class vtkOpenGLLowMemoryPolygonsAgent;
 
-class VTKRENDERINGOPENGL2_EXPORT vtkOpenGLLowMemoryPolyDataMapper
+class VTKRENDERINGOPENGL2_EXPORT VTK_MARSHALAUTO vtkOpenGLLowMemoryPolyDataMapper
   : public vtkPolyDataMapper
 #ifndef __VTK_WRAP__
   , public vtkDrawTexturedElements
@@ -63,7 +64,9 @@ public:
   /// Release any graphics resources associated with the \a window.
   void ReleaseGraphicsResources(vtkWindow*) override;
 
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_IS_INTERNAL)
   vtkGetMacro(PopulateSelectionSettings, bool);
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_IS_INTERNAL)
   void SetPopulateSelectionSettings(bool v) { this->PopulateSelectionSettings = v; }
   void SetVBOShiftScaleMethod(int method) override;
 
@@ -93,6 +96,7 @@ public:
    * If this class should override the process id using a data-array,
    * set this variable to the name of the array to use. It must be a
    * point-array.
+   * The array's DataType *MUST* be VTK_UNSIGNED_INT.
    */
   vtkSetStdStringFromCharMacro(ProcessIdArrayName);
   vtkGetCharFromStdStringMacro(ProcessIdArrayName);
@@ -106,7 +110,8 @@ public:
    * to provide a cell array that can be used to render in the composite id in
    * selection passes. Set to NULL (default) to not override the composite id
    * color set by vtkCompositePainter if any.
-   * The array *MUST* be a cell array and of type vtkUnsignedIntArray.
+   * The array *MUST* be a cell array.
+   * The array's DataType *MUST* be VTK_UNSIGNED_INT.
    */
   vtkSetStdStringFromCharMacro(CompositeIdArrayName);
   vtkGetCharFromStdStringMacro(CompositeIdArrayName);

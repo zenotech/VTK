@@ -4,7 +4,7 @@
 #define vtkOpenGLError_h
 
 #include "vtkSetGet.h"
-#include "vtk_glew.h"
+#include "vtk_glad.h"
 #include <sstream>
 
 #ifndef NDEBUG
@@ -74,9 +74,7 @@ const char *vtkOpenGLStrError(unsigned int code)
       return "Stack overflow";
     case GL_STACK_UNDERFLOW:
       return "Stack underflow";
-    case GL_TABLE_TOO_LARGE:
-      return "Table too large";
-    case GL_INVALID_FRAMEBUFFER_OPERATION_EXT:
+    case GL_INVALID_FRAMEBUFFER_OPERATION:
       return "Invalid framebuffer operation";
 #endif
   }
@@ -239,6 +237,7 @@ void vtkClearOpenGLErrors(const unsigned int maxErrors = 16)
 # define vtkOpenGLClearErrorMacro() vtkClearOpenGLErrors(16);
 # include <sstream> // for error macro
 # define vtkOpenGLCheckErrorMacroImpl(ostr, message) \
+do                                                   \
 {                                                    \
   const int maxErrors = 16;                          \
   unsigned int errCode[maxErrors] = {0};             \
@@ -251,7 +250,7 @@ void vtkClearOpenGLErrors(const unsigned int maxErrors = 16)
         errDesc);                                    \
                                                      \
   if (numErrors)                                     \
-  {                                                \
+  {                                                  \
     std::ostringstream oss;                          \
     vtkPrintOpenGLErrors(                            \
           oss,                                       \
@@ -261,8 +260,8 @@ void vtkClearOpenGLErrors(const unsigned int maxErrors = 16)
           errDesc);                                  \
                                                      \
     ostr(<< message << " " << oss.str());            \
-  }                                                \
-}
+  }                                                  \
+} while(false)
 # define vtkOpenGLCheckErrorMacro(message) \
   vtkOpenGLCheckErrorMacroImpl(vtkErrorMacro, message)
 # define vtkOpenGLStaticCheckErrorMacro(message) \

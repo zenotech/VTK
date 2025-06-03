@@ -82,6 +82,7 @@
 
 #include "vtkInteractorObserver.h"
 #include "vtkRenderingCoreModule.h" // For export macro
+#include "vtkWrappingHints.h"       // For VTK_MARSHALAUTO
 
 // Motion flags
 
@@ -127,7 +128,7 @@ class vtkProp;
 class vtkStringArray;
 class vtkTDxInteractorStyle;
 
-class VTKRENDERINGCORE_EXPORT vtkInteractorStyle : public vtkInteractorObserver
+class VTKRENDERINGCORE_EXPORT VTK_MARSHALAUTO vtkInteractorStyle : public vtkInteractorObserver
 {
 public:
   /**
@@ -144,6 +145,7 @@ public:
    * Set/Get the Interactor wrapper being controlled by this object.
    * (Satisfy superclass API.)
    */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_IS_REDUNDANT)
   void SetInteractor(vtkRenderWindowInteractor* interactor) override;
 
   /**
@@ -153,6 +155,7 @@ public:
    * themselves. This is a legacy requirement, and convenient for the
    * user.
    */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_IS_REDUNDANT)
   void SetEnabled(int) override;
 
   ///@{
@@ -407,7 +410,9 @@ public:
    * 3Dconnexion device interactor style. Initial value is a pointer to an
    * object of class vtkTdxInteractorStyleCamera.
    */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_IS_INTERNAL)
   vtkGetObjectMacro(TDxStyle, vtkTDxInteractorStyle);
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_IS_INTERNAL)
   virtual void SetTDxStyle(vtkTDxInteractorStyle* tdxStyle);
   ///@}
 

@@ -545,6 +545,7 @@ void vtkCCSMakePolysFromLines(vtkPolyData* data, vtkIdType firstLine, vtkIdType 
   vtkCCSBitArray usedLines;
 
   // Require cell links to get lines from pointIds
+  data->EditableOn();
   data->BuildLinks(data->GetPoints()->GetNumberOfPoints());
 
   size_t numNewPolys = 0;
@@ -2465,7 +2466,7 @@ int vtkCCSCutHoleyPolys(std::vector<vtkCCSPoly>& polys, vtkPoints* points,
 
 // If this is defined, then the outlines of any failed polygons will be
 // added to "data".  It is only meant as a debugging tool.
-//#define VTK_CCS_SHOW_FAILED_POLYS
+// #define VTK_CCS_SHOW_FAILED_POLYS
 
 int vtkContourTriangulator::TriangulateContours(vtkPolyData* data, vtkIdType firstLine,
   vtkIdType numLines, vtkCellArray* polys, const double normal[3], vtkPolyDataAlgorithm* self)

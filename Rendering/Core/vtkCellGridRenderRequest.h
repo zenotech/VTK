@@ -64,7 +64,7 @@ public:
 
   vtkTypeMacro(vtkCellGridRenderRequest, vtkCellGridQuery);
   static vtkCellGridRenderRequest* New();
-  void PrintSelf(std::ostream& os, vtkIndent indent) override;
+  void PrintSelf(ostream& os, vtkIndent indent) override;
 
   /// Set/get the mapper which owns this request (so responders can inspect its configuration).
   ///
@@ -109,9 +109,9 @@ public:
   vtkSetClampMacro(ShapesToDraw, char, 1, 9);
 
   /// This is invoked before processing any cell types during a render.
-  void Initialize() override;
+  bool Initialize() override;
   /// This is invoked after processing all cell types during a render.
-  void Finalize() override;
+  bool Finalize() override;
 
   /**
    * Set/get whether the request should render (false) or release resources (true).

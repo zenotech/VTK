@@ -280,7 +280,7 @@ struct SurfaceNets
   void GeneratePoint(vtkIdType ptId, vtkIdType i, vtkIdType j)
   {
     float* x = this->NewPts + 3 * ptId;
-    x[0] = this->Min0 + static_cast<float>(i) - 0.5,
+    x[0] = this->Min0 + static_cast<float>(i) - 0.5;
     x[1] = this->Min1 + static_cast<float>(j) - 0.5;
     x[2] = this->K;
   }
@@ -740,18 +740,22 @@ void SurfaceNets<T>::ConfigureOutput(
   // (i.e., row interleaving is performed).
   vtkIdType numRows = this->DyadDims[1];
   vtkIdType numRowPairs = (numRows - 1) / 2 + 1;
-  vtkSMPTools::For(0, numRowPairs, [this](vtkIdType rowPair, vtkIdType endRowPair) {
-    for (; rowPair < endRowPair; ++rowPair)
+  vtkSMPTools::For(0, numRowPairs,
+    [this](vtkIdType rowPair, vtkIdType endRowPair)
     {
-      this->ProduceSquareCases(rowPair, false); // even rows
-    }
-  });
-  vtkSMPTools::For(0, numRowPairs, [this](vtkIdType rowPair, vtkIdType endRowPair) {
-    for (; rowPair < endRowPair; ++rowPair)
+      for (; rowPair < endRowPair; ++rowPair)
+      {
+        this->ProduceSquareCases(rowPair, false); // even rows
+      }
+    });
+  vtkSMPTools::For(0, numRowPairs,
+    [this](vtkIdType rowPair, vtkIdType endRowPair)
     {
-      this->ProduceSquareCases(rowPair, true); // odd rows
-    }
-  });
+      for (; rowPair < endRowPair; ++rowPair)
+      {
+        this->ProduceSquareCases(rowPair, true); // odd rows
+      }
+    });
 
   // Begin prefix sum to determine the point, line, and stencil number
   // offsets for each row.

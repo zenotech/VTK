@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
 // SPDX-License-Identifier: BSD-3-Clause
 
+// Hide VTK_DEPRECATED_IN_9_4_0() warnings for this class.
+#define VTK_DEPRECATION_LEVEL 0
+
 #include "vtkSDL2WebGPURenderWindow.h"
 #include "vtkCollection.h"
 #include "vtkObjectFactory.h"
@@ -79,7 +82,15 @@ void vtkSDL2WebGPURenderWindow::PrintSelf(ostream& os, vtkIndent indent)
 //------------------------------------------------------------------------------------------------
 std::string vtkSDL2WebGPURenderWindow::MakeDefaultWindowNameWithBackend()
 {
-  return std::string("Visualization Toolkit - ") + "SDL2 " + this->GetBackendTypeAsString();
+  if (this->WGPUConfiguration)
+  {
+    return std::string("Visualization Toolkit - ") + "SDL2 " +
+      this->WGPUConfiguration->GetBackendInUseAsString();
+  }
+  else
+  {
+    return "Visualization Toolkit - SDL2 undefined backend";
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -109,7 +120,7 @@ bool vtkSDL2WebGPURenderWindow::Initialize()
 //------------------------------------------------------------------------------
 void vtkSDL2WebGPURenderWindow::Finalize()
 {
-  if (this->WGPUInitialized)
+  if (this->Initialized)
   {
     this->WGPUFinalize();
   }

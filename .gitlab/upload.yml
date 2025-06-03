@@ -1,7 +1,7 @@
 # Steps for uploading artifacts
 
 .rsync_upload:
-    image: "fedora:34"
+    image: "fedora:37"
     stage: upload
     tags:
         - docker
@@ -13,7 +13,7 @@
         - dnf install -y --setopt=install_weak_deps=False rsync openssh-clients
         - chmod 400 $RSYNC_KEY_PATH
         - ssh-keygen -y -f $RSYNC_KEY_PATH > $RSYNC_KEY_PATH.pub
-        - rsync -tv --recursive -e "ssh -i $RSYNC_KEY_PATH -o StrictHostKeyChecking=no" $RSYNC_SOURCE kitware@web.kitware.com:$RSYNC_DESTINATION/
+        - rsync -tv $RSYNC_DELETE_ARG --recursive -e "ssh -i $RSYNC_KEY_PATH -o StrictHostKeyChecking=no" $RSYNC_SOURCE kitware@web.kitware.com:$RSYNC_DESTINATION/
 
 .rsync_upload_docs:
     extends: .rsync_upload
@@ -21,6 +21,9 @@
         name: rsync-upload-docs
     variables:
         RSYNC_KEY_PATH: $RSYNC_DOCS_KEY
+        RSYNC_DELETE_ARG: --delete
+
+    interruptible: false
 
 .rsync_upload_wheel_sdk:
     extends: .rsync_upload
@@ -39,7 +42,7 @@
         RSYNC_KEY_PATH: $RSYNC_RELEASE_KEY
 
 .pypi_upload:
-    image: "fedora:34"
+    image: "fedora:37"
     stage: upload
     tags:
         - docker
@@ -55,7 +58,7 @@
         - twine upload -u __token__ -p $PYPI_UPLOAD_TOKEN dist/*
 
 .pypi_vtk_upload:
-    image: "fedora:34"
+    image: "fedora:37"
     stage: upload
     tags:
         - docker
@@ -67,3 +70,21 @@
         - ls dist
         - dnf install -y --setopt=install_weak_deps=False twine
         - twine upload -u gitlab-ci-token -p $CI_JOB_TOKEN --repository-url https://gitlab.kitware.com/api/v4/projects/$CI_PROJECT_ID/packages/pypi dist/*
+
+.generic_vtk_wasm_emscripten_linux_upload:
+    stage: upload
+    tags:
+        - docker
+        - linux-x86_64
+        - build
+
+    script:
+        - .gitlab/ci/cmake.sh latest
+        - export PATH=$PWD/.gitlab/cmake/bin:$PATH
+        - cmake --version
+        - cmake -P .gitlab/ci/download_node.cmake
+        - export PATH=$PWD/.gitlab/node/bin:$PATH
+        - node --version
+        - .gitlab/ci/upload_webassembly_archive.sh $WASM_ARCHITECTURE
+
+    interruptible: true

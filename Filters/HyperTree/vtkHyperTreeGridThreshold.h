@@ -10,9 +10,8 @@
  * following threshold: a cell is considered to be within range if its
  * value for the active scalar is within a specified range (inclusive).
  * The output remains a hyper tree grid.
- * JB Un parametre (JustCreateNewMask=true) permet de ne pas faire
- * le choix de la creation d'un nouveau HTG mais
- * de redefinir juste le masque.
+ * A parameter (JustCreateNewMask) allows to only redefine the mask
+ * and not create a new HTG.
  *
  * @sa
  * vtkHyperTreeGrid vtkHyperTreeGridAlgorithm vtkThreshold
@@ -33,6 +32,7 @@
 #include "vtkHyperTreeGridAlgorithm.h"
 
 #include <memory> // For std::unique_ptr
+#include <mutex>
 
 VTK_ABI_NAMESPACE_BEGIN
 class vtkBitArray;
@@ -120,10 +120,15 @@ protected:
   int ProcessTrees(vtkHyperTreeGrid*, vtkDataObject*) override;
 
   /**
-   * Recursively descend into tree down to leaves
+   * Recursively descend into input tree down to leaves, creating output structure at the same time
    */
   bool RecursivelyProcessTree(
     vtkHyperTreeGridNonOrientedCursor*, vtkHyperTreeGridNonOrientedCursor*);
+
+  /**
+   * Recursively descend into input tree down to leaves, filling the output mask
+   * as it goes.
+   */
   bool RecursivelyProcessTreeWithCreateNewMask(vtkHyperTreeGridNonOrientedCursor*);
 
   /**
@@ -164,11 +169,21 @@ protected:
 private:
   vtkHyperTreeGridThreshold(const vtkHyperTreeGridThreshold&) = delete;
   void operator=(const vtkHyperTreeGridThreshold&) = delete;
+  /**
+   * Process child ichild of the tree currently pointed by the cursor.
+   * Calls recursively `RecursivelyProcessTreeWithCreateNewMask`.
+   * The cell pointed by 'outCursor' needs to have at least 'ichild' children.
+   */
+  bool RecursivelyProcessChild(vtkHyperTreeGridNonOrientedCursor* outCursor, int ichild);
 
   /**
-   * The current memory strategy to use
+   * Thread-safe version of insertion in OutMask BitArray using a global mutex.
    */
+  void SafeInsertOutMask(vtkIdType tupleIdx, double value);
+
   int MemoryStrategy = MaskInput;
+  std::vector<std::mutex> OutMaskMutexes;
+  int ArrayMutexSize = 0; // Needs to be a multiple of 8
 
   struct Internals;
   std::unique_ptr<Internals> Internal;

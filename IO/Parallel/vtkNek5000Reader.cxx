@@ -80,8 +80,8 @@ void ByteSwap64(void* aVals, int nVals)
 
 int compare_ids(const void* id1, const void* id2)
 {
-  int* a = (int*)id1;
-  int* b = (int*)id2;
+  const int* a = (const int*)id1;
+  const int* b = (const int*)id2;
 
   if (*a < *b)
     return (-1);
@@ -509,7 +509,7 @@ size_t vtkNek5000Reader::GetVariableNamesFromData(char* varTags)
       case 'S':
         for (int sloop = 0; sloop < numSFields; sloop++)
         {
-          char sname[4];
+          char sname[12];
           snprintf(sname, sizeof(sname), "S%02d", sloop + 1);
           this->PointDataArraySelection->AddArray(sname);
           this->var_names[this->num_vars] = strdup(sname);

@@ -30,6 +30,8 @@
 #include "vtkStringToken.h"  // for vtkStringToken::Hash
 #include "vtkTypeName.h"     // for vtk::TypeName<>()
 
+#include <token/Singletons.h> // Increment Schwarz counter for initialization.
+
 #include <functional>
 #include <set>
 #include <unordered_map>
@@ -60,8 +62,9 @@ public:
   static bool RegisterType()
   {
     vtkStringToken name = vtk::TypeName<Subclass>();
-    auto status =
-      vtkCellMetadata::Constructors().insert(std::make_pair(name, [](vtkCellGrid* grid) {
+    auto status = vtkCellMetadata::Constructors().insert(std::make_pair(name,
+      [](vtkCellGrid* grid)
+      {
         auto result = vtkSmartPointer<Subclass>::New();
         if (result)
         {
@@ -134,6 +137,9 @@ public:
 
   /// Return the set of registered responder types.
   static vtkCellGridResponders* GetResponders();
+
+  /// Clear all of the registered responders.
+  static void ClearResponders();
 
   /// Return the set of registered responder types.
   ///

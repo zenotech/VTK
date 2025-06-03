@@ -100,7 +100,6 @@ set(vtk_cmake_module_files
   FindFontConfig.cmake
   FindFreetype.cmake
   FindGL2PS.cmake
-  FindGLEW.cmake
   FindJOGL.cmake
   FindJsonCpp.cmake
   FindLibHaru.cmake
@@ -116,7 +115,6 @@ set(vtk_cmake_module_files
   FindOGG.cmake
   FindOpenSlide.cmake
   FindOpenVR.cmake
-  FindOpenXR.cmake
   FindOpenXRRemoting.cmake
   FindOSMesa.cmake
   FindPEGTL.cmake
@@ -130,15 +128,20 @@ set(vtk_cmake_module_files
   vtkDetectLibraryType.cmake
   vtkEncodeString.cmake
   vtkHashSource.cmake
+  vtkMobileDevices.cmake
   vtkModule.cmake
   vtkModuleGraphviz.cmake
   vtkModuleJson.cmake
+  vtkModuleSerialization.cmake
   vtkModuleTesting.cmake
   vtkModuleWrapJava.cmake
   vtkModuleWrapPython.cmake
   vtkObjectFactory.cmake
   vtkObjectFactory.cxx.in
   vtkObjectFactory.h.in
+  vtkSerializationLibrariesRegistrar.cxx.in
+  vtkSerializationLibraryRegistrar.cxx.in
+  vtkSerializationLibraryRegistrar.h.in
   vtkTestingDriver.cmake
   vtkTestingRenderingDriver.cmake
   vtkTopologicalSort.cmake

@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "vtkOpenGLLowMemoryPolyDataMapper.h"
+
+#include "vtkArrayDispatch.h"
 #include "vtkCamera.h"
 #include "vtkCellArray.h"
 #include "vtkCellData.h"
 #include "vtkCollectionIterator.h"
-#include "vtkExecutive.h"
+#include "vtkConstantArray.h"
 #include "vtkFloatArray.h"
 #include "vtkGLSLModCamera.h"
 #include "vtkGLSLModCoincidentTopology.h"
@@ -28,8 +30,8 @@
 #include "vtkOpenGLShaderDeclaration.h"
 #include "vtkOpenGLShaderProperty.h"
 #include "vtkOpenGLState.h"
+#include "vtkOpenGLUniforms.h"
 #include "vtkOpenGLVertexBufferObject.h"
-#include "vtkPBRFunctions.h"
 #include "vtkPointData.h"
 #include "vtkPolyDataFS.h"
 #include "vtkPolyDataMapper.h"
@@ -42,7 +44,7 @@
 #include "vtkTextureObject.h"
 #include "vtkTransform.h"
 #include "vtkUnsignedIntArray.h"
-#include "vtk_glew.h"
+#include "vtk_glad.h"
 
 #include <limits>
 #include <sstream>
@@ -415,6 +417,10 @@ void vtkOpenGLLowMemoryPolyDataMapper::RenderPieceStart(vtkRenderer* renderer, v
     this->ShaderDecls.clear();
     this->InstallArrayTextureShaderDeclarations();
     if (!this->IsShaderColorSourceUpToDate(actor))
+    {
+      this->ShaderProgram = nullptr;
+    }
+    if (!this->IsShaderNormalSourceUpToDate(actor))
     {
       this->ShaderProgram = nullptr;
     }
@@ -914,10 +920,25 @@ void vtkOpenGLLowMemoryPolyDataMapper::UpdateShaders(vtkRenderer* renderer, vtkA
 
   auto vertShader = this->GetShader(vtkShader::Vertex);
   auto fragShader = this->GetShader(vtkShader::Fragment);
-  vertShader->SetSource(vtkPolyDataVS);
-  fragShader->SetSource(vtkPolyDataFS);
+  auto* sp = vtkOpenGLShaderProperty::SafeDownCast(actor->GetShaderProperty());
+  if (sp->HasVertexShaderCode())
+  {
+    vertShader->SetSource(sp->GetVertexShaderCode());
+  }
+  else
+  {
+    vertShader->SetSource(vtkPolyDataVS);
+  }
+
+  if (sp->HasFragmentShaderCode())
+  {
+    fragShader->SetSource(sp->GetFragmentShaderCode());
+  }
+  else
+  {
+    fragShader->SetSource(vtkPolyDataFS);
+  }
   // user specified pre replacements
-  vtkOpenGLShaderProperty* sp = vtkOpenGLShaderProperty::SafeDownCast(actor->GetShaderProperty());
   vtkOpenGLShaderProperty::ReplacementMap repMap = sp->GetAllShaderReplacements();
   for (const auto& i : repMap)
   {
@@ -932,8 +953,23 @@ void vtkOpenGLLowMemoryPolyDataMapper::UpdateShaders(vtkRenderer* renderer, vtkA
   auto vsSource = vertShader->GetSource();
   auto fsSource = fragShader->GetSource();
   this->ReplaceShaderValues(renderer, actor, vsSource, fsSource);
+  auto* vu = vtkOpenGLUniforms::SafeDownCast(sp->GetVertexCustomUniforms());
+  vtkShaderProgram::Substitute(vsSource, "//VTK::CustomUniforms::Dec", vu->GetDeclarations());
+  auto* fu = vtkOpenGLUniforms::SafeDownCast(sp->GetFragmentCustomUniforms());
+  vtkShaderProgram::Substitute(fsSource, "//VTK::CustomUniforms::Dec", fu->GetDeclarations());
   vertShader->SetSource(vsSource);
   fragShader->SetSource(fsSource);
+  // user specified post replacements
+  for (const auto& i : repMap)
+  {
+    if (!i.first.ReplaceFirst)
+    {
+      std::string ssrc = this->Shaders[i.first.ShaderType]->GetSource();
+      vtkShaderProgram::Substitute(
+        ssrc, i.first.OriginalValue, i.second.Replacement, i.second.ReplaceAll);
+      this->Shaders[i.first.ShaderType]->SetSource(ssrc);
+    }
+  }
 #ifdef vtkOpenGLLowMemoryPolyDataMapper_DEBUG
   std::cout << "VS: " << vsSource << std::endl;
   std::cout << "FS: " << fsSource << std::endl;
@@ -983,7 +1019,7 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderValues(
   vtkRenderer* renderer, vtkActor* actor, std::string& vsSource, std::string& fsSource)
 {
   // Pre-pass.
-  std::string emptyGS;
+  std::string emptyGS, emptyTCS, emptyTES;
   ::ReplaceShaderRenderPass(vsSource, emptyGS, fsSource, this, actor, true);
   this->ReplaceShaderPosition(renderer, actor, vsSource, fsSource);
   this->ReplaceShaderNormal(renderer, actor, vsSource, fsSource);
@@ -1016,7 +1052,8 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderValues(
       lightMod->SetUseAnisotropy(this->HasPointNormals && this->HasTangents && this->HasAnisotropy);
       lightMod->SetUseClearCoat(this->HasClearCoat);
     }
-    mod->ReplaceShaderValues(oglRenderer, vsSource, emptyGS, fsSource, this, actor);
+    mod->ReplaceShaderValues(
+      oglRenderer, vsSource, emptyTCS, emptyTES, emptyGS, fsSource, this, actor);
     this->GetGLSLModCollection()->AddItem(mod);
   }
   this->ReplaceShaderTCoord(renderer, actor, vsSource, fsSource);
@@ -1084,7 +1121,7 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderPosition(
   vtkShaderProgram::Substitute(vsSource, "//VTK::CustomBegin::Impl", oss.str());
   // Assign position vector outputs.
   vtkShaderProgram::Substitute(vsSource, "//VTK::PositionVC::Impl",
-    "vertexPositionVCVS = MCVCMatrix * vertexMC;\n"
+    "vertexVCVSOutput = MCVCMatrix * vertexMC;\n"
     "  gl_Position = MCDCMatrix * vertexMC;\n");
 }
 
@@ -1245,15 +1282,18 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderNormal(
       // We have no point or cell normals, so compute something.
       // Caveat: this assumes that neighboring fragments are present,
       // result is undefined (maybe NaN?) if neighbors are missing.
+      // The partial derivatives are scaled by the inverse of fwidth
+      // to avoid overflow or underflow in the following computations.
       vtkShaderProgram::Substitute(fsSource, "//VTK::UniformFlow::Impl",
-        "vec3 fdx = dFdx(vertexVC.xyz);\n"
-        "  vec3 fdy = dFdy(vertexVC.xyz);\n"
+        "float scale = 1.0/length(fwidth(vertexVC.xyz));\n"
+        "  vec3 fdx = dFdx(vertexVC.xyz)*scale;\n"
+        "  vec3 fdy = dFdy(vertexVC.xyz)*scale;\n"
         "  //VTK::UniformFlow::Impl\n" // For further replacements
       );
       std::ostringstream fsImpl;
       // here, orient the view coordinate normal such that it always points out of the screen.
-      fsImpl << "vec3 primitiveNormal;\n";
-      fsImpl << "if (primitiveSize == 1) { primitiveNormal = vec3(0.0, 0.0, 1.0); }\n";
+      fsImpl << "vec3 normalVCVSOutput;\n";
+      fsImpl << "if (primitiveSize == 1) { normalVCVSOutput = vec3(0.0, 0.0, 1.0); }\n";
       // Generate a normal for a line that is perpendicular to the line and
       // maximally aligned with the camera view direction.  Basic approach
       // is as follows.  Start with the gradients dFdx and dFdy (see above),
@@ -1269,21 +1309,21 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderNormal(
                 "{\n"
                 "  float addOrSubtract = (dot(fdx, fdy) >= 0.0) ? 1.0 : -1.0;\n"
                 "  vec3 lineVec = addOrSubtract*fdy + fdx;\n"
-                "  primitiveNormal = normalize(cross(vec3(lineVec.y, -lineVec.x, 0.0), "
+                "  normalVCVSOutput = normalize(cross(vec3(lineVec.y, -lineVec.x, 0.0), "
                 "lineVec));\n"
                 "}\n";
       // for primitives with 3 or more points (i.e triangles and triangle strips in our
       // mapper, we don't do line loops or line strips)
       fsImpl << "else\n"
                 "{\n"
-                "  primitiveNormal = normalize(cross(fdx,fdy));\n"
-                "  if (cameraParallel == 1 && primitiveNormal.z < 0.0) { primitiveNormal = "
-                "-1.0*primitiveNormal; }\n"
-                "  if (cameraParallel == 0 && dot(primitiveNormal,vertexVC.xyz) > 0.0) { "
-                "primitiveNormal "
-                "= -1.0*primitiveNormal; }\n"
+                "  normalVCVSOutput = normalize(cross(fdx,fdy));\n"
+                "  if (cameraParallel == 1 && normalVCVSOutput.z < 0.0) { normalVCVSOutput = "
+                "-1.0*normalVCVSOutput; }\n"
+                "  if (cameraParallel == 0 && dot(normalVCVSOutput,vertexVC.xyz) > 0.0) { "
+                "normalVCVSOutput "
+                "= -1.0*normalVCVSOutput; }\n"
                 "}\n";
-      fsImpl << "vec3 vertexNormalVCVS = primitiveNormal;\n";
+      fsImpl << "vec3 vertexNormalVCVS = normalVCVSOutput;\n";
       if (this->HasClearCoat)
       {
         fsImpl << "vec3 coatNormalVCVSOutput = normalVCVSOutput;\n";
@@ -1427,11 +1467,11 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderImplementationCustomUniforms
 {
   // Sends primitiveSize as a uniform
   vtkShaderProgram::Substitute(vsSource, "//VTK::CustomUniforms::Dec",
-    "//VTK::CustomUniforms::Dec;\n"
+    "//VTK::CustomUniforms::Dec\n"
     "uniform highp int primitiveSize;\n"
     "uniform highp int usesEdgeValues;\n");
   vtkShaderProgram::Substitute(fsSource, "//VTK::CustomUniforms::Dec",
-    "//VTK::CustomUniforms::Dec;\n"
+    "//VTK::CustomUniforms::Dec\n"
     "uniform highp int primitiveSize;\n"
     "uniform highp int usesEdgeValues;\n");
 }
@@ -1673,7 +1713,7 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderTCoord(
     auto texBufIter = this->Arrays.find(samplerBufferName);
     if (texBufIter == this->Arrays.end())
     {
-      vtkWarningMacro(<< "No array for " << samplerBufferName << " | " << tcoordname);
+      // vtkWarningMacro(<< "No array for " << samplerBufferName << " | " << tcoordname);
       continue;
     }
     int tcoordComps = texBufIter->second.Arrays.front()->GetNumberOfComponents();
@@ -2075,6 +2115,9 @@ void vtkOpenGLLowMemoryPolyDataMapper::SetShaderParameters(vtkRenderer* renderer
       vtkOpenGLCheckErrorMacro("failed after Render");
     }
   }
+
+  // allow the program to set what it wants
+  this->InvokeEvent(vtkCommand::UpdateShaderEvent, this->ShaderProgram);
 }
 
 //------------------------------------------------------------------------------
@@ -2500,15 +2543,15 @@ void vtkOpenGLLowMemoryPolyDataMapper::UpdatePBRStateCache(vtkRenderer*, vtkActo
     actor->GetProperty()->GetCoatStrength() > 0.0;
 
   std::vector<TextureInfo> textures = this->GetTextures(actor);
-  bool usesNormalMap = std::find_if(textures.begin(), textures.end(), [](const TextureInfo& tex) {
-    return tex.second == "normalTex";
-  }) != textures.end();
+  bool usesNormalMap =
+    std::find_if(textures.begin(), textures.end(),
+      [](const TextureInfo& tex) { return tex.second == "normalTex"; }) != textures.end();
   bool usesCoatNormalMap = this->HasClearCoat &&
     std::find_if(textures.begin(), textures.end(),
       [](const TextureInfo& tex) { return tex.second == "coatNormalTex"; }) != textures.end();
-  bool usesRotationMap = std::find_if(textures.begin(), textures.end(), [](const TextureInfo& tex) {
-    return tex.second == "anisotropyTex";
-  }) != textures.end();
+  bool usesRotationMap =
+    std::find_if(textures.begin(), textures.end(),
+      [](const TextureInfo& tex) { return tex.second == "anisotropyTex"; }) != textures.end();
 
   if (hasAnisotropy != this->HasAnisotropy)
   {
@@ -2623,6 +2666,67 @@ void vtkOpenGLLowMemoryPolyDataMapper::RemoveAllVertexAttributeMappings()
   }
 }
 
+namespace
+{
+struct ProcessFunctor
+{
+  template <typename TArray>
+  void operator()(TArray* array, unsigned char* rawplowdata, unsigned char* rawphighdata,
+    unsigned char* processdata, std::vector<unsigned int>& pixeloffsets)
+  {
+    auto arrayRange = vtk::DataArrayValueRange<1>(array);
+    // get the buffer pointers we need
+    for (auto pos : pixeloffsets)
+    {
+      unsigned int inval = 0;
+      if (rawphighdata)
+      {
+        inval = rawphighdata[pos];
+        inval = inval << 8;
+      }
+      inval |= rawplowdata[pos + 2];
+      inval = inval << 8;
+      inval |= rawplowdata[pos + 1];
+      inval = inval << 8;
+      inval |= rawplowdata[pos];
+      const auto outval = static_cast<unsigned int>(arrayRange[inval]) + 1;
+      processdata[pos] = outval & 0xff;
+      processdata[pos + 1] = (outval & 0xff00) >> 8;
+      processdata[pos + 2] = (outval & 0xff0000) >> 16;
+    }
+  }
+};
+
+struct CompositeFunctor
+{
+  template <typename TArray>
+  void operator()(TArray* array, unsigned char* rawclowdata, unsigned char* rawchighdata,
+    unsigned char* compositedata, std::vector<unsigned int>& pixeloffsets)
+  {
+    auto arrayRange = vtk::DataArrayValueRange<1>(array);
+    for (auto pos : pixeloffsets)
+    {
+      unsigned int inval = 0;
+      if (rawchighdata)
+      {
+        inval = rawchighdata[pos];
+        inval = inval << 8;
+      }
+      inval |= rawclowdata[pos + 2];
+      inval = inval << 8;
+      inval |= rawclowdata[pos + 1];
+      inval = inval << 8;
+      inval |= rawclowdata[pos];
+      vtkIdType cellId = inval;
+      const auto outval = static_cast<unsigned int>(arrayRange[cellId]);
+      compositedata[pos] = outval & 0xff;
+      compositedata[pos + 1] = (outval & 0xff00) >> 8;
+      compositedata[pos + 2] = (outval & 0xff0000) >> 16;
+    }
+  }
+};
+}
+
 //------------------------------------------------------------------------------
 void vtkOpenGLLowMemoryPolyDataMapper::ProcessSelectorPixelBuffers(
   vtkHardwareSelector* sel, std::vector<unsigned int>& pixeloffsets, vtkProp*)
@@ -2646,38 +2750,28 @@ void vtkOpenGLLowMemoryPolyDataMapper::ProcessSelectorPixelBuffers(
   // handle process pass
   if (currPass == vtkHardwareSelector::PROCESS_PASS)
   {
-    vtkUnsignedIntArray* processArray = nullptr;
+    vtkDataArray* processArray = nullptr;
 
-    // point data is used for process_pass which seems odd
     if (sel->GetUseProcessIdFromData())
     {
       processArray = !this->ProcessIdArrayName.empty()
-        ? vtkArrayDownCast<vtkUnsignedIntArray>(pd->GetArray(this->ProcessIdArrayName.c_str()))
+        ? pd->GetArray(this->ProcessIdArrayName.c_str())
         : nullptr;
     }
 
     // do we need to do anything to the process pass data?
     unsigned char* processdata = sel->GetRawPixelBuffer(vtkHardwareSelector::PROCESS_PASS);
-    if (processArray && processdata && rawplowdata)
+    if (processdata && (processArray && processArray->GetDataType() == VTK_UNSIGNED_INT) &&
+      rawplowdata)
     {
-      // get the buffer pointers we need
-      for (auto pos : pixeloffsets)
+      using UIntArrays =
+        vtkTypeList::Create<vtkAOSDataArrayTemplate<unsigned int>, vtkConstantArray<unsigned int>>;
+      using Dispatcher = vtkArrayDispatch::DispatchByArray<UIntArrays>;
+      ProcessFunctor functor;
+      if (!Dispatcher::Execute(
+            processArray, functor, rawplowdata, rawphighdata, processdata, pixeloffsets))
       {
-        unsigned int inval = 0;
-        if (rawphighdata)
-        {
-          inval = rawphighdata[pos];
-          inval = inval << 8;
-        }
-        inval |= rawplowdata[pos + 2];
-        inval = inval << 8;
-        inval |= rawplowdata[pos + 1];
-        inval = inval << 8;
-        inval |= rawplowdata[pos];
-        unsigned int outval = processArray->GetValue(inval) + 1;
-        processdata[pos] = outval & 0xff;
-        processdata[pos + 1] = (outval & 0xff00) >> 8;
-        processdata[pos + 2] = (outval & 0xff0000) >> 16;
+        functor(processArray, rawplowdata, rawphighdata, processdata, pixeloffsets);
       }
     }
   }
@@ -2751,30 +2845,21 @@ void vtkOpenGLLowMemoryPolyDataMapper::ProcessSelectorPixelBuffers(
   {
     unsigned char* compositedata = sel->GetPixelBuffer(vtkHardwareSelector::COMPOSITE_INDEX_PASS);
 
-    vtkUnsignedIntArray* compositeArray = !this->CompositeIdArrayName.empty()
-      ? vtkArrayDownCast<vtkUnsignedIntArray>(cd->GetArray(this->CompositeIdArrayName.c_str()))
+    vtkDataArray* compositeArray = !this->CompositeIdArrayName.empty()
+      ? cd->GetArray(this->CompositeIdArrayName.c_str())
       : nullptr;
 
-    if (compositedata && compositeArray && rawclowdata)
+    if (compositedata && (compositeArray && compositeArray->GetDataType() == VTK_UNSIGNED_INT) &&
+      rawclowdata)
     {
-      for (auto pos : pixeloffsets)
+      using UIntArrays =
+        vtkTypeList::Create<vtkAOSDataArrayTemplate<unsigned int>, vtkConstantArray<unsigned int>>;
+      using Dispatcher = vtkArrayDispatch::DispatchByArray<UIntArrays>;
+      CompositeFunctor functor;
+      if (!Dispatcher::Execute(
+            compositeArray, functor, rawclowdata, rawchighdata, compositedata, pixeloffsets))
       {
-        unsigned int inval = 0;
-        if (rawchighdata)
-        {
-          inval = rawchighdata[pos];
-          inval = inval << 8;
-        }
-        inval |= rawclowdata[pos + 2];
-        inval = inval << 8;
-        inval |= rawclowdata[pos + 1];
-        inval = inval << 8;
-        inval |= rawclowdata[pos];
-        vtkIdType cellId = inval;
-        unsigned int outval = compositeArray->GetValue(cellId);
-        compositedata[pos] = outval & 0xff;
-        compositedata[pos + 1] = (outval & 0xff00) >> 8;
-        compositedata[pos + 2] = (outval & 0xff0000) >> 16;
+        functor(compositeArray, rawclowdata, rawchighdata, compositedata, pixeloffsets);
       }
     }
   }

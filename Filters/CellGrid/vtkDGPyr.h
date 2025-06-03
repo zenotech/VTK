@@ -44,6 +44,7 @@ public:
   std::pair<int, int> GetSideRangeForType(int sideType) const override;
   int GetNumberOfSidesOfDimension(int dimension) const override;
   const std::vector<vtkIdType>& GetSideConnectivity(int side) const override;
+  const std::vector<vtkIdType>& GetSidesOfSide(int side) const override;
   Shape GetSideShape(int side) const override;
   ///@}
 
@@ -54,8 +55,13 @@ public:
   static constexpr int Dimension = 3;
   static const std::array<std::array<double, 3>, 5> Parameters;
   static const std::array<std::vector<vtkIdType>, 19> Sides;
+  static const std::array<std::vector<vtkIdType>, 19> SidesOfSides;
   static const std::array<int, Dimension + 3> SideOffsets;
   static const std::array<Shape, Dimension + 3> SideShapes;
+  // Because pyramids have sides of different types but the same dimension,
+  // we store a table of the number of sides by dimension rather than computing
+  // these values based on SideOffsets/SideShapes entries:
+  static const std::array<int, Dimension + 1> SidesOfDimension;
 
 protected:
   vtkDGPyr();

@@ -192,6 +192,23 @@ void QVTKOpenGLWindow::initializeGL()
   {
     Q_ASSERT(this->RenderWindowAdapter.data() == nullptr);
 
+    if (!this->RenderWindow->GetInitialized())
+    {
+      auto loadFunc = [](
+                        void* userData, const char* name) -> vtkOpenGLRenderWindow::VTKOpenGLAPIProc
+      {
+        if (auto* context = reinterpret_cast<QOpenGLContext*>(userData))
+        {
+          if (auto* symbol = context->getProcAddress(name))
+          {
+            return symbol;
+          }
+        }
+        return nullptr;
+      };
+      this->RenderWindow->SetOpenGLSymbolLoader(loadFunc, this->context());
+      this->RenderWindow->vtkOpenGLRenderWindow::OpenGLInit();
+    }
     auto ostate = this->RenderWindow->GetState();
     ostate->Reset();
     // By default, Qt sets the depth function to GL_LESS but VTK expects GL_LEQUAL
@@ -256,7 +273,8 @@ void QVTKOpenGLWindow::paintGL()
       this->RenderWindowAdapter->blitRightEye(
         this->defaultFramebufferObject(), GL_BACK_RIGHT, QRect(QPoint(0, 0), deviceSize));
     }
-    else
+    // Prevent blitting with "ZSpace Inspire" mode since ZSpace API will take care of it
+    else if (this->RenderWindow->GetStereoType() != VTK_STEREO_ZSPACE_INSPIRE)
     {
       this->RenderWindowAdapter->blit(
         this->defaultFramebufferObject(), GL_BACK_LEFT, QRect(QPoint(0, 0), deviceSize));

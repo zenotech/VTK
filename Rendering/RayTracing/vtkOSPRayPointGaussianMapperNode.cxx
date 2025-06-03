@@ -280,7 +280,11 @@ OSPVolumetricModel RenderAsParticles(osp::vec3f* vertices, std::vector<unsigned 
   auto oTF = ospNewTransferFunction("piecewiseLinear");
   ospSetObject(oTF, "color", _Colors);
   ospSetObject(oTF, "opacity", _AlphaData);
+#if OSPRAY_VERSION_MAJOR < 3
   ospSetVec2f(oTF, "valueRange", static_cast<float>(wRange[0]), static_cast<float>(wRange[1]));
+#else
+  ospSetBox1f(oTF, "value", static_cast<float>(wRange[0]), static_cast<float>(wRange[1]));
+#endif
   ospCommit(oTF);
   ospRelease(_Colors);
   ospRelease(_AlphaData);
@@ -582,12 +586,12 @@ bool vtkOSPRayPointGaussianMapperNode::GetNeedToRebuild(vtkOSPRayActorNode* aNod
   vtkActor* act = vtkActor::SafeDownCast(aNode->GetRenderable());
   vtkPointGaussianMapper* mapper = vtkPointGaussianMapper::SafeDownCast(act->GetMapper());
   if ((aNode->GetMTime() > this->RenderTime) ||
-    mapper &&
-      ((mapper->GetInput() && (mapper->GetInput()->GetMTime() > this->RenderTime)) ||
+    (mapper &&
+      ((mapper->GetInput() && mapper->GetInput()->GetMTime() > this->RenderTime) ||
         (mapper->GetScaleFunction() &&
           mapper->GetScaleFunction()->GetMTime() > this->ScaleTableUpdateTime) ||
         (mapper->GetScalarOpacityFunction() &&
-          mapper->GetScalarOpacityFunction()->GetMTime() > this->OpacityTableUpdateTime)))
+          mapper->GetScalarOpacityFunction()->GetMTime() > this->OpacityTableUpdateTime))))
   {
     return true;
   }

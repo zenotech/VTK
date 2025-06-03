@@ -31,16 +31,6 @@ public:
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
   /**
-   * Prevent normal vtkObject reference counting behavior.
-   */
-  void Register(vtkObjectBase*) override;
-
-  /**
-   * Prevent normal vtkObject reference counting behavior.
-   */
-  void UnRegister(vtkObjectBase*) override;
-
-  /**
    * Get the name of the key.  This is not the type of the key, but
    * the name of the key instance.
    */
@@ -208,14 +198,23 @@ private:
 // definition in the header file.
 #define vtkInformationKeyMacro(CLASS, NAME, type)                                                  \
   static vtkInformation##type##Key* CLASS##_##NAME = new vtkInformation##type##Key(#NAME, #CLASS); \
-  vtkInformation##type##Key* CLASS::NAME() { return CLASS##_##NAME; }
+  vtkInformation##type##Key* CLASS::NAME()                                                         \
+  {                                                                                                \
+    return CLASS##_##NAME;                                                                         \
+  }
 #define vtkInformationKeySubclassMacro(CLASS, NAME, type, super)                                   \
   static vtkInformation##type##Key* CLASS##_##NAME = new vtkInformation##type##Key(#NAME, #CLASS); \
-  vtkInformation##super##Key* CLASS::NAME() { return CLASS##_##NAME; }
+  vtkInformation##super##Key* CLASS::NAME()                                                        \
+  {                                                                                                \
+    return CLASS##_##NAME;                                                                         \
+  }
 #define vtkInformationKeyRestrictedMacro(CLASS, NAME, type, required)                              \
   static vtkInformation##type##Key* CLASS##_##NAME =                                               \
     new vtkInformation##type##Key(#NAME, #CLASS, required);                                        \
-  vtkInformation##type##Key* CLASS::NAME() { return CLASS##_##NAME; }
+  vtkInformation##type##Key* CLASS::NAME()                                                         \
+  {                                                                                                \
+    return CLASS##_##NAME;                                                                         \
+  }
 
 VTK_ABI_NAMESPACE_END
 #endif

@@ -1,13 +1,29 @@
 vtk_module_test_data(
   Data/pen_1.cur
   Data/pen_1.xcursor
+  Data/overlap_faces.vtm
+  Data/overlap_faces/overlap_faces_0_0.vtp
+  Data/overlap_faces/overlap_faces_1_0.vtp
+  Data/overlap_faces/overlap_faces_2_0.vtp
   )
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  set(_vtk_test_cxx_wasm_enabled_in_browser ON)
+  set(_vtk_test_emscripten_extra_linker_args
+    # O2 or higher make wasm-opt terribly slow.
+    # test executables take a minute to link.
+    "-O1"
+    # we need emscripten to emit code that handles exit code and atexit(s)
+    "-sEXIT_RUNTIME=1"
+    "-sALLOW_MEMORY_GROWTH=1")
+endif ()
 vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
   TestBlockVisibility.cxx
   TestBlurAndSobelPasses.cxx
   TestCameraShiftScale.cxx,NO_DATA
   TestCoincident.cxx
+  TestCoincidentFloor.cxx
+  TestCompositeDataOverlappingCells.cxx,
   TestCompositeDataPointGaussian.cxx,NO_DATA
   TestCompositeDataPointGaussianSelection.cxx,NO_DATA
   TestCompositePolyDataMapper2.cxx,NO_DATA
@@ -22,10 +38,11 @@ vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
   TestCompositePolyDataMapper2Pickability.cxx,NO_DATA
   TestCompositePolyDataMapper2Picking.cxx,NO_DATA
   TestCompositePolyDataMapper2Scalars.cxx,NO_DATA
-  TestCompositePolyDataMapper2ScalarsSurfaceOpacity.cxx,NO_DATA
+# TestCompositePolyDataMapper2ScalarsSurfaceOpacity.cxx,NO_DATA #19221
   TestCompositePolyDataMapper2SharedArray.cxx,NO_DATA
   TestCompositePolyDataMapper2Spheres.cxx,NO_DATA
   TestCompositePolyDataMapper2Vertices.cxx,NO_DATA
+  TestComputeShader.cxx,NO_DATA,NO_VALID,NO_OUTPUT
   TestCubeMap.cxx
   TestCubeMap2.cxx
   TestCubeMapRerender.cxx
@@ -40,7 +57,7 @@ vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
   TestFXAAPass.cxx
   TestFXAAWithEDLPass.cxx
   TestFlipRenderFramebuffer.cxx
-  TestFloor.cxx
+  TestFloor.cxx,LOOSE_VALID
   TestFluidMapper.cxx
   TestFramebufferHDR.cxx
   TestFramebufferPass.cxx
@@ -73,6 +90,7 @@ vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
   TestPBRTextureInterpolateScalars.cxx
   TestPointFillPass.cxx
   TestPointGaussianMapper.cxx
+  TestPointGaussianMapperAnisotropic.cxx
   TestPointGaussianMapperOpacity.cxx
   TestPointGaussianSelection.cxx,NO_DATA
   TestProgramPointSize.cxx
@@ -94,6 +112,7 @@ vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
   TestSSAOPass.cxx
   TestSSAOPassWithRenderer.cxx
   TestSurfaceInterpolationSwitch.cxx
+  TestTessellationShader.cxx,NO_DATA
   TestTexture16Bits.cxx,NO_DATA
   TestTexture32Bits.cxx,NO_DATA
   TestTextureBufferEmulation.cxx,NO_DATA,NO_VALID,NO_OUTPUT
@@ -101,7 +120,9 @@ vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
   TestToneMappingPass.cxx,NO_DATA
   TestUserShader.cxx
   TestUserShader2.cxx
+  TestUserShader2D.cxx,NO_DATA
   TestValuePassFloatingPoint.cxx
+  TestValuePassFloatingPoint2.cxx
   TestVBOPLYMapper.cxx
   TestVBOPointsLines.cxx
   TestWindowBlits.cxx

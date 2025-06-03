@@ -3,17 +3,17 @@
 
 #include "vtkOpenGLPolyDataMapper.h"
 
+#include "vtkArrayDispatch.h"
 #include "vtkCamera.h"
 #include "vtkCellArray.h"
 #include "vtkCellData.h"
 #include "vtkCommand.h"
+#include "vtkConstantArray.h"
 #include "vtkFloatArray.h"
 #include "vtkHardwareSelector.h"
 #include "vtkIdTypeArray.h"
 #include "vtkImageData.h"
 #include "vtkInformation.h"
-#include "vtkLight.h"
-#include "vtkLightCollection.h"
 #include "vtkLightingMapPass.h"
 #include "vtkMath.h"
 #include "vtkMatrix3x3.h"
@@ -660,8 +660,11 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderEdges(
       "float emix = clamp(0.5 + 0.5*lineWidth - min( min( edist[0], edist[1]), edist[2]), 0.0, "
       "1.0);\n";
 
-    bool canRenderLinesAsTube =
-      actor->GetProperty()->GetRenderLinesAsTubes() && ren->GetLights()->GetNumberOfItems() > 0;
+    // Since "tubes" are faked using normals and lights, consider them disabled if we have no light
+    // in the scene.
+    bool canRenderLinesAsTube = actor->GetProperty()->GetRenderLinesAsTubes() &&
+      this->PrimitiveInfo[this->LastBoundBO].LastLightComplexity > 0;
+
     if (canRenderLinesAsTube)
     {
       fsimpl +=
@@ -2108,9 +2111,9 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderNormal(
 
       // normal mapping
       std::vector<texinfo> textures = this->GetTextures(actor);
-      bool normalMapping = std::find_if(textures.begin(), textures.end(), [](const texinfo& tex) {
-        return tex.second == "normalTex";
-      }) != textures.end();
+      bool normalMapping =
+        std::find_if(textures.begin(), textures.end(),
+          [](const texinfo& tex) { return tex.second == "normalTex"; }) != textures.end();
       bool coatNormalMapping = hasClearCoat &&
         std::find_if(textures.begin(), textures.end(),
           [](const texinfo& tex) { return tex.second == "coatNormalTex"; }) != textures.end();
@@ -2152,9 +2155,9 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderNormal(
             "//VTK::Normal::Dec\n"
             "uniform float anisotropyRotationUniform;\n");
 
-          bool rotationMap = std::find_if(textures.begin(), textures.end(), [](const texinfo& tex) {
-            return tex.second == "anisotropyTex";
-          }) != textures.end();
+          bool rotationMap =
+            std::find_if(textures.begin(), textures.end(),
+              [](const texinfo& tex) { return tex.second == "anisotropyTex"; }) != textures.end();
           if (rotationMap)
           {
             // Sample the texture
@@ -2272,9 +2275,12 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderNormal(
     // We have no point or cell normals, so compute something.
     // Caveat: this assumes that neighboring fragments are present,
     // result is undefined (maybe NaN?) if neighbors are missing.
+    // The partial derivatives are scaled by the inverse of fwidth
+    // to avoid overflow or underflow in the following computations.
     vtkShaderProgram::Substitute(FSSource, "//VTK::UniformFlow::Impl",
-      "vec3 fdx = dFdx(vertexVC.xyz);\n"
-      "  vec3 fdy = dFdy(vertexVC.xyz);\n"
+      "float scale = 1.0/length(fwidth(vertexVC.xyz));\n"
+      "  vec3 fdx = dFdx(vertexVC.xyz)*scale;\n"
+      "  vec3 fdy = dFdy(vertexVC.xyz)*scale;\n"
       "  //VTK::UniformFlow::Impl\n" // For further replacements
     );
 
@@ -4140,7 +4146,8 @@ void vtkOpenGLPolyDataMapper::AddPointIdsToSelectionPrimitives(vtkPolyData* poly
   const char* arrayName, unsigned int processId, unsigned int compositeIndex, vtkIdType selectedId)
 {
   // point selection
-  auto addPointId = [this](vtkIdType id) {
+  auto addPointId = [this](vtkIdType id)
+  {
     for (vtkIdType p = vtkOpenGLPolyDataMapper::PrimitiveStart;
          p <= vtkOpenGLPolyDataMapper::PrimitiveTriStrips; p++)
     {
@@ -4169,7 +4176,8 @@ void vtkOpenGLPolyDataMapper::AddCellIdsToSelectionPrimitives(vtkPolyData* poly,
   const char* arrayName, unsigned int processId, unsigned int compositeIndex, vtkIdType selectedId)
 {
 
-  auto addCellId = [this, poly](vtkIdType id) {
+  auto addCellId = [this, poly](vtkIdType id)
+  {
     vtkIdType npts;
     const vtkIdType* pts;
     vtkIdType nbVerts = poly->GetVerts() ? poly->GetVerts()->GetNumberOfCells() : 0;
@@ -4329,6 +4337,30 @@ void vtkOpenGLPolyDataMapper::BuildSelectionIBO(
   }
 }
 
+namespace
+{
+struct CompositeProcessFunctor
+{
+  template <typename TCompArray, typename TProcArray>
+  void operator()(TCompArray* compArray, TProcArray* procArray, vtkIdTypeArray* idArray,
+    std::map<std::tuple<unsigned int, unsigned int, vtkIdType>, std::vector<vtkIdType>>&
+      selectionCache)
+  {
+    using TCompRange = vtk::detail::ValueRange<TCompArray, 1>;
+    TCompRange compRange = compArray ? vtk::DataArrayValueRange<1>(compArray) : TCompRange();
+    using TProcRange = vtk::detail::ValueRange<TProcArray, 1>;
+    TProcRange procRange = procArray ? vtk::DataArrayValueRange<1>(procArray) : TProcRange();
+    for (vtkIdType i = 0; i < idArray->GetNumberOfTuples(); i++)
+    {
+      vtkIdType val = idArray->GetValue(i);
+      const unsigned int procId = procArray ? procRange[i] : 0;
+      const unsigned int compIndex = compArray ? compRange[i] : 0;
+      selectionCache[std::make_tuple(procId, compIndex, val)].push_back(i);
+    }
+  }
+};
+}
+
 //------------------------------------------------------------------------------
 void vtkOpenGLPolyDataMapper::BuildSelectionCache(
   const char* arrayName, bool selectingPoints, vtkPolyData* poly)
@@ -4344,23 +4376,26 @@ void vtkOpenGLPolyDataMapper::BuildSelectionCache(
       ? static_cast<vtkDataSetAttributes*>(poly->GetPointData())
       : static_cast<vtkDataSetAttributes*>(poly->GetCellData());
 
-    vtkIdTypeArray* idArray = vtkIdTypeArray::SafeDownCast(attr->GetArray(arrayName));
-    vtkUnsignedIntArray* compArray =
-      vtkUnsignedIntArray::SafeDownCast(attr->GetArray(this->CompositeIdArrayName));
-    vtkUnsignedIntArray* procArray =
-      vtkUnsignedIntArray::SafeDownCast(attr->GetArray(this->ProcessIdArrayName));
+    auto idArray = vtkIdTypeArray::SafeDownCast(attr->GetArray(arrayName));
+    vtkDataArray* compositeArray = attr->GetArray(this->CompositeIdArrayName);
+    vtkDataArray* processArray = attr->GetArray(this->ProcessIdArrayName);
 
     // a selection cache is built here to map a tuple (process id, composite id, value id) to the
     // the selected id. This will speed up look-ups at runtime.
     if (idArray && idArray->GetNumberOfComponents() == 1)
     {
-      for (vtkIdType i = 0; i < idArray->GetNumberOfTuples(); i++)
+      using UIntArrays =
+        vtkTypeList::Create<vtkAOSDataArrayTemplate<unsigned int>, vtkConstantArray<unsigned int>>;
+      using Dispatcher = vtkArrayDispatch::Dispatch2ByArray<UIntArrays, UIntArrays>;
+      CompositeProcessFunctor functor;
+      if (!Dispatcher::Execute(
+            compositeArray, processArray, functor, idArray, this->SelectionCache))
       {
-        vtkIdType val = idArray->GetTypedComponent(i, 0);
-        unsigned int procId = procArray ? procArray->GetTypedComponent(i, 0) : 0;
-        unsigned int compIndex = compArray ? compArray->GetTypedComponent(i, 0) : 0;
-
-        this->SelectionCache[std::make_tuple(procId, compIndex, val)].push_back(i);
+        if ((!compositeArray || compositeArray->GetDataType() == VTK_UNSIGNED_INT) &&
+          (!processArray || processArray->GetDataType() == VTK_UNSIGNED_INT))
+        {
+          functor(compositeArray, processArray, idArray, this->SelectionCache);
+        }
       }
     }
 
@@ -4502,6 +4537,68 @@ void vtkOpenGLPolyDataMapper::PrintSelf(ostream& os, vtkIndent indent)
   this->Superclass::PrintSelf(os, indent);
 }
 
+namespace
+{
+struct ProcessFunctor
+{
+  template <typename TArray>
+  void operator()(TArray* array, unsigned char* processdata, unsigned char* rawplowdata,
+    unsigned char* rawphighdata, std::vector<unsigned int>& pixeloffsets)
+  {
+    auto arrayRange = vtk::DataArrayValueRange<1>(array);
+    // get the buffer pointers we need
+    for (auto pos : pixeloffsets)
+    {
+      unsigned int inval = 0;
+      if (rawphighdata)
+      {
+        inval = rawphighdata[pos];
+        inval = inval << 8;
+      }
+      inval |= rawplowdata[pos + 2];
+      inval = inval << 8;
+      inval |= rawplowdata[pos + 1];
+      inval = inval << 8;
+      inval |= rawplowdata[pos];
+      const auto outval = static_cast<unsigned int>(arrayRange[inval]) + 1;
+      processdata[pos] = outval & 0xff;
+      processdata[pos + 1] = (outval & 0xff00) >> 8;
+      processdata[pos + 2] = (outval & 0xff0000) >> 16;
+    }
+  }
+};
+
+struct CompositeFunctor
+{
+  template <typename TArray>
+  void operator()(TArray* array, unsigned char* compositedata, unsigned char* rawclowdata,
+    unsigned char* rawchighdata, std::vector<unsigned int>& pixeloffsets,
+    vtkOpenGLCellToVTKCellMap* CellCellMap, bool PointPicking)
+  {
+    auto arrayRange = vtk::DataArrayValueRange<1>(array);
+    for (auto pos : pixeloffsets)
+    {
+      unsigned int inval = 0;
+      if (rawchighdata)
+      {
+        inval = rawchighdata[pos];
+        inval = inval << 8;
+      }
+      inval |= rawclowdata[pos + 2];
+      inval = inval << 8;
+      inval |= rawclowdata[pos + 1];
+      inval = inval << 8;
+      inval |= rawclowdata[pos];
+      vtkIdType vtkCellId = CellCellMap->ConvertOpenGLCellIdToVTKCellId(PointPicking, inval);
+      const auto outval = static_cast<unsigned int>(arrayRange[vtkCellId]);
+      compositedata[pos] = outval & 0xff;
+      compositedata[pos + 1] = (outval & 0xff00) >> 8;
+      compositedata[pos + 2] = (outval & 0xff0000) >> 16;
+    }
+  }
+};
+}
+
 //------------------------------------------------------------------------------
 void vtkOpenGLPolyDataMapper::ProcessSelectorPixelBuffers(
   vtkHardwareSelector* sel, std::vector<unsigned int>& pixeloffsets, vtkProp* prop)
@@ -4525,38 +4622,26 @@ void vtkOpenGLPolyDataMapper::ProcessSelectorPixelBuffers(
   // handle process pass
   if (currPass == vtkHardwareSelector::PROCESS_PASS)
   {
-    vtkUnsignedIntArray* processArray = nullptr;
+    vtkDataArray* processArray = nullptr;
 
-    // point data is used for process_pass which seems odd
     if (sel->GetUseProcessIdFromData())
     {
-      processArray = this->ProcessIdArrayName
-        ? vtkArrayDownCast<vtkUnsignedIntArray>(pd->GetArray(this->ProcessIdArrayName))
-        : nullptr;
+      processArray = this->ProcessIdArrayName ? pd->GetArray(this->ProcessIdArrayName) : nullptr;
     }
 
     // do we need to do anything to the process pass data?
     unsigned char* processdata = sel->GetRawPixelBuffer(vtkHardwareSelector::PROCESS_PASS);
-    if (processArray && processdata && rawplowdata)
+    if (processdata && (processArray && processArray->GetDataType() == VTK_UNSIGNED_INT) &&
+      rawplowdata)
     {
-      // get the buffer pointers we need
-      for (auto pos : pixeloffsets)
+      using UIntArrays =
+        vtkTypeList::Create<vtkAOSDataArrayTemplate<unsigned int>, vtkConstantArray<unsigned int>>;
+      using Dispatcher = vtkArrayDispatch::DispatchByArray<UIntArrays>;
+      ProcessFunctor functor;
+      if (!Dispatcher::Execute(
+            processArray, functor, processdata, rawplowdata, rawphighdata, pixeloffsets))
       {
-        unsigned int inval = 0;
-        if (rawphighdata)
-        {
-          inval = rawphighdata[pos];
-          inval = inval << 8;
-        }
-        inval |= rawplowdata[pos + 2];
-        inval = inval << 8;
-        inval |= rawplowdata[pos + 1];
-        inval = inval << 8;
-        inval |= rawplowdata[pos];
-        unsigned int outval = processArray->GetValue(inval) + 1;
-        processdata[pos] = outval & 0xff;
-        processdata[pos + 1] = (outval & 0xff00) >> 8;
-        processdata[pos + 2] = (outval & 0xff0000) >> 16;
+        functor(processArray, processdata, rawplowdata, rawphighdata, pixeloffsets);
       }
     }
   }
@@ -4639,33 +4724,23 @@ void vtkOpenGLPolyDataMapper::ProcessSelectorPixelBuffers(
   {
     unsigned char* compositedata = sel->GetPixelBuffer(vtkHardwareSelector::COMPOSITE_INDEX_PASS);
 
-    vtkUnsignedIntArray* compositeArray = this->CompositeIdArrayName
-      ? vtkArrayDownCast<vtkUnsignedIntArray>(cd->GetArray(this->CompositeIdArrayName))
-      : nullptr;
+    vtkDataArray* compositeArray =
+      this->CompositeIdArrayName ? cd->GetArray(this->CompositeIdArrayName) : nullptr;
 
-    if (compositedata && compositeArray && rawclowdata)
+    if (compositedata && (compositeArray && compositeArray->GetDataType() == VTK_UNSIGNED_INT) &&
+      rawclowdata)
     {
       this->CellCellMap->Update(prims, representation, poly->GetPoints());
 
-      for (auto pos : pixeloffsets)
+      using UIntArrays =
+        vtkTypeList::Create<vtkAOSDataArrayTemplate<unsigned int>, vtkConstantArray<unsigned int>>;
+      using Dispatcher = vtkArrayDispatch::DispatchByArray<UIntArrays>;
+      CompositeFunctor functor;
+      if (!Dispatcher::Execute(compositeArray, functor, compositedata, rawclowdata, rawchighdata,
+            pixeloffsets, this->CellCellMap, this->PointPicking))
       {
-        unsigned int inval = 0;
-        if (rawchighdata)
-        {
-          inval = rawchighdata[pos];
-          inval = inval << 8;
-        }
-        inval |= rawclowdata[pos + 2];
-        inval = inval << 8;
-        inval |= rawclowdata[pos + 1];
-        inval = inval << 8;
-        inval |= rawclowdata[pos];
-        vtkIdType vtkCellId =
-          this->CellCellMap->ConvertOpenGLCellIdToVTKCellId(this->PointPicking, inval);
-        unsigned int outval = compositeArray->GetValue(vtkCellId);
-        compositedata[pos] = outval & 0xff;
-        compositedata[pos + 1] = (outval & 0xff00) >> 8;
-        compositedata[pos + 2] = (outval & 0xff0000) >> 16;
+        functor(compositeArray, compositedata, rawclowdata, rawchighdata, pixeloffsets,
+          this->CellCellMap, this->PointPicking);
       }
     }
   }

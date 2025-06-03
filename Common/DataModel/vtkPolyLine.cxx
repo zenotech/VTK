@@ -15,7 +15,6 @@
 #include "vtkPoints.h"
 #include "vtkSMPTools.h"
 #include "vtkVector.h"
-#include "vtkVectorOperators.h"
 
 #include <algorithm>
 
@@ -229,19 +228,21 @@ int vtkPolyLine::GenerateSlidingNormals(
   // will occur.
   if (threading)
   {
-    vtkSMPTools::For(0, numLines, [&](vtkIdType lineId, vtkIdType endLineId) {
-      vtkSmartPointer<vtkCellArrayIterator> cellIter;
-      cellIter.TakeReference(lines->NewIterator());
-      vtkIdType npts;
-      const vtkIdType* linePts;
-
-      vtkVector3d normal(0.0, 0.0, 1.0); // arbitrary default value
-      for (; lineId < endLineId; ++lineId)
+    vtkSMPTools::For(0, numLines,
+      [&](vtkIdType lineId, vtkIdType endLineId)
       {
-        cellIter->GetCellAtId(lineId, npts, linePts);
-        SlidingNormalsOnLine(pts, npts, linePts, normals, firstNormal, normal);
-      }
-    }); // lambda
+        vtkSmartPointer<vtkCellArrayIterator> cellIter;
+        cellIter.TakeReference(lines->NewIterator());
+        vtkIdType npts;
+        const vtkIdType* linePts;
+
+        vtkVector3d normal(0.0, 0.0, 1.0); // arbitrary default value
+        for (; lineId < endLineId; ++lineId)
+        {
+          cellIter->GetCellAtId(lineId, npts, linePts);
+          SlidingNormalsOnLine(pts, npts, linePts, normals, firstNormal, normal);
+        }
+      }); // lambda
   }
   else
   {
@@ -267,7 +268,7 @@ int vtkPolyLine::EvaluatePosition(const double x[3], double closestPoint[3], int
 {
   double closest[3];
   double pc[3], dist2;
-  int ignoreId, i, return_status, status;
+  int ignoreId, i, returnStatus, status;
   double lineWeights[2], closestWeights[2];
 
   // Efficient point access
@@ -281,7 +282,7 @@ int vtkPolyLine::EvaluatePosition(const double x[3], double closestPoint[3], int
 
   pcoords[1] = pcoords[2] = 0.0;
 
-  return_status = 0;
+  returnStatus = 0;
   subId = -1;
   closestWeights[0] = closestWeights[1] = 0.0; // Shut up, compiler
   for (minDist2 = VTK_DOUBLE_MAX, i = 0; i < this->Points->GetNumberOfPoints() - 1; i++)
@@ -289,9 +290,9 @@ int vtkPolyLine::EvaluatePosition(const double x[3], double closestPoint[3], int
     this->Line->Points->SetPoint(0, pts + 3 * i);
     this->Line->Points->SetPoint(1, pts + 3 * (i + 1));
     status = this->Line->EvaluatePosition(x, closest, ignoreId, pc, dist2, lineWeights);
-    if (status != -1 && dist2 < minDist2)
+    if (status != -1 && ((dist2 < minDist2) || ((dist2 == minDist2) && (returnStatus == 0))))
     {
-      return_status = status;
+      returnStatus = status;
       if (closestPoint)
       {
         closestPoint[0] = closest[0];
@@ -313,7 +314,7 @@ int vtkPolyLine::EvaluatePosition(const double x[3], double closestPoint[3], int
     weights[subId + 1] = closestWeights[1];
   }
 
-  return return_status;
+  return returnStatus;
 }
 
 //------------------------------------------------------------------------------
@@ -454,7 +455,8 @@ void vtkPolyLine::Clip(double value, vtkDataArray* cellScalars, vtkIncrementalPo
   vtkNew<vtkCellArray> lines;
   vtkIdType numberOfCurrentLines, numberOfPreviousLines = 0;
 
-  const auto appendLines = [&]() {
+  const auto appendLines = [&]()
+  {
     // copy the previous lines to the output
     const auto numberOfPointsOfPolyLine = numberOfCurrentLines + 1;
 #ifdef VTK_USE_64BIT_IDS

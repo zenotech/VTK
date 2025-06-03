@@ -30,7 +30,10 @@
 
 #include "vtkCommonDataModelModule.h" // For export macro
 #include "vtkDataObject.h"
-#include "vtkDeprecation.h" // for VTK_DEPRECATED_IN_9_3_0
+#include "vtkDeprecation.h"   // For VTK_DEPRECATED_IN_9_3_0
+#include "vtkNew.h"           // For vtkNew
+#include "vtkSmartPointer.h"  // For vtkSmartPointer
+#include "vtkWrappingHints.h" // For VTK_MARSHALAUTO
 
 VTK_ABI_NAMESPACE_BEGIN
 class vtkCell;
@@ -40,10 +43,11 @@ class vtkCellTypes;
 class vtkGenericCell;
 class vtkIdList;
 class vtkPointData;
+class vtkPoints;
 class vtkUnsignedCharArray;
 class vtkCallbackCommand;
 
-class VTKCOMMONDATAMODEL_EXPORT vtkDataSet : public vtkDataObject
+class VTKCOMMONDATAMODEL_EXPORT VTK_MARSHALAUTO vtkDataSet : public vtkDataObject
 {
 public:
   vtkTypeMacro(vtkDataSet, vtkDataObject);
@@ -75,6 +79,14 @@ public:
    * THIS METHOD IS THREAD SAFE
    */
   virtual vtkIdType GetNumberOfCells() = 0;
+
+  /**
+   * If the subclass has (implicit/explicit) points, then return them.
+   * Otherwise, create a vtkPoints object and return that.
+   *
+   * DO NOT MODIFY THE RETURNED POINTS OBJECT.
+   */
+  virtual vtkPoints* GetPoints();
 
   /**
    * Get point coordinates with ptId such that: 0 <= ptId < NumberOfPoints.
@@ -459,6 +471,17 @@ public:
   vtkIdType GetNumberOfElements(int type) override;
 
   /**
+   * Abstract method which return the mesh (geometry/topology) modification time.
+   * This time is different from the usual MTime which also takes into
+   * account the modification of data arrays. This function can be used to
+   * track the changes on the mesh separately from the data arrays
+   * (eg. static mesh over time with transient data).
+   * The default implementation returns the MTime. It is up to subclasses
+   * to provide a better approach.
+   */
+  virtual vtkMTimeType GetMeshMTime();
+
+  /**
    * Returns 1 if there are any ghost cells
    * 0 otherwise.
    */
@@ -531,6 +554,14 @@ protected:
   vtkDataSet();
   ~vtkDataSet() override;
 
+  vtkNew<vtkGenericCell> GenericCell; // used by GetCell()
+
+  /**
+   * Return the MTime of the ghost cells array.
+   * Return 0 if no such array.
+   */
+  vtkMTimeType GetGhostCellsTime();
+
   /**
    * Compute the range of the scalars and cache it into ScalarRange
    * only if the cache became invalid (ScalarRangeComputeTime).
@@ -573,6 +604,9 @@ private:
    */
   static void OnDataModified(
     vtkObject* source, unsigned long eid, void* clientdata, void* calldata);
+
+  // This should only be used if a vtkDataSet subclass don't define GetPoints()
+  vtkSmartPointer<vtkPoints> TempPoints;
 
   vtkDataSet(const vtkDataSet&) = delete;
   void operator=(const vtkDataSet&) = delete;

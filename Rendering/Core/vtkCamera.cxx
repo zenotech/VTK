@@ -11,6 +11,7 @@
 #include "vtkTimeStamp.h"
 #include "vtkTransform.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 
@@ -877,9 +878,10 @@ void vtkCamera::SetViewAngle(double angle)
   double min = 0.00000001;
   double max = 179.0;
 
+  angle = std::min(std::max(angle, min), max);
   if (this->ViewAngle != angle)
   {
-    this->ViewAngle = (angle < min ? min : (angle > max ? max : angle));
+    this->ViewAngle = angle;
     this->Modified();
     this->ViewingRaysModified();
   }
@@ -1460,6 +1462,16 @@ void vtkCamera::ShallowCopy(vtkCamera* source)
     this->ProjectionTransform->Register(this);
   }
 
+  if (this->ExplicitProjectionTransformMatrix != nullptr)
+  {
+    this->ExplicitProjectionTransformMatrix->Delete();
+  }
+  this->ExplicitProjectionTransformMatrix = source->ExplicitProjectionTransformMatrix;
+  if (this->ExplicitProjectionTransformMatrix != nullptr)
+  {
+    this->ExplicitProjectionTransformMatrix->Register(this);
+  }
+
   if (this->Transform != nullptr)
   {
     this->Transform->Delete();
@@ -1519,6 +1531,16 @@ void vtkCamera::ShallowCopy(vtkCamera* source)
   {
     this->ModelViewTransform->Register(this);
   }
+
+  if (this->ExplicitProjectionTransformMatrix != nullptr)
+  {
+    this->ExplicitProjectionTransformMatrix->Delete();
+  }
+  this->ExplicitProjectionTransformMatrix = source->ExplicitProjectionTransformMatrix;
+  if (this->ExplicitProjectionTransformMatrix != nullptr)
+  {
+    this->ExplicitProjectionTransformMatrix->Register(this);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -1571,6 +1593,24 @@ void vtkCamera::DeepCopy(vtkCamera* source)
     this->UserViewTransform->DeepCopy(source->UserViewTransform);
   }
 
+  if (source->ExplicitProjectionTransformMatrix == nullptr)
+  {
+    if (this->ExplicitProjectionTransformMatrix != nullptr)
+    {
+      this->ExplicitProjectionTransformMatrix->UnRegister(this);
+      this->ExplicitProjectionTransformMatrix = nullptr;
+    }
+  }
+  else
+  {
+    if (this->ExplicitProjectionTransformMatrix == nullptr)
+    {
+      this->ExplicitProjectionTransformMatrix =
+        static_cast<vtkMatrix4x4*>(source->ExplicitProjectionTransformMatrix->NewInstance());
+    }
+    this->ExplicitProjectionTransformMatrix->DeepCopy(source->ExplicitProjectionTransformMatrix);
+  }
+
   if (source->ViewTransform == nullptr)
   {
     if (this->ViewTransform != nullptr)
@@ -1604,6 +1644,23 @@ void vtkCamera::DeepCopy(vtkCamera* source)
         static_cast<vtkPerspectiveTransform*>(source->ProjectionTransform->MakeTransform());
     }
     this->ProjectionTransform->DeepCopy(source->ProjectionTransform);
+  }
+
+  if (source->ExplicitProjectionTransformMatrix == nullptr)
+  {
+    if (this->ExplicitProjectionTransformMatrix != nullptr)
+    {
+      this->ExplicitProjectionTransformMatrix->UnRegister(this);
+      this->ExplicitProjectionTransformMatrix = nullptr;
+    }
+  }
+  else
+  {
+    if (this->ExplicitProjectionTransformMatrix == nullptr)
+    {
+      this->ExplicitProjectionTransformMatrix = vtkMatrix4x4::New();
+    }
+    this->ExplicitProjectionTransformMatrix->DeepCopy(source->ExplicitProjectionTransformMatrix);
   }
 
   if (source->Transform == nullptr)
@@ -1739,6 +1796,8 @@ void vtkCamera::PartialCopy(vtkCamera* source)
   while (i < 3)
   {
     this->FocalPoint[i] = source->FocalPoint[i];
+    this->FocalPointShift[i] = source->FocalPointShift[i];
+    this->NearPlaneShift[i] = source->NearPlaneShift[i];
     this->Position[i] = source->Position[i];
     this->ViewUp[i] = source->ViewUp[i];
     this->DirectionOfProjection[i] = source->DirectionOfProjection[i];
@@ -1762,13 +1821,20 @@ void vtkCamera::PartialCopy(vtkCamera* source)
   this->Distance = source->Distance;
   this->UseHorizontalViewAngle = source->UseHorizontalViewAngle;
   this->UseOffAxisProjection = source->UseOffAxisProjection;
+  this->UseExplicitProjectionTransformMatrix = source->UseExplicitProjectionTransformMatrix;
   this->OffAxisClippingAdjustment = source->OffAxisClippingAdjustment;
 
   this->FocalDisk = source->FocalDisk;
   this->FocalDistance = source->FocalDistance;
   this->EyeSeparation = source->EyeSeparation;
+  this->UseExplicitProjectionTransformMatrix = source->UseExplicitProjectionTransformMatrix;
 
   this->ViewingRaysMTime = source->ViewingRaysMTime;
+
+  this->ExplicitAspectRatio = source->ExplicitAspectRatio;
+  this->UseExplicitAspectRatio = source->UseExplicitAspectRatio;
+  this->NearPlaneScale = source->NearPlaneScale;
+  this->ShiftScaleThreshold = source->ShiftScaleThreshold;
 }
 
 //------------------------------------------------------------------------------
@@ -2054,6 +2120,7 @@ void vtkCamera::SetModelTransformMatrix(const double elements[16])
   this->ModelTransformMatrix->Element[3][1] = elements[13];
   this->ModelTransformMatrix->Element[3][2] = elements[14];
   this->ModelTransformMatrix->Element[3][3] = elements[15];
+  this->ModelTransformMatrix->Modified();
   this->Modified();
 }
 VTK_ABI_NAMESPACE_END

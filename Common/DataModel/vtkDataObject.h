@@ -24,6 +24,7 @@
 
 #include "vtkCommonDataModelModule.h" // For export macro
 #include "vtkObject.h"
+#include "vtkWrappingHints.h" // For VTK_MARSHALAUTO
 
 VTK_ABI_NAMESPACE_BEGIN
 class vtkAbstractArray;
@@ -45,7 +46,7 @@ class vtkUnsignedCharArray;
 #define VTK_3D_EXTENT 1
 #define VTK_TIME_EXTENT 2
 
-class VTKCOMMONDATAMODEL_EXPORT vtkDataObject : public vtkObject
+class VTKCOMMONDATAMODEL_EXPORT VTK_MARSHALAUTO vtkDataObject : public vtkObject
 {
 public:
   static vtkDataObject* New();
@@ -57,7 +58,9 @@ public:
   /**
    * Set/Get the information object associated with this data object.
    */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_NOT_SUPPORTED)
   vtkGetObjectMacro(Information, vtkInformation);
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_NOT_SUPPORTED)
   virtual void SetInformation(vtkInformation*);
   ///@}
 
@@ -361,63 +364,119 @@ public:
    */
   static int GetAssociationTypeFromString(const char* associationName);
 
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationStringKey* DATA_TYPE_NAME();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationDataObjectKey* DATA_OBJECT();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationIntegerKey* DATA_EXTENT_TYPE();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationIntegerPointerKey* DATA_EXTENT();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationIntegerVectorKey* ALL_PIECES_EXTENT();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationIntegerKey* DATA_PIECE_NUMBER();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationIntegerKey* DATA_NUMBER_OF_PIECES();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationIntegerKey* DATA_NUMBER_OF_GHOST_LEVELS();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationDoubleKey* DATA_TIME_STEP();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationInformationVectorKey* POINT_DATA_VECTOR();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationInformationVectorKey* CELL_DATA_VECTOR();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationInformationVectorKey* VERTEX_DATA_VECTOR();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationInformationVectorKey* EDGE_DATA_VECTOR();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationIntegerKey* FIELD_ARRAY_TYPE();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationIntegerKey* FIELD_ASSOCIATION();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationIntegerKey* FIELD_ATTRIBUTE_TYPE();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationIntegerKey* FIELD_ACTIVE_ATTRIBUTE();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationIntegerKey* FIELD_NUMBER_OF_COMPONENTS();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationIntegerKey* FIELD_NUMBER_OF_TUPLES();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationIntegerKey* FIELD_OPERATION();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationDoubleVectorKey* FIELD_RANGE();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationIntegerVectorKey* PIECE_EXTENT();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationStringKey* FIELD_NAME();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationDoubleVectorKey* ORIGIN();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationDoubleVectorKey* SPACING();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationDoubleVectorKey* DIRECTION();
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationDoubleVectorKey* BOUNDING_BOX();
 
   // Key used to put SIL information in the output information by readers.
-  // \ingroup InformationKeys
+  /**
+   * \ingroup InformationKeys
+   */
   static vtkInformationDataObjectKey* SIL();
 
   ///@{
