@@ -63,12 +63,6 @@ vtkDGCell::Source::Source(vtkDataArray* conn, vtkIdType off, bool blank, Shape s
 {
 }
 
-ostream& operator<<(ostream& os, const vtkDGCell::Shape& shape)
-{
-  os << vtkDGCell::GetShapeName(shape).Data();
-  return os;
-}
-
 vtkDGCell::vtkDGCell()
 {
   static bool registeredSideShapes = false;
@@ -306,42 +300,6 @@ vtkStringToken vtkDGCell::GetShapeName(Shape shape)
 
 vtkDGCell::Shape vtkDGCell::GetShapeEnum(vtkStringToken shapeName)
 {
-  // XXX(c++14)
-#if __cplusplus < 201400L
-  auto snid = shapeName.GetId();
-  if (snid == "vert"_hash || snid == "vertex"_hash || snid == "sphere"_hash)
-  {
-    return Vertex;
-  }
-  else if (snid == "edge"_hash || snid == "line"_hash || snid == "spring"_hash)
-  {
-    return Edge;
-  }
-  else if (snid == "tri"_hash || snid == "triangle"_hash)
-  {
-    return Triangle;
-  }
-  else if (snid == "quad"_hash || snid == "quadrilateral"_hash)
-  {
-    return Quadrilateral;
-  }
-  else if (snid == "tet"_hash || snid == "tetrahedron"_hash)
-  {
-    return Tetrahedron;
-  }
-  else if (snid == "hex"_hash || snid == "hexahedron"_hash)
-  {
-    return Hexahedron;
-  }
-  else if (snid == "wdg"_hash || snid == "wedge"_hash)
-  {
-    return Wedge;
-  }
-  else if (snid == "pyr"_hash || snid == "pyramid"_hash)
-  {
-    return Pyramid;
-  }
-#else
   switch (shapeName.GetId())
   {
     case "vert"_hash:
@@ -373,7 +331,6 @@ vtkDGCell::Shape vtkDGCell::GetShapeEnum(vtkStringToken shapeName)
     default:
       break;
   }
-#endif
   return None;
 }
 

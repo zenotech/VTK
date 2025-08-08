@@ -13,7 +13,6 @@
 #ifndef vtkXOpenGLRenderWindow_h
 #define vtkXOpenGLRenderWindow_h
 
-#include "vtkDeprecation.h" // For VTK_DEPRECATED_IN_9_3_0
 #include "vtkOpenGLRenderWindow.h"
 #include "vtkRenderingOpenGL2Module.h" // For export macro
 #include "vtkWrappingHints.h"          // For VTK_MARSHALAUTO
@@ -96,13 +95,6 @@ public:
   void SetSize(int width, int height) override;
   void SetSize(int a[2]) override { this->SetSize(a[0], a[1]); }
 
-  /**
-   * Specify the size of the rendering window in pixels but do not resize
-   * the XWindow. Useful when resizing is done interactively.
-   */
-  VTK_DEPRECATED_IN_9_3_0("Use vtkRenderWindow::SetSize(w,h) instead")
-  void SetSizeNoXResize(int, int);
-
   ///@{
   /**
    * Get the X properties of an ideal rendering window.
@@ -120,6 +112,12 @@ public:
    * whether the window has been realized yet.
    */
   void SetStereoCapableWindow(vtkTypeBool capable) override;
+
+  /**
+   * Set whether this xwindow should be coverable by other windows,
+   * as opposed to always on top.
+   */
+  void SetCoverable(vtkTypeBool coverable) override;
 
   /**
    * Make this window the current OpenGL context.

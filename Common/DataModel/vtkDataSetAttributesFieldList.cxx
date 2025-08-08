@@ -264,7 +264,7 @@ std::array<const detail::FieldInfo*, vtkDataSetAttributes::NUM_ATTRIBUTES> GetAt
     for (const auto& inattrs : finfo->AttributeTypes)
     {
       std::transform(accumulated_attrs.begin(), accumulated_attrs.end(), inattrs.begin(),
-        accumulated_attrs.begin(), std::logical_and<bool>());
+        accumulated_attrs.begin(), std::logical_and<>());
     }
 
     std::transform(attrs.begin(), attrs.end(), accumulated_attrs.begin(), attrs.begin(),
@@ -721,8 +721,8 @@ void vtkDataSetAttributesFieldList::InterpolatePoint(int inputIndex, vtkDataSetA
 }
 
 //------------------------------------------------------------------------------
-void vtkDataSetAttributesFieldList::TransformData(int inputIndex, vtkDataSetAttributes* input,
-  vtkDataSetAttributes* output, std::function<void(vtkAbstractArray*, vtkAbstractArray*)> op) const
+void vtkDataSetAttributesFieldList::TransformData(int inputIndex, vtkFieldData* input,
+  vtkFieldData* output, std::function<void(vtkAbstractArray*, vtkAbstractArray*)> op) const
 {
   auto& internals = *this->Internals;
   for (auto& pair : internals.Fields)

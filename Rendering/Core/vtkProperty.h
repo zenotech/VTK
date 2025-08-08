@@ -22,7 +22,8 @@
 #include "vtkDeprecation.h" // For deprecation
 #include "vtkObject.h"
 #include "vtkRenderingCoreModule.h" // For export macro
-#include "vtkWrappingHints.h"       // For VTK_MARSHALAUTO
+#include "vtkSetGet.h"
+#include "vtkWrappingHints.h" // For VTK_MARSHALAUTO
 
 #include <map>    // used for ivar
 #include <string> // used for ivar
@@ -101,6 +102,19 @@ public:
   vtkSetMacro(Lighting, bool);
   vtkBooleanMacro(Lighting, bool);
   ///@}
+
+  enum class Point2DShapeType
+  {
+    Round,
+    Square,
+  };
+
+  /**
+   * Set/Get the 2D shape of points to use when RenderPointsAsSpheres=false.
+   * Some graphics implementations may ignore this setting.
+   */
+  vtkSetEnumMacro(Point2DShape, Point2DShapeType);
+  vtkGetEnumMacro(Point2DShape, Point2DShapeType);
 
   ///@{
   /**
@@ -476,6 +490,30 @@ public:
 
   ///@{
   /**
+   * Set/Get the edge width.
+   * Default is 1.
+   * @note When UseLineWidthForEdgeThickness is false, this property
+   * controls the thickness of edges of cells.
+   */
+  vtkSetClampMacro(EdgeWidth, float, 0, VTK_FLOAT_MAX);
+  vtkGetMacro(EdgeWidth, float);
+  ///@}
+
+  ///@{
+  /**
+   * When UseLineWidthForEdgeThickness is true, the thickness of edges in a cell
+   * is controlled by `LineWidth` property.
+   * When UseLineWidthForEdgeThickness is false, the thickness of edges in a cell
+   * is controlled by `EdgeWidth` property.
+   * @note Default value is true. Edge width is determined by the value of `LineWidth`
+   */
+  vtkBooleanMacro(UseLineWidthForEdgeThickness, bool);
+  vtkSetMacro(UseLineWidthForEdgeThickness, bool);
+  vtkGetMacro(UseLineWidthForEdgeThickness, bool);
+  ///@}
+
+  ///@{
+  /**
    * Set/Get the stippling pattern of a Line, as a 16-bit binary pattern
    * (1 = pixel on, 0 = pixel off).
    * This is only implemented for OpenGL, not OpenGL2. The default is 0xFFFF.
@@ -711,10 +749,13 @@ public:
    */
   int GetNumberOfTextures();
 
+  ///@{
   /**
-   * Returns all the textures in this property and their names
+   * Set/get all the textures in this property and their names
    */
+  void SetAllTextures(std::map<std::string, vtkTexture*>& textures);
   std::map<std::string, vtkTexture*>& GetAllTextures() { return this->Textures; }
+  ///@}
 
   /**
    * Release any graphics resources that are being consumed by this
@@ -727,9 +768,7 @@ public:
   /**
    * Set/Get the information object associated with the Property.
    */
-  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_NOT_SUPPORTED)
   vtkGetObjectMacro(Information, vtkInformation);
-  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_NOT_SUPPORTED)
   virtual void SetInformation(vtkInformation*);
   ///@}
 
@@ -798,8 +837,10 @@ protected:
   double EdgeTint[3];
   float PointSize;
   float LineWidth;
+  float EdgeWidth = 1.0;
   float SelectionPointSize = 2.f;
   float SelectionLineWidth = 2.f;
+  bool UseLineWidthForEdgeThickness = true;
   int LineStipplePattern;
   int LineStippleRepeatFactor;
   int Interpolation;
@@ -809,6 +850,7 @@ protected:
   vtkTypeBool BackfaceCulling;
   vtkTypeBool FrontfaceCulling;
   bool Lighting;
+  Point2DShapeType Point2DShape = Point2DShapeType::Square;
   bool RenderPointsAsSpheres;
   bool RenderLinesAsTubes;
   bool ShowTexturesOnBackface;

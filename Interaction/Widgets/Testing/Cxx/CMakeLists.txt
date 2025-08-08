@@ -10,7 +10,7 @@ vtk_add_test_cxx(vtkInteractionWidgetsCxxTests tests
   TestAngleWidget2D.cxx
   TestAngleWidget3D.cxx
   TestBalloonWidget.cxx
-  TestBiDimensionalWidget.cxx
+  TestBiDimensionalWidget.cxx,LOOSE_VALID
   TestBorderWidget.cxx
   TestBrokenLineWidget.cxx
   TestCamera3DWidget.cxx
@@ -26,7 +26,7 @@ vtk_add_test_cxx(vtkInteractionWidgetsCxxTests tests
   TestCoordinateFrameWidget.cxx
   TestDijkstraImageGeodesicPath.cxx
   TestDisplaySizedImplicitPlaneWidget.cxx
-  TestDistanceWidget.cxx
+  TestDistanceWidget.cxx,LOOSE_VALID
   TestDistanceWidget3D.cxx
   TestFinitePlaneWidget.cxx
   TestFixedSizeHandleRepresentation3D.cxx
@@ -34,10 +34,12 @@ vtk_add_test_cxx(vtkInteractionWidgetsCxxTests tests
   TestHandleWidget.cxx
   TestHandleWidget2D.cxx
   TestImageActorContourWidget.cxx
+  TestImplicitAnnulusRadius.cxx
   TestImplicitAnnulusWidget.cxx
   TestImplicitConeWidget.cxx
   TestImplicitCylinderWidget.cxx
   TestImplicitCylinderWidget2.cxx
+  TestImplicitFrustumWidget.cxx
   TestImplicitPlaneWidget.cxx
   TestImplicitPlaneWidget2.cxx
   TestImplicitPlaneWidget2LockNormalToCamera.cxx
@@ -52,6 +54,7 @@ vtk_add_test_cxx(vtkInteractionWidgetsCxxTests tests
   TestMultipleViewports.cxx
   TestOrientationMarkerWidget.cxx
   TestOrientationMarkerWidget2.cxx
+  TestOrientationMarkerWidgetRepeatedAdd.cxx
   TestOrientationWidget.cxx
   TestOrthoPlanes.cxx
   TestParallelopipedWidget.cxx
@@ -66,7 +69,7 @@ vtk_add_test_cxx(vtkInteractionWidgetsCxxTests tests
   TestRectilinearWipeWidget.cxx
   TestResliceCursorWidget2.cxx
   TestResliceCursorWidget3.cxx
-  TestScalarBarWidget.cxx
+  TestScalarBarWidget.cxx,LOOSE_VALID
   TestSeedWidget.cxx
   TestSeedWidget2.cxx
   TestSeedWidgetNonUniformRepresentations.cxx

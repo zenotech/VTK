@@ -205,7 +205,7 @@ vtkSmartPointer<vtkCellArray> BuildStencils(vtkPolyData* edges, const unsigned c
   // links from the points to the (line) cells using the output of
   // vtkExtractEdges.
   vtkStaticCellLinksTemplate<vtkIdType> links;
-  links.ThreadedBuildLinks(numPts, numLines, lines);
+  links.BuildLinks(numPts, numLines, lines);
   vtkIdType linksSize = links.GetLinksSize();
 
   // Building the links does most of the work. Now we transform the links
@@ -475,7 +475,7 @@ int vtkAttributeSmoothingFilter::RequestData(vtkInformation* vtkNotUsed(request)
   vtkDataSet* input = vtkDataSet::SafeDownCast(inInfo->Get(vtkDataObject::DATA_OBJECT()));
   vtkDataSet* output = vtkDataSet::SafeDownCast(outInfo->Get(vtkDataObject::DATA_OBJECT()));
 
-  vtkLog(INFO, "Executing constrained attribute filter");
+  vtkLog(TRACE, "Executing constrained attribute filter");
 
   // Sanity check the input
   vtkIdType numPts = input->GetNumberOfPoints();

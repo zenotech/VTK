@@ -7,6 +7,8 @@
 
 #include "vtkAMRBox.h"
 #include "vtkAMRUtilities.h"
+#include "vtkBitArray.h"
+#include "vtkCellData.h"
 #include "vtkDataArrayRange.h"
 #include "vtkDataArraySelection.h"
 #include "vtkDataAssembly.h"
@@ -14,14 +16,34 @@
 #include "vtkFieldData.h"
 #include "vtkHDF5ScopedHandle.h"
 #include "vtkHDFUtilities.h"
+#include "vtkHyperTree.h"
+#include "vtkHyperTreeGrid.h"
+#include "vtkHyperTreeGridNonOrientedCursor.h"
+#include "vtkImageData.h"
+#include "vtkMultiBlockDataSet.h"
 #include "vtkOverlappingAMR.h"
+#include "vtkPartitionedDataSet.h"
+#include "vtkPartitionedDataSetCollection.h"
+#include "vtkPolyData.h"
 #include "vtkUniformGrid.h"
+#include "vtkUnstructuredGrid.h"
 
+#include <algorithm>
 #include <array>
+#include <numeric>
 #include <sstream>
 
 //------------------------------------------------------------------------------
 VTK_ABI_NAMESPACE_BEGIN
+
+namespace
+{
+constexpr vtkIdType BYTE_SIZE = 8;
+auto bitSizeToBytes = [](vtkIdType numBits)
+{
+  return (numBits + BYTE_SIZE - 1) / BYTE_SIZE; // Integer 'ceil'
+};
+}
 
 //------------------------------------------------------------------------------
 vtkHDFReader::Implementation::Implementation(vtkHDFReader* reader)
@@ -56,7 +78,7 @@ bool vtkHDFReader::Implementation::Open(const char* fileName)
     return false;
   }
 
-  if (this->FileName.empty() || this->FileName != fileName)
+  if (this->FileName.empty() || this->FileName != fileName || this->File < 0)
   {
     this->FileName = fileName;
     if (this->File >= 0)
@@ -90,12 +112,8 @@ bool vtkHDFReader::Implementation::OpenGroupAsVTKGroup(const std::string& groupP
 //------------------------------------------------------------------------------
 bool vtkHDFReader::Implementation::RetrieveHDFInformation(const std::string& rootName)
 {
-  if (!vtkHDFUtilities::RetrieveHDFInformation(this->File, this->VTKGroup, rootName, this->Version,
-        this->DataSetType, this->NumberOfPieces, this->AttributeDataGroup))
-  {
-    return false;
-  }
-  return true;
+  return vtkHDFUtilities::RetrieveHDFInformation(this->File, this->VTKGroup, rootName,
+    this->Version, this->DataSetType, this->NumberOfPieces, this->AttributeDataGroup);
 }
 
 //------------------------------------------------------------------------------
@@ -212,6 +230,17 @@ bool vtkHDFReader::Implementation::GetAttribute(
   const char* attributeName, size_t numberOfElements, T* value)
 {
   return vtkHDFUtilities::GetAttribute(this->VTKGroup, attributeName, numberOfElements, value);
+}
+
+//------------------------------------------------------------------------------
+bool vtkHDFReader::Implementation::HasAttribute(const char* groupName, const char* attributeName)
+{
+  vtkHDF::ScopedH5GHandle groupID = H5Gopen(this->File, groupName, H5P_DEFAULT);
+  if (groupID < 0)
+  {
+    return false;
+  }
+  return H5Aexists(groupID, attributeName) > 0;
 }
 
 //------------------------------------------------------------------------------
@@ -416,6 +445,30 @@ bool vtkHDFReader::Implementation::ComputeAMRBlocksPerLevels(unsigned int maxLev
     this->AMRInformation.BlocksPerLevel.push_back(dimensions[0]);
 
     ++level;
+  }
+
+  return true;
+}
+
+//------------------------------------------------------------------------------
+bool vtkHDFReader::Implementation::GetImageAttributes(
+  int WholeExtent[6], double Origin[3], double Spacing[3])
+{
+
+  if (!this->GetAttribute("WholeExtent", 6, WholeExtent))
+  {
+    vtkErrorWithObjectMacro(this->Reader, "Could not get WholeExtent attribute");
+    return false;
+  }
+  if (!this->GetAttribute("Origin", 3, Origin))
+  {
+    vtkErrorWithObjectMacro(this->Reader, "Could not get Origin attribute");
+    return false;
+  }
+  if (!this->GetAttribute("Spacing", 3, Spacing))
+  {
+    vtkErrorWithObjectMacro(this->Reader, "Could not get Spacing attribute");
+    return false;
   }
 
   return true;
@@ -961,6 +1014,310 @@ bool vtkHDFReader::Implementation::ReadAMRData(vtkOverlappingAMR* data, unsigned
 }
 
 //------------------------------------------------------------------------------
+bool vtkHDFReader::Implementation::ReadHyperTreeGridData(vtkHyperTreeGrid* htg,
+  const vtkDataArraySelection* arraySelection, const vtkIdType cellOffset,
+  const vtkIdType treeIdsOffset, const vtkIdType depthOffset, const vtkIdType descriptorOffset,
+  const vtkIdType maskOffset, const vtkIdType partOffset, const vtkIdType verticesPerDepthOffset,
+  const vtkIdType depthLimit, const vtkIdType step)
+{
+  htg->Initialize();
+
+  if (!this->ReadHyperTreeGridMetaInfo(htg))
+  {
+    return false;
+  }
+
+  if (!this->ReadHyperTreeGridDimensions(htg))
+  {
+    return false;
+  }
+
+  // Read meta-data for the current piece
+  const vtkIdType treeCount = this->GetMetadata("NumberOfTrees", 1, partOffset)[0];
+  const vtkIdType depthCount = this->GetMetadata("NumberOfDepths", 1, partOffset)[0];
+  const vtkIdType cellCount = this->GetMetadata("NumberOfCells", 1, partOffset)[0];
+  const vtkIdType descriptorCount = this->GetMetadata("DescriptorsSize", 1, partOffset)[0];
+
+  // Read only the tree ids for the current piece
+  const std::vector<vtkIdType> treeIds = this->GetMetadata("TreeIds", treeCount, treeIdsOffset);
+  const std::vector<vtkIdType> depthPerTree =
+    this->GetMetadata("DepthPerTree", treeCount, depthOffset);
+  const std::vector<vtkIdType> numberOfCellsPerTreeDepth =
+    this->GetMetadata("NumberOfCellsPerTreeDepth", depthCount, verticesPerDepthOffset);
+
+  // Read Tree Descriptors
+  const std::vector<hsize_t> descriptorExtent = { static_cast<hsize_t>(descriptorOffset),
+    static_cast<hsize_t>(descriptorOffset + ::bitSizeToBytes(descriptorCount)) };
+  vtkSmartPointer<vtkUnsignedCharArray> descriptorsByteArray =
+    vtk::TakeSmartPointer(vtkArrayDownCast<vtkUnsignedCharArray>(
+      vtkHDFUtilities::NewArrayForGroup(this->VTKGroup, "Descriptors", descriptorExtent)));
+
+  // Build a bit array from the uint8 array, transferring the memory ownership to the bit array
+  vtkNew<vtkBitArray> descriptor;
+  descriptor->SetArray(descriptorsByteArray->GetPointer(0), descriptorCount, 0);
+  descriptorsByteArray->SetArrayFreeFunction(nullptr);
+
+  const bool hasMask = H5Lexists(this->VTKGroup, "Mask", H5P_DEFAULT) > 0;
+  if (hasMask)
+  {
+    vtkNew<vtkBitArray> mask;
+    mask->Allocate(cellCount);
+    htg->SetMask(mask);
+  }
+
+  // Create cell arrays
+  std::vector<vtkSmartPointer<vtkAbstractArray>> cellArrays;
+  if (!this->CreateHyperTreeGridCellArrays(htg, cellArrays, arraySelection, cellCount))
+  {
+    return false;
+  }
+
+  vtkNew<vtkHyperTreeGridNonOrientedCursor> treeCursor;
+  vtkIdType treeDescriptorOffset = 0;
+  vtkIdType inputCellOffset = 0;
+  vtkIdType outputCellOffset = 0;
+  vtkIdType numCellsPerDepthOffset = 0;
+
+  // Iterate over trees, building them taking depth limiter into consideration.
+  // Also appends masking and cell data
+  for (const vtkIdType& treeId : treeIds)
+  {
+    // Compute both the total number of cells and the number of cells below the depth limit in the
+    // current tree Number of cells in the current tree = sum of the number of cells in all depths
+    vtkIdType lastDepthSize = 0;
+    vtkIdType lastReadableDepthSize = 0; // Taking depth limit into account
+    vtkIdType totalTreeSize = 0;
+    vtkIdType readableTreeSize = 0; // Taking depth limit into account
+    auto numCellsPerTreeDepthIt = numberOfCellsPerTreeDepth.begin() + numCellsPerDepthOffset;
+    for (vtkIdType depth = 0; depth < depthPerTree[treeId]; depth++, numCellsPerTreeDepthIt++)
+    {
+      lastDepthSize = *numCellsPerTreeDepthIt;
+      if (depth < depthLimit)
+      {
+        lastReadableDepthSize = lastDepthSize;
+        readableTreeSize += lastDepthSize;
+      }
+      totalTreeSize += lastDepthSize;
+    }
+
+    // The descriptor has 1 bit entry for each cell in the tree, except for the last depth
+    const vtkIdType descriptorSize = totalTreeSize - lastDepthSize;
+    const vtkIdType readableDescriptorSize = readableTreeSize - lastReadableDepthSize;
+    htg->InitializeNonOrientedCursor(treeCursor, treeId, true);
+    treeCursor->SetGlobalIndexStart(outputCellOffset);
+
+    if (!this->AppendCellDataForHyperTree(
+          cellArrays, cellOffset, inputCellOffset, step, readableTreeSize))
+    {
+      return false;
+    }
+
+    if (hasMask &&
+      !this->AppendMaskForHyperTree(htg, inputCellOffset, maskOffset, readableTreeSize))
+    {
+      return false;
+    }
+
+    // Build tree from descriptor
+    treeCursor->GetTree()->BuildFromBreadthFirstOrderDescriptor(
+      descriptor, readableDescriptorSize, treeDescriptorOffset);
+
+    // Increment input & output offsets
+    treeDescriptorOffset += descriptorSize;
+    inputCellOffset += totalTreeSize;
+    outputCellOffset += readableTreeSize;
+    numCellsPerDepthOffset += depthPerTree[treeId];
+  }
+
+  // We pre-allocated `cellCount` items, but with depth limiter, it is possible than less than that
+  // is used.
+  for (auto& array : cellArrays)
+  {
+    array->Squeeze();
+  }
+  if (hasMask)
+  {
+    htg->GetMask()->Squeeze();
+  }
+
+  return true;
+}
+
+//------------------------------------------------------------------------------
+bool vtkHDFReader::Implementation::ReadHyperTreeGridMetaInfo(vtkHyperTreeGrid* htg)
+{
+  // Read general info about this HTG
+  int branchFactor = 0;
+  if (!this->GetAttribute("BranchFactor", 1, &branchFactor))
+  {
+    vtkErrorWithObjectMacro(this->Reader, << "Cannot find BranchFactor attribute");
+    return false;
+  }
+  htg->SetBranchFactor(branchFactor);
+
+  // Read TransposedRootIndexing attribute
+  int transposedRootIndexing = 0;
+  if (H5Aexists(this->VTKGroup, "TransposedRootIndexing") > 0)
+  {
+    this->GetAttribute("TransposedRootIndexing", 1, &transposedRootIndexing);
+  }
+  htg->SetTransposedRootIndexing(transposedRootIndexing != 0);
+
+  // Read Interface attributes if they exist
+  bool hasInterfaceIntercepts = H5Aexists(this->VTKGroup, "InterfaceInterceptsName") > 0;
+  bool hasInterfaceNormals = H5Aexists(this->VTKGroup, "InterfaceNormalsName") > 0;
+  if (hasInterfaceIntercepts)
+  {
+    std::string interfaceInterceptsName;
+    vtkHDFUtilities::GetStringAttribute(
+      this->VTKGroup, "InterfaceInterceptsName", interfaceInterceptsName);
+    htg->SetInterfaceInterceptsName(interfaceInterceptsName.c_str());
+  }
+
+  if (hasInterfaceNormals)
+  {
+    std::string interfaceNormalsName;
+    vtkHDFUtilities::GetStringAttribute(
+      this->VTKGroup, "InterfaceNormalsName", interfaceNormalsName);
+    htg->SetInterfaceNormalsName(interfaceNormalsName.c_str());
+  }
+
+  if (hasInterfaceIntercepts && hasInterfaceNormals)
+  {
+    htg->SetHasInterface(true);
+  }
+
+  return true;
+}
+
+//------------------------------------------------------------------------------
+bool vtkHDFReader::Implementation::ReadHyperTreeGridDimensions(vtkHyperTreeGrid* htg)
+{
+  std::array<int, 3> dimensions;
+  if (!this->GetAttribute("Dimensions", 1, dimensions.data()))
+  {
+    vtkErrorWithObjectMacro(this->Reader, << "Missing dimensions attribute");
+    return false;
+  }
+
+  // Read coordinate arrays
+  std::vector<hsize_t> coordinates_extent{ 0, static_cast<hsize_t>(dimensions[0]) };
+  auto XCoordinates = vtk::TakeSmartPointer(
+    vtkHDFUtilities::NewArrayForGroup(this->VTKGroup, "XCoordinates", coordinates_extent));
+  coordinates_extent[1] = static_cast<hsize_t>(dimensions[1]);
+  auto YCoordinates = vtk::TakeSmartPointer(
+    vtkHDFUtilities::NewArrayForGroup(this->VTKGroup, "YCoordinates", coordinates_extent));
+  coordinates_extent[1] = static_cast<hsize_t>(dimensions[2]);
+  auto ZCoordinates = vtk::TakeSmartPointer(
+    vtkHDFUtilities::NewArrayForGroup(this->VTKGroup, "ZCoordinates", coordinates_extent));
+
+  if (!XCoordinates || !YCoordinates || !ZCoordinates)
+  {
+    vtkErrorWithObjectMacro(this->Reader, << "Missing coordinates array");
+    return false;
+  }
+
+  htg->SetDimensions(dimensions.data());
+  htg->SetXCoordinates(XCoordinates);
+  htg->SetYCoordinates(YCoordinates);
+  htg->SetZCoordinates(ZCoordinates);
+
+  return true;
+}
+
+//------------------------------------------------------------------------------
+bool vtkHDFReader::Implementation::CreateHyperTreeGridCellArrays(vtkHyperTreeGrid* htg,
+  std::vector<vtkSmartPointer<vtkAbstractArray>>& cellArrays,
+  const vtkDataArraySelection* arraySelection, vtkIdType cellCount)
+{
+  constexpr int cellType = vtkDataObject::AttributeTypes::CELL;
+  const std::vector<std::string> arrayNames = this->GetArrayNames(cellType);
+  for (const std::string& arrayName : arrayNames)
+  {
+    if (arraySelection->ArrayIsEnabled(arrayName.c_str()))
+    {
+      // Read a null extent so we get the correct array type
+      vtkSmartPointer<vtkDataArray> array;
+      std::vector<hsize_t> nullExtent{ 0, 0 };
+      if ((array = vtk::TakeSmartPointer(
+             this->NewArray(cellType, arrayName.c_str(), nullExtent))) == nullptr)
+      {
+        vtkErrorWithObjectMacro(nullptr, "Error reading array " << arrayName);
+        return false;
+      }
+
+      array->SetName(arrayName.c_str());
+      array->Allocate(cellCount * array->GetNumberOfComponents());
+      htg->GetCellData()->AddArray(array);
+      cellArrays.emplace_back(array);
+    }
+  }
+
+  return true;
+}
+
+//------------------------------------------------------------------------------
+bool vtkHDFReader::Implementation::AppendCellDataForHyperTree(
+  std::vector<vtkSmartPointer<vtkAbstractArray>>& cellArrays, vtkIdType cellOffset,
+  vtkIdType inputCellOffset, const vtkIdType step, const vtkIdType readableTreeSize)
+{
+  constexpr int cellType = vtkDataObject::AttributeTypes::CELL;
+
+  for (auto& array : cellArrays)
+  {
+    std::string arrayName = array->GetName();
+    vtkIdType startReadOffset = cellOffset +
+      std::max<vtkIdType>(this->GetArrayOffset(step, cellType, arrayName), 0) + inputCellOffset;
+
+    std::vector<hsize_t> arrayReadExtent{ static_cast<hsize_t>(startReadOffset),
+      static_cast<hsize_t>(startReadOffset + readableTreeSize) };
+
+    vtkSmartPointer<vtkDataArray> addedArray;
+    if ((addedArray = vtk::TakeSmartPointer(
+           this->NewArray(cellType, arrayName.c_str(), arrayReadExtent))) == nullptr)
+    {
+      vtkErrorWithObjectMacro(nullptr, "Error reading array " << arrayName);
+      return false;
+    }
+
+    // Copy read array at the end of the data array
+    array->InsertTuples(array->GetNumberOfTuples(), readableTreeSize, 0, addedArray);
+  }
+
+  return true;
+}
+
+//------------------------------------------------------------------------------
+bool vtkHDFReader::Implementation::AppendMaskForHyperTree(vtkHyperTreeGrid* htg,
+  vtkIdType inputCellOffset, const vtkIdType maskOffset, const vtkIdType readableTreeSize)
+{
+  // Read and append mask
+  vtkIdType maskByteStartOffset = maskOffset + (inputCellOffset / BYTE_SIZE);
+  vtkIdType offsetInStartingByte =
+    inputCellOffset % BYTE_SIZE; // Mask for the tree may not start at the start of a byte
+  vtkIdType maskByteSize = ::bitSizeToBytes(readableTreeSize + offsetInStartingByte);
+  std::vector<hsize_t> maskExtent = { static_cast<hsize_t>(maskByteStartOffset),
+    static_cast<hsize_t>(maskByteStartOffset + maskByteSize) };
+
+  // Read only the relevant part of the mask, taking depth limiter into account
+  vtkSmartPointer<vtkUnsignedCharArray> addedMaskByteArray =
+    vtk::TakeSmartPointer(vtkArrayDownCast<vtkUnsignedCharArray>(
+      vtkHDFUtilities::NewArrayForGroup(this->VTKGroup, "Mask", maskExtent)));
+
+  vtkNew<vtkBitArray> addedMask;
+  addedMask->SetArray(vtkArrayDownCast<vtkUnsignedCharArray>(addedMaskByteArray)->GetPointer(0),
+    maskByteSize * BYTE_SIZE, 0);
+  addedMaskByteArray->SetArrayFreeFunction(nullptr);
+  if (htg->GetMask())
+  {
+    htg->GetMask()->InsertTuples(
+      htg->GetMask()->GetNumberOfTuples(), readableTreeSize, offsetInStartingByte, addedMask);
+  }
+
+  return true;
+}
+
+//------------------------------------------------------------------------------
 vtkDataArray* vtkHDFReader::Implementation::GetStepValues()
 {
   if (this->File < 0)
@@ -1017,3 +1374,52 @@ template bool vtkHDFReader::Implementation::GetAttribute<int>(
 template bool vtkHDFReader::Implementation::GetAttribute<double>(
   const char* attributeName, size_t dim, double* value);
 VTK_ABI_NAMESPACE_END
+
+//------------------------------------------------------------------------------
+vtkSmartPointer<vtkDataObject> vtkHDFReader::Implementation::GetNewDataSet(
+  int dataSetType, int numPieces)
+{
+  const std::array partitionedTypes = { VTK_UNSTRUCTURED_GRID, VTK_POLY_DATA, VTK_HYPER_TREE_GRID };
+  vtkSmartPointer<vtkDataObject> newOutput = nullptr;
+  if (numPieces > 1 &&
+    std::find(partitionedTypes.begin(), partitionedTypes.end(), dataSetType) !=
+      partitionedTypes.end())
+  {
+    newOutput = vtkSmartPointer<vtkPartitionedDataSet>::New();
+  }
+  else if (dataSetType == VTK_IMAGE_DATA)
+  {
+    newOutput = vtkSmartPointer<vtkImageData>::New();
+  }
+  else if (dataSetType == VTK_UNSTRUCTURED_GRID)
+  {
+    newOutput = vtkSmartPointer<vtkUnstructuredGrid>::New();
+  }
+  else if (dataSetType == VTK_POLY_DATA)
+  {
+    newOutput = vtkSmartPointer<vtkPolyData>::New();
+  }
+  else if (dataSetType == VTK_HYPER_TREE_GRID)
+  {
+    newOutput = vtkSmartPointer<vtkHyperTreeGrid>::New();
+  }
+  else if (dataSetType == VTK_OVERLAPPING_AMR)
+  {
+    newOutput = vtkSmartPointer<vtkOverlappingAMR>::New();
+  }
+  else if (dataSetType == VTK_PARTITIONED_DATA_SET_COLLECTION)
+  {
+    newOutput = vtkSmartPointer<vtkPartitionedDataSetCollection>::New();
+  }
+  else if (dataSetType == VTK_MULTIBLOCK_DATA_SET)
+  {
+    newOutput = vtkSmartPointer<vtkMultiBlockDataSet>::New();
+  }
+  else
+  {
+    vtkErrorWithObjectMacro(this->Reader, "HDF dataset type unknown: " << dataSetType);
+    return nullptr;
+  }
+
+  return newOutput;
+}

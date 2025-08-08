@@ -7,13 +7,9 @@
 
 #include "vtkRenderingWebGPUModule.h" // for export macro
 #include "vtkSmartPointer.h"          // for ivar
-#include "vtkTypeUInt32Array.h"       // for ivar
-#include "vtkWebGPUActor.h"           // for the actors rendered last frame
 #include "vtkWebGPUComputePipeline.h" // for the compute pipelines used by this renderer
 #include "vtk_wgpu.h"                 // for webgpu
 
-#include <string>        // for ivar
-#include <unordered_map> // for ivar
 #include <unordered_set> // for the set of actors rendered last frame
 
 class vtkAbstractMapper;
@@ -51,18 +47,36 @@ public:
   };
   vtkGetMacro(LightingComplexity, int);
 
+  enum RenderStageEnum
+  {
+    AwaitingPreparation,
+    UpdatingBuffers,
+    RecordingCommands,
+    Finished,
+    RenderPostRasterization
+  };
+
+  /**
+   * Clear the image to the background color.
+   */
+  void Clear() override;
+
+  /**
+   * Create an image.
+   */
   void DeviceRender() override;
 
   /**
-   * Updates / creates the various buffer necessary for the rendering of the props
+   * Updates / creates the various buffer necessary for the rendering of the props.
+   * This is a chance for actors, mappers, cameras and lights to push their data
+   * from a staging area (or) `vtkDataObject` subclasses into `wgpu::Buffer` or `wgpu::Texture`.
    */
-  void PrepareRender();
+  void UpdateBuffers();
 
   /**
-   * Ask all props to update themselves. This process should be limited
-   * to wgpu::Buffer uploads, creation of bind groups, bind group layouts,
-   * graphics pipeline. Basically, do everything necessary but do NOT encode
-   * render pass commands.
+   * Ask all props to update and draw any opaque and translucent
+   * geometry. This includes both vtkActors and vtkVolumes
+   * Returns the number of props that rendered geometry.
    */
   int UpdateGeometry(vtkFrameBufferObjectBase* fbo = nullptr) override;
 
@@ -91,11 +105,6 @@ public:
   GetSetupPostRenderComputePipelines();
   /// @}
 
-  /**
-   * Request props to encode render commands.
-   */
-  int RenderGeometry();
-
   int UpdateLights() override;
 
   void SetEnvironmentTexture(vtkTexture* texture, bool isSRGB = false) override;
@@ -103,17 +112,13 @@ public:
   void ReleaseGraphicsResources(vtkWindow* w) override;
 
   inline wgpu::RenderPassEncoder GetRenderPassEncoder() { return this->WGPURenderEncoder; }
-  inline wgpu::BindGroup GetActorBindGroup() { return this->ActorBindGroup; }
+  inline wgpu::RenderBundleEncoder GetRenderBundleEncoder() { return this->WGPUBundleEncoder; }
   inline wgpu::BindGroup GetSceneBindGroup() { return this->SceneBindGroup; }
 
   inline void PopulateBindgroupLayouts(std::vector<wgpu::BindGroupLayout>& layouts)
   {
     layouts.emplace_back(this->SceneBindGroupLayout);
-    layouts.emplace_back(this->ActorBindGroupLayout);
   }
-
-  wgpu::ShaderModule HasShaderCache(const std::string& source);
-  void InsertShader(const std::string& source, wgpu::ShaderModule shader);
 
   /// @{
   /**
@@ -141,12 +146,42 @@ public:
   ///@{
   /**
    * Set the usage of render bundles. This speeds up rendering in wasm.
+   * Render bundles are a performance optimization that minimize CPU time for rendering large number
+   * of props.
    * @warning LEAKS MEMORY. See vtkWebGPURenderer::DeviceRender
    */
   vtkSetMacro(UseRenderBundles, bool);
   vtkBooleanMacro(UseRenderBundles, bool);
   vtkGetMacro(UseRenderBundles, bool);
   ///@}
+
+  /**
+   * Query the stage in the rendering process.
+   * This property tells the actors and mappers what should be done in their `Render` calls.
+   * When it is equal to `UpdatingBuffers`, the actors and mappers can upload data into wgpu
+   * buffers. When it is equal to `RecordingCommands`, the mappers should record draw commands,
+   * pipeline changes and bindgroup changes into the render pass encoder or a render bundle encoder.
+   * Finally, when it is in `RenderPostRasterization` stage, only the actors added into the list
+   * of post rasterization actors, and whose mappers support post rasterization will be rendered.
+   */
+  vtkGetEnumMacro(RenderStage, RenderStageEnum);
+
+  /**
+   * Forces the renderer to re-record draw commands into a render bundle.
+   *
+   * @note This does not use vtkSetMacro because the actor MTime should not be affected when a
+   * render bundle is invalidated.
+   */
+  inline void InvalidateBundle()
+  {
+    this->RebuildRenderBundle = true;
+    this->Bundle = nullptr;
+  }
+
+  /**
+   * Get whether the render bundle associated with this actor must be reset by the renderer.
+   */
+  vtkGetMacro(RebuildRenderBundle, bool);
 
 protected:
   vtkWebGPURenderer();
@@ -156,82 +191,48 @@ protected:
    * Request mappers to run the vtkAlgorithm pipeline (if needed)
    * and consequently update device buffers corresponding to shader module bindings.
    * Ex: positions, colors, normals, indices
+   * Request mappers to bind descriptor sets (bind groups) and encode draw commands.
    */
   int UpdateOpaquePolygonalGeometry() override;
   int UpdateTranslucentPolygonalGeometry() override;
-
-  /**
-   * Request mappers to bind descriptor sets (bind groups) and encode draw commands.
-   */
-  void DeviceRenderOpaqueGeometry(vtkFrameBufferObjectBase* fbo) override;
-  void DeviceRenderTranslucentPolygonalGeometry(vtkFrameBufferObjectBase* fbo) override;
 
   // Setup scene and actor bindgroups. Actor has dynamic offsets.
   void SetupBindGroupLayouts();
   // Create buffers for the bind groups.
   void CreateBuffers();
-  // Update the bound buffers with data.
-  std::size_t UpdateBufferData();
   // Create scene bind group.
   void SetupSceneBindGroup();
-  // Create actor bind group.
-  void SetupActorBindGroup();
 
-  // Start, finish recording commands with render pass encoder
-  void BeginEncoding();
-  void EndEncoding();
-
-  /**
-   * Encodes the draw commands for the this->PropArrayCount props currently contained in
-   * this->PropArray
-   */
-  void RenderProps();
+  // Start, finish recording commands.
+  void BeginRecording();
+  void EndRecording();
 
   std::size_t WriteLightsBuffer(std::size_t offset = 0);
   std::size_t WriteSceneTransformsBuffer(std::size_t offset = 0);
-  std::size_t WriteActorBlocksBuffer(std::size_t offset = 0);
 
   wgpu::RenderPassEncoder WGPURenderEncoder;
+  wgpu::RenderBundleEncoder WGPUBundleEncoder;
   wgpu::Buffer SceneTransformBuffer;
   wgpu::Buffer SceneLightsBuffer;
-  wgpu::Buffer ActorBlocksBuffer;
+
   wgpu::BindGroup SceneBindGroup;
   wgpu::BindGroupLayout SceneBindGroupLayout;
-
-  wgpu::BindGroup ActorBindGroup;
-  wgpu::BindGroupLayout ActorBindGroupLayout;
 
 #ifdef __EMSCRIPTEN__
   bool UseRenderBundles = true;
 #else
   bool UseRenderBundles = false;
 #endif
-  // one bundle per actor. bundle gets reused every frame.
-  // these bundles can be built in parallel with vtkSMPTools. holding off because not
-  // sure how to get emscripten to thread.
-  std::vector<wgpu::RenderBundle> Bundles;
-  struct vtkWGPUPropItem
-  {
-    wgpu::RenderBundle Bundle = nullptr;
-    vtkSmartPointer<vtkTypeUInt32Array> DynamicOffsets;
-  };
-  std::unordered_map<vtkProp*, vtkWGPUPropItem> PropWGPUItems;
+  bool RebuildRenderBundle = false;
+  // the commands in bundle get reused every frame.
+  wgpu::RenderBundle Bundle;
 
-  std::unordered_map<std::string, wgpu::ShaderModule> ShaderCache;
-  std::size_t NumberOfPropsUpdated = 0;
   int LightingComplexity = 0;
   std::size_t NumberOfLightsUsed = 0;
   std::vector<std::size_t> LightIDs;
 
   vtkMTimeType LightingUpdateTime;
   vtkTimeStamp LightingUploadTimestamp;
-
-  struct
-  {
-    uint32_t Hits = 0;
-    uint32_t Misses = 0;
-    uint32_t TotalRequests = 0;
-  } BundleCacheStats;
 
   /**
    * Optional user transform for lights
@@ -310,6 +311,13 @@ private:
   wgpu::CommandBuffer EncodePropListRenderCommand(vtkProp** propList, int listLength);
 
   /**
+   * Records commands into a render pass encoder.
+   * This method records commands which draw the background texture/clear color
+   * and commands which render all the props contained in this renderer.
+   */
+  void RecordRenderCommands();
+
+  /**
    * Whether the compute render buffers of the mappers of the actors of this renderer have already
    * been initialized or not
    */
@@ -319,12 +327,12 @@ private:
    * Indicates whether PrepareRender() was called already for this frame or not (and thus we do not
    * need to call it again).
    */
-  bool PrepareRenderDone = false;
+  RenderStageEnum RenderStage = RenderStageEnum::AwaitingPreparation;
 
   /**
    * Whether to clear the depth/stencil/color buffer before rendering
    */
-  bool DoClearPass = true;
+  bool DrawBackgroundInClearPass = true;
 
   /**
    * List of the actors rendered last frame. Mainly used by the occlusion culler when we want to

@@ -17,11 +17,12 @@ if ("$ENV{WASM_ARCHITECTURE}" MATCHES "wasm64")
   set(VTK_WEBASSEMBLY_64_BIT ON)
 endif ()
 
-set(VTK_TESTING_WASM_ENGINE_ARGUMENTS "$ENV{VTK_TESTING_WASM_ENGINE_ARGUMENTS}")
-
 # Use Emscripten toolchain
 get_filename_component(emsdk_dir "${CMAKE_CURRENT_LIST_DIR}/../emsdk" ABSOLUTE)
 file(TO_CMAKE_PATH "${emsdk_dir}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake" toolchain_file)
+
+# set emdawnwebgpu dir
+get_filename_component(_emdawnwebgpu_DIR "${CMAKE_CURRENT_LIST_DIR}/../dawn" ABSOLUTE)
 
 set(CTEST_SOURCE_DIRECTORY "${CTEST_SOURCE_DIRECTORY}/Testing/ExternalWasm")
 set(cmake_args
@@ -31,8 +32,9 @@ set(cmake_args
   "-DVTK_USE_LARGE_DATA:BOOL=ON"
   "-DVTK_BUILD_TESTING:BOOL=ON"
   "-DVTK_WEBASSEMBLY_64_BIT:BOOL=${VTK_WEBASSEMBLY_64_BIT}"
+  "-DVTK_WEBASSEMBLY_EXCEPTIONS:BOOL=ON"
   "-DVTK_TESTING_WASM_ENGINE=${VTK_TESTING_WASM_ENGINE}"
-  "-DVTK_TESTING_WASM_ENGINE_ARGUMENTS=${VTK_TESTING_WASM_ENGINE_ARGUMENTS}"
+  "-Demdawnwebgpu_DIR=${_emdawnwebgpu_DIR}/lib/cmake/emdawnwebgpu"
   "--no-warn-unused-cli")
 
 # Create an entry in CDash.

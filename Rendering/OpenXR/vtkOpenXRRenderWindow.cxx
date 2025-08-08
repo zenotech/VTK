@@ -11,6 +11,7 @@
 #include "vtkOpenXRModel.h"
 #include "vtkOpenXRRenderWindowInteractor.h"
 #include "vtkOpenXRRenderer.h"
+#include "vtkOpenXRSceneObserver.h"
 #include "vtkOpenXRUtilities.h"
 #include "vtkRendererCollection.h"
 #include "vtkResourceFileLocator.h"
@@ -68,6 +69,12 @@ public:
     fileGlobber->SetDirectory(rootSearchDir.c_str());
     fileGlobber->SetRecurse(true);
     fileGlobber->AddFileNames(modelsFile.c_str());
+    if (!this->ModelsManifestDirectory.empty())
+    {
+      std::string fullpath =
+        vtksys::SystemTools::JoinPath({ this->ModelsManifestDirectory, modelsFile });
+      fileGlobber->AddFileNames(fullpath.c_str());
+    }
     if (fileGlobber->GetNumberOfFileNames() <= 0)
     {
       vtkWarningWithObjectMacro(
@@ -139,6 +146,8 @@ public:
 
   std::map<uint32_t, std::string> CurrentInteractionProfiles;
   std::map<std::string, std::map<uint32_t, std::string>> ProfileToModelMapping;
+  std::string ModelsManifestDirectory;
+  vtkSmartPointer<vtkOpenXRSceneObserver> SceneObserver;
 };
 
 vtkStandardNewMacro(vtkOpenXRRenderWindow);
@@ -226,11 +235,21 @@ void vtkOpenXRRenderWindow::Initialize()
   this->OpenGLInit();
 
   vtkOpenXRManager& xrManager = vtkOpenXRManager::GetInstance();
-  if (!xrManager.Initialize(this->HelperWindow))
+  if (!xrManager.Initialize(this))
   {
     // Set to false because the above init of the HelperWindow sets it to true
     vtkErrorMacro(<< "Failed to initialize OpenXRManager");
     return;
+  }
+
+  if (this->EnableSceneUnderstanding && xrManager.IsSceneUnderstandingSupported())
+  {
+    this->Internal->SceneObserver = vtkSmartPointer<vtkOpenXRSceneObserver>::New();
+    if (!this->Internal->SceneObserver->Initialize())
+    {
+      vtkWarningMacro("Failed to initialize scene observer");
+      this->Internal->SceneObserver = nullptr;
+    }
   }
 
   // Create one framebuffer per view
@@ -277,6 +296,11 @@ void vtkOpenXRRenderWindow::Render()
   if (!xrManager.WaitAndBeginFrame())
   {
     return;
+  }
+
+  if (this->Internal->SceneObserver)
+  {
+    this->Internal->SceneObserver->UpdateSceneData();
   }
 
   this->UpdateHMDMatrixPose();
@@ -540,6 +564,24 @@ void vtkOpenXRRenderWindow::SetCurrentInteractionProfile(uint32_t hand, const st
   {
     this->Internal->CurrentInteractionProfiles[hand] = profile;
   }
+}
+
+//------------------------------------------------------------------------------
+std::string& vtkOpenXRRenderWindow::GetModelsManifestDirectory()
+{
+  return this->Internal->ModelsManifestDirectory;
+}
+
+//------------------------------------------------------------------------------
+void vtkOpenXRRenderWindow::SetModelsManifestDirectory(const std::string& path)
+{
+  this->Internal->ModelsManifestDirectory = path;
+}
+
+//------------------------------------------------------------------------------
+vtkOpenXRSceneObserver* vtkOpenXRRenderWindow::GetSceneObserver()
+{
+  return this->Internal->SceneObserver;
 }
 
 VTK_ABI_NAMESPACE_END

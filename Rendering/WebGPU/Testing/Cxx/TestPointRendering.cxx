@@ -16,12 +16,16 @@
 int TestPointRendering(int argc, char* argv[])
 {
   double pointSize = 1.0;
+  bool drawRoundPoints = false;
   for (int i = 0; i < argc; i++)
   {
     if (std::string(argv[i]) == "--point-size")
     {
       pointSize = std::atof(argv[++i]);
-      break;
+    }
+    if (std::string(argv[i]) == "--round")
+    {
+      drawRoundPoints = true;
     }
   }
   vtkNew<vtkRenderWindow> renWin;
@@ -43,11 +47,14 @@ int TestPointRendering(int argc, char* argv[])
 
   vtkNew<vtkActor> actor;
   actor->GetProperty()->SetPointSize(pointSize);
+  if (drawRoundPoints)
+  {
+    actor->GetProperty()->SetPoint2DShape(vtkProperty::Point2DShapeType::Round);
+  }
   actor->SetMapper(mapper);
   renderer->AddActor(actor);
 
   renderer->ResetCamera();
-  renWin->Render();
 
   vtkNew<vtkRenderWindowInteractor> iren;
   iren->SetRenderWindow(renWin);

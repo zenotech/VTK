@@ -76,7 +76,7 @@ vtkBoundingBox GetBounds(vtkDataObject* dobj, diy::mpi::communicator& comm)
 }
 
 /**
- * Clip the dataset by the provided plane using vtkmClip.
+ * Clip the dataset by the provided plane using viskoresClip.
  */
 vtkSmartPointer<vtkUnstructuredGrid> ClipPlane(vtkDataSet* dataset, vtkSmartPointer<vtkPlane> plane)
 {
@@ -515,7 +515,7 @@ int vtkRedistributeDataSetFilter::RequestData(
   std::vector<vtkDataSet*> resultVector = vtkCompositeDataSet::GetDataSets(result);
   for (vtkDataSet* ds : resultVector)
   {
-    // We cannot keep duplicate ghost points as the partitionning changed, invalidating previous
+    // We cannot keep duplicate ghost points as the partitioning changed, invalidating previous
     // duplicate ghost tagging
     if (vtkUnsignedCharArray* ghostArray = ds->GetPointData()->GetGhostArray())
     {
@@ -528,7 +528,7 @@ int vtkRedistributeDataSetFilter::RequestData(
             ghosts[id] &= ~vtkDataSetAttributes::DUPLICATEPOINT;
           }
         });
-    };
+    }
   }
 
   // ******************************************************

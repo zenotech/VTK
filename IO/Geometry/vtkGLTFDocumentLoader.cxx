@@ -6,6 +6,7 @@
 #include "vtkArrayDispatch.h"
 #include "vtkAssume.h"
 #include "vtkBase64Utilities.h"
+#include "vtkCellArrayIterator.h"
 #include "vtkCommand.h"
 #include "vtkExecutive.h"
 #include "vtkFileResourceStream.h"
@@ -608,6 +609,11 @@ bool vtkGLTFDocumentLoader::ExtractPrimitiveAccessorData(Primitive& primitive)
   if (primitive.IndicesId >= 0)
   {
     // Load indices
+    if (primitive.IndicesId >= static_cast<int>(this->InternalModel->Accessors.size()))
+    {
+      vtkErrorMacro("Invalid indices id for primitive");
+      return false;
+    }
     auto accessor = this->InternalModel->Accessors[primitive.IndicesId];
     auto bufferView = this->InternalModel->BufferViews[accessor.BufferView];
 
@@ -651,6 +657,31 @@ bool vtkGLTFDocumentLoader::ExtractPrimitiveAccessorData(Primitive& primitive)
   {
     vtkErrorMacro("Error loading mesh.primitive.attributes");
     return false;
+  }
+  if ((primitive.Indices != nullptr) && (!primitive.AttributeValues.empty()))
+  {
+    /* Get the elements count of the first associated accessor */
+    /* Probably those counts should be the same for all associated accessor but it needs to be
+     * checked */
+    auto& [key, value] = *primitive.AttributeValues.begin();
+    vtkIdType elementCount = value->GetNumberOfTuples();
+    /* Iterate through indices and check them to be within boundaries */
+    vtkSmartPointer<vtkCellArrayIterator> it =
+      vtk::TakeSmartPointer(primitive.Indices->NewIterator());
+    while (!it->IsDoneWithTraversal())
+    {
+      vtkIdList* cell = it->GetCurrentCell();
+      for (vtkIdType i = 0; i < cell->GetNumberOfIds(); i++)
+      {
+        auto id = cell->GetId(i);
+        if ((id < 0) || (id >= elementCount))
+        {
+          vtkErrorMacro("Invalid index in primitive");
+          return false;
+        }
+      }
+      it->GoToNextCell();
+    }
   }
   return true;
 }
@@ -729,6 +760,11 @@ bool vtkGLTFDocumentLoader::ExtractPrimitiveAttributes(Primitive& primitive)
 //------------------------------------------------------------------------------
 bool vtkGLTFDocumentLoader::LoadAnimationData()
 {
+  if (!this->LoadAnimation)
+  {
+    // Skip loading animation key frames
+    return true;
+  }
   AccessorLoadingWorker worker;
   worker.Accessors = &(this->InternalModel->Accessors);
   worker.BufferViews = &(this->InternalModel->BufferViews);
@@ -801,6 +837,11 @@ bool vtkGLTFDocumentLoader::LoadAnimationData()
 //------------------------------------------------------------------------------
 bool vtkGLTFDocumentLoader::LoadImageData()
 {
+  if (!this->LoadImages)
+  {
+    // Skip loading model images
+    return true;
+  }
   vtkNew<vtkImageReader2Factory> factory;
   size_t numberOfMeshes = this->InternalModel->Meshes.size();
   size_t numberOfImages = this->InternalModel->Images.size();
@@ -918,6 +959,11 @@ bool vtkGLTFDocumentLoader::LoadImageData()
 //------------------------------------------------------------------------------
 bool vtkGLTFDocumentLoader::LoadSkinMatrixData()
 {
+  if (!this->LoadSkinMatrix)
+  {
+    // Skip loading the skin bind matrices
+    return true;
+  }
   AccessorLoadingWorker worker;
   worker.Accessors = &(this->InternalModel->Accessors);
   worker.BufferViews = &(this->InternalModel->BufferViews);
@@ -991,7 +1037,10 @@ bool vtkGLTFDocumentLoader::LoadModelData(const std::vector<char>& glbBuffer)
   {
     for (Primitive& primitive : this->InternalModel->Meshes[i].Primitives)
     {
-      this->ExtractPrimitiveAccessorData(primitive);
+      if (!this->ExtractPrimitiveAccessorData(primitive))
+      {
+        return false;
+      }
     }
     double progress = (i + 1) / static_cast<double>(numberOfMeshes + numberOfImages);
     this->InvokeEvent(vtkCommand::ProgressEvent, static_cast<void*>(&progress));
@@ -1122,6 +1171,11 @@ bool vtkGLTFDocumentLoader::BuildPolyDataFromPrimitive(Primitive& primitive)
   // Connectivity
   if (primitive.Indices == nullptr)
   {
+    if (primitive.Geometry->GetPoints() == nullptr)
+    {
+      vtkErrorMacro("Primitive points are not initialized");
+      return false;
+    }
     GenerateIndicesForPrimitive(primitive);
   }
   switch (primitive.Mode)
@@ -1228,6 +1282,85 @@ bool vtkGLTFDocumentLoader::BuildPolyDataFromPrimitive(Primitive& primitive)
     targetId++;
   }
   return true;
+}
+
+//------------------------------------------------------------------------------
+bool vtkGLTFDocumentLoader::BuildPolyDataFromSkin(Skin& skin)
+{
+  if (skin.Skeleton >= 0 && skin.Skeleton < static_cast<int>(this->InternalModel->Nodes.size()))
+  {
+    skin.Armature = vtkSmartPointer<vtkPolyData>::New();
+
+    vtkNew<vtkPoints> points;
+    points->SetNumberOfPoints(skin.Joints.size());
+
+    vtkNew<vtkCellArray> vertices;
+
+    std::vector<int> nodeMapping(this->InternalModel->Nodes.size(), -1);
+
+    for (size_t i = 0; i < skin.Joints.size(); i++)
+    {
+      if (skin.Joints[i] >= static_cast<int>(nodeMapping.size()))
+      {
+        // invalid index
+        return false;
+      }
+
+      double p[3] = {};
+
+      auto trs = this->InternalModel->Nodes[skin.Joints[i]].GlobalTransform;
+      if (trs)
+      {
+        p[0] = trs->GetElement(0, 3);
+        p[1] = trs->GetElement(1, 3);
+        p[2] = trs->GetElement(2, 3);
+      }
+
+      points->SetPoint(i, p);
+
+      vtkIdType vId = i;
+      vertices->InsertNextCell(1, &vId);
+
+      nodeMapping[skin.Joints[i]] = static_cast<int>(i);
+    }
+
+    vtkNew<vtkCellArray> lines;
+
+    std::function<bool(int)> VisitJoint = [&](int nodeIndex)
+    {
+      const Node& node = this->InternalModel->Nodes[nodeIndex];
+
+      int mappedNode = nodeMapping[nodeIndex];
+
+      if (mappedNode == -1)
+      {
+        return false;
+      }
+
+      for (int childIndex : node.Children)
+      {
+        int mappedChild = nodeMapping[childIndex];
+
+        if (mappedChild == -1)
+        {
+          return false;
+        }
+
+        lines->InsertNextCell({ mappedNode, mappedChild });
+        VisitJoint(childIndex);
+      }
+
+      return true;
+    };
+
+    skin.Armature->SetPoints(points);
+    skin.Armature->SetVerts(vertices);
+    skin.Armature->SetLines(lines);
+
+    return VisitJoint(skin.Skeleton);
+  }
+
+  return false;
 }
 
 //------------------------------------------------------------------------------
@@ -1508,7 +1641,11 @@ bool vtkGLTFDocumentLoader::BuildModelVTKGeometry()
   {
     for (Primitive& primitive : mesh.Primitives)
     {
-      this->BuildPolyDataFromPrimitive(primitive);
+      if (!this->BuildPolyDataFromPrimitive(primitive))
+      {
+        vtkErrorMacro("Error building poly data for primitives");
+        return false;
+      }
     }
   }
   // Compute global transforms
@@ -1518,6 +1655,11 @@ bool vtkGLTFDocumentLoader::BuildModelVTKGeometry()
     {
       this->BuildGlobalTransforms(node, nullptr);
     }
+  }
+  // Build armatures
+  for (Skin& skin : this->InternalModel->Skins)
+  {
+    this->BuildPolyDataFromSkin(skin);
   }
 
   return true;

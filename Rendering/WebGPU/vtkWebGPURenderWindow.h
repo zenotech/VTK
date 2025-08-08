@@ -1,21 +1,33 @@
 // SPDX-FileCopyrightText: Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
 // SPDX-License-Identifier: BSD-3-Clause
+/**
+ * @class   vtkWebGPURenderWindow
+ * @brief   WebGPU rendering window
+ *
+ * vtkWebGPURenderWindow is a concrete implementation of the abstract class
+ * vtkRenderWindow. vtkWebGPURenderer interfaces to the WebGPU graphics
+ * library. Application programmers should normally use vtkRenderWindow
+ * instead of the WebGPU specific version.
+ */
+
 #ifndef vtkWebGPURenderWindow_h
 #define vtkWebGPURenderWindow_h
 
 #include "vtkRenderWindow.h"
 
 #include "vtkRenderingWebGPUModule.h"      // for export macro
-#include "vtkTypeUInt8Array.h"             // for ivar
 #include "vtkWebGPUComputePipeline.h"      // for the compute pipelines of this render window
 #include "vtkWebGPUComputeRenderTexture.h" // for compute render textures
+#include "vtkWebGPURenderPipelineCache.h"  // for vtkWebGPURenderPipelineCache
+#include "vtkWebGPUShaderDatabase.h"       // for shader database
 #include "vtk_wgpu.h"                      // for webgpu
 
 VTK_ABI_NAMESPACE_BEGIN
 
 class vtkWebGPUComputeOcclusionCuller;
 class vtkWebGPUConfiguration;
-
+class vtkImageData;
+class vtkTypeUInt32Array;
 class VTKRENDERINGWEBGPU_EXPORT vtkWebGPURenderWindow : public vtkRenderWindow
 {
 public:
@@ -72,11 +84,6 @@ public:
   void Frame() override;
 
   const char* GetRenderingBackend() override;
-
-  /**
-   * Reads pixels into the `CachedPixelBytes` variable.
-   */
-  void ReadPixels();
 
   ///@{
   /**
@@ -162,6 +169,25 @@ public:
   vtkGetSmartPointerMacro(WGPUConfiguration, vtkWebGPUConfiguration);
 
   /**
+   * Get a database of all WebGPU shader source codes in VTK.
+   * You can extend the database with custom source code through the
+   * vtkWebGPUShaderDatabase::AddShaderSource API.
+   */
+  vtkGetNewMacro(WGPUShaderDatabase, vtkWebGPUShaderDatabase);
+
+  /**
+   * Get the pipeline cache for this renderer. Use this to minimize costly creation of identical
+   * render pipelines.
+   */
+  vtkGetNewMacro(WGPUPipelineCache, vtkWebGPURenderPipelineCache);
+
+  /**
+   * Replaces all include statements in the given source code with source code
+   * corresponding to the included file from the database.
+   */
+  std::string PreprocessShaderSource(const std::string& source) const;
+
+  /**
    * Create a new render pass encoder on the webgpu device.
    */
   wgpu::RenderPassEncoder NewRenderPass(wgpu::RenderPassDescriptor& descriptor);
@@ -192,6 +218,7 @@ public:
    * Get a view of the color attachment used in the offscreen render target.
    */
   wgpu::TextureView GetOffscreenColorAttachmentView();
+  wgpu::TextureView GetHardwareSelectorAttachmentView();
 
   /**
    * Get a view of the depth-stencil attachment used in the offscreen render target.
@@ -219,9 +246,14 @@ public:
   wgpu::Adapter GetAdapter();
 
   /**
-   * Get the texture format preferred for the swapchain presentation.
+   * Get the texture format preferred for the surface.
    */
-  wgpu::TextureFormat GetPreferredSwapChainTextureFormat();
+  wgpu::TextureFormat GetPreferredSurfaceTextureFormat();
+
+  /**
+   * Get the texture format preferred for selector IDs.
+   */
+  wgpu::TextureFormat GetPreferredSelectorIdsTextureFormat();
 
   ///@{
   /**
@@ -238,10 +270,17 @@ public:
   vtkSmartPointer<vtkWebGPUComputeRenderTexture> AcquireFramebufferRenderTexture();
   ///@}
 
-  /**
-   * Creates a wgpu buffer with the device of this render window
-   */
-  wgpu::Buffer CreateDeviceBuffer(wgpu::BufferDescriptor& bufferDescriptor);
+  using TextureMapCallback =
+    std::function<void(const void* mappedData, int bytesPerRow, void* userdata)>;
+
+  enum class AttachmentTypeForVTISnapshot
+  {
+    ColorRGBA,
+    ColorRGB,
+    Depth,
+    Ids,
+  };
+  vtkSmartPointer<vtkImageData> SaveAttachmentToVTI(AttachmentTypeForVTISnapshot type);
 
 protected:
   vtkWebGPURenderWindow();
@@ -260,17 +299,20 @@ protected:
   bool WGPUInit();
   void WGPUFinalize();
 
-  void CreateSwapChain();
-  void DestroySwapChain();
+  void ConfigureSurface();
+  void UnconfigureSurface();
 
-  void CreateOffscreenColorAttachments();
-  void DestroyOffscreenColorAttachments();
+  void CreateOffscreenColorAttachment();
+  void DestroyOffscreenColorAttachment();
 
-  void CreateDepthStencilTexture();
-  void DestroyDepthStencilTexture();
+  void CreateIdsAttachment();
+  void DestroyIdsAttachment();
 
-  void CreateFSQGraphicsPipeline();
-  void DestroyFSQGraphicsPipeline();
+  void CreateDepthStencilAttachment();
+  void DestroyDepthStencilAttachment();
+
+  void CreateColorCopyPipeline();
+  void DestroyColorCopyPipeline();
 
   void RecreateComputeRenderTextures();
 
@@ -280,69 +322,59 @@ protected:
 
   wgpu::Surface Surface;
   wgpu::CommandEncoder CommandEncoder;
-
-  struct vtkWGPUSwapChain
-  {
-    wgpu::SwapChain Instance;
-    wgpu::TextureView Framebuffer;
-    wgpu::TextureFormat TexFormat;
-    wgpu::PresentMode PresentMode;
-    int Width = 0;
-    int Height = 0;
-  };
-  vtkWGPUSwapChain SwapChain;
-
-  struct vtkWGPUDeptStencil
+  int SurfaceConfiguredSize[2];
+  wgpu::TextureFormat PreferredSurfaceTextureFormat = wgpu::TextureFormat::BGRA8Unorm;
+  wgpu::TextureFormat PreferredSelectorIdsTextureFormat = wgpu::TextureFormat::RGBA32Uint;
+  struct vtkWGPUDepthStencil
   {
     wgpu::Texture Texture;
     wgpu::TextureView View;
     wgpu::TextureFormat Format;
     bool HasStencil;
   };
-  vtkWGPUDeptStencil DepthStencil;
+  vtkWGPUDepthStencil DepthStencilAttachment;
 
-  struct vtkWGPUColorAttachment
+  struct vtkWGPUAttachment
   {
     wgpu::Texture Texture;
     wgpu::TextureView View;
     wgpu::TextureFormat Format;
-    wgpu::Buffer OffscreenBuffer;
   };
-  vtkWGPUColorAttachment ColorAttachment;
+  vtkWGPUAttachment ColorAttachment;
+  vtkWGPUAttachment IdsAttachment;
 
   struct vtkWGPUUserStagingPixelData
   {
     wgpu::Origin3D Origin;
     wgpu::Extent3D Extent;
-    wgpu::TextureDataLayout Layout;
+    wgpu::TexelCopyBufferLayout Layout;
     wgpu::Buffer Buffer; // for SetPixelData
   };
   vtkWGPUUserStagingPixelData StagingPixelData;
 
   struct vtkWGPUFullScreenQuad
   {
-    wgpu::RenderPipeline Pipeline;
+    std::string Key;
     wgpu::BindGroup BindGroup;
   };
+  vtkWGPUFullScreenQuad ColorCopyRenderPipeline;
 
-  vtkWGPUFullScreenQuad FSQ;
-
-  struct MappingContext
-  {
-    vtkSmartPointer<vtkTypeUInt8Array> dst;
-    wgpu::Buffer src;
-    unsigned long size;
-    vtkWebGPURenderWindow* window;
-  } BufferMapReadContext;
-
-  vtkNew<vtkTypeUInt8Array> CachedPixelBytes;
   vtkSmartPointer<vtkWebGPUConfiguration> WGPUConfiguration;
+  vtkNew<vtkWebGPUShaderDatabase> WGPUShaderDatabase;
+  vtkNew<vtkWebGPURenderPipelineCache> WGPUPipelineCache;
+
+  vtkSmartPointer<vtkWebGPUComputePipeline> DepthCopyPipeline;
+  vtkSmartPointer<vtkWebGPUComputePass> DepthCopyPass;
+  int DepthCopyBufferIndex = 0;
+  int DepthCopyTextureIndex = 0;
 
   int ScreenSize[2];
 
 private:
   // For accessing SubmitCommandBuffer to submit custom prop render work
   friend class vtkWebGPUComputeOcclusionCuller;
+  // For accessing HardwareSelectorAttachment
+  friend class vtkWebGPUHardwareSelector;
 
   vtkWebGPURenderWindow(const vtkWebGPURenderWindow&) = delete;
   void operator=(const vtkWebGPURenderWindow&) = delete;
@@ -370,11 +402,15 @@ private:
    */
   void PostRasterizationRender();
 
-  /**
-   * Copies the current framebuffer to the offscreen buffer (used for screenshotting the render
-   * window for example)
-   */
-  void CopyFramebufferToOffscreenBuffer();
+  void ReadTextureFromGPU(wgpu::Texture& wgpuTexture, wgpu::TextureFormat format,
+    std::size_t mipLevel, wgpu::TextureAspect aspect, wgpu::Origin3D offsets,
+    wgpu::Extent3D extents, TextureMapCallback callback, void* userData);
+
+  void ReadTextureFromGPU(wgpu::Texture& wgpuTexture, wgpu::TextureFormat format,
+    std::size_t mipLevel, wgpu::TextureAspect aspect, TextureMapCallback callback, void* userData);
+
+  void GetIdsData(int x1, int y1, int x2, int y2, vtkTypeUInt32* values);
+  void GetIdsData(int x1, int y1, int x2, int y2, vtkTypeUInt32Array* data);
 
   // Render textures acquired by the user on this render window. They are kept here in case the
   // render window is resized, in which case, we'll need to resize the render textures --> We need

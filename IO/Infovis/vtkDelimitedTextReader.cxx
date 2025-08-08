@@ -61,6 +61,7 @@ void vtkDelimitedTextReader::PrintSelf(ostream& os, vtkIndent indent)
   }
   os << indent << "UnicodeCharacterSet: "
      << (this->UnicodeCharacterSet ? this->UnicodeCharacterSet : "(none)") << endl;
+  os << indent << "SkippedRecords: " << this->SkippedRecords << endl;
   os << indent << "MaxRecords: " << this->MaxRecords << endl;
   os << indent << "UnicodeRecordDelimiters: '" << this->UnicodeRecordDelimiters << "'" << endl;
   os << indent << "UnicodeFieldDelimiters: '" << this->UnicodeFieldDelimiters << "'" << endl;
@@ -69,6 +70,7 @@ void vtkDelimitedTextReader::PrintSelf(ostream& os, vtkIndent indent)
   os << indent << "ReplacementCharacter: " << this->ReplacementCharacter << endl;
   os << indent << "FieldDelimiterCharacters: "
      << (this->FieldDelimiterCharacters ? this->FieldDelimiterCharacters : "(none)") << endl;
+  os << indent << "CommentCharacters: " << this->CommentCharacters << endl;
   os << indent << "HaveHeaders: " << (this->HaveHeaders ? "true" : "false") << endl;
   os << indent
      << "MergeConsecutiveDelimiters: " << (this->MergeConsecutiveDelimiters ? "true" : "false")
@@ -175,6 +177,36 @@ vtkStdString vtkDelimitedTextReader::GetLastError()
 }
 
 //------------------------------------------------------------------------------
+int vtkDelimitedTextReader::RequestInformation(
+  vtkInformation*, vtkInformationVector**, vtkInformationVector*)
+{
+  this->Preview.clear();
+  if (this->PreviewNumberOfLines == 0)
+  {
+    return 1;
+  }
+
+  std::unique_ptr<std::istream> input_stream(this->OpenStream());
+  if (!input_stream)
+  {
+    vtkWarningMacro("Unable to open file, RequestInformation aborted.");
+    return 1;
+  }
+
+  std::string line;
+  for (int indx = 0; indx < this->PreviewNumberOfLines; indx++)
+  {
+    if (!vtksys::SystemTools::GetLineFromStream(*input_stream, line))
+    {
+      break;
+    }
+    this->Preview += line + "\r\n";
+  }
+
+  return 1;
+}
+
+//------------------------------------------------------------------------------
 int vtkDelimitedTextReader::RequestData(
   vtkInformation*, vtkInformationVector**, vtkInformationVector* outputVector)
 {
@@ -199,6 +231,7 @@ std::unique_ptr<std::istream> vtkDelimitedTextReader::OpenStream()
   {
     if (!this->FileName)
     {
+      vtkErrorMacro("No Filename provided, aborting.");
       return nullptr;
     }
     std::unique_ptr<std::istream> file_stream{ new vtksys::ifstream(this->FileName, ios::binary) };
@@ -213,6 +246,11 @@ std::unique_ptr<std::istream> vtkDelimitedTextReader::OpenStream()
   }
   else
   {
+    if (!this->InputString)
+    {
+      vtkErrorMacro("Empty input string, aborting.");
+      return nullptr;
+    }
     return std::unique_ptr<std::istream>{ new std::istringstream(this->InputString) };
   }
 }
@@ -276,6 +314,12 @@ int vtkDelimitedTextReader::ReadData(vtkTable* output_table)
   }
 
   std::unique_ptr<std::istream> input_stream = this->OpenStream();
+  if (!input_stream)
+  {
+    vtkWarningMacro("Unable to open file, ReadData aborted.");
+    return 1;
+  }
+
   this->ReadBOM(input_stream.get());
 
   auto transCodec = vtkSmartPointer<vtkTextCodec>::Take(this->CreateTextCodec(input_stream.get()));
@@ -301,11 +345,12 @@ int vtkDelimitedTextReader::ReadData(vtkTable* output_table)
 
   try
   {
-    vtkDelimitedTextCodecIteratorPrivate iterator(this->MaxRecords, this->UnicodeRecordDelimiters,
-      this->UnicodeFieldDelimiters, this->UnicodeStringDelimiters, this->UnicodeWhitespace,
-      this->UnicodeEscapeCharacter, this->HaveHeaders, this->MergeConsecutiveDelimiters,
-      this->UseStringDelimiter, this->DetectNumericColumns, this->ForceDouble,
-      this->DefaultIntegerValue, this->DefaultDoubleValue, output_table);
+    vtkDelimitedTextCodecIteratorPrivate iterator(this->SkippedRecords, this->MaxRecords,
+      this->UnicodeRecordDelimiters, this->UnicodeFieldDelimiters, this->UnicodeStringDelimiters,
+      this->UnicodeWhitespace, this->CommentCharacters, this->UnicodeEscapeCharacter,
+      this->HaveHeaders, this->MergeConsecutiveDelimiters, this->UseStringDelimiter,
+      this->DetectNumericColumns, this->ForceDouble, this->DefaultIntegerValue,
+      this->DefaultDoubleValue, output_table);
 
     transCodec->ToUnicode(*input_stream, iterator);
     iterator.ReachedEndOfInput();

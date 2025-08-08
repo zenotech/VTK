@@ -82,16 +82,16 @@ public:
    */
   void ReleaseResources();
 
+protected:
+  vtkWebGPUComputePipeline();
+  ~vtkWebGPUComputePipeline() override;
+
 private:
   friend class vtkWebGPUComputePassInternals;
+  friend class vtkWebGPUCellToPrimitiveConverter;
   friend class vtkWebGPURenderWindow;
   friend class vtkWebGPURenderer;
 
-  /**
-   * Constructor that initializes the device and adapter
-   */
-  vtkWebGPUComputePipeline();
-  ~vtkWebGPUComputePipeline() override;
   vtkWebGPUComputePipeline(const vtkWebGPUComputePipeline&) = delete;
   void operator=(const vtkWebGPUComputePipeline&) = delete;
 

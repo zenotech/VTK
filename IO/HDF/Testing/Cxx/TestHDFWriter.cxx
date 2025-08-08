@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "vtkCellData.h"
+#include "vtkHDF5ScopedHandle.h"
 #include "vtkHDFReader.h"
 #include "vtkHDFWriter.h"
 #include "vtkImageData.h"
+#include "vtkInformation.h"
 #include "vtkLogger.h"
 #include "vtkMultiBlockDataSet.h"
 #include "vtkNew.h"
@@ -15,14 +17,10 @@
 #include "vtkTestUtilities.h"
 #include "vtkTesting.h"
 #include "vtkUnstructuredGrid.h"
-#include "vtkXMLImageDataWriter.h"
 #include "vtkXMLMultiBlockDataReader.h"
 #include "vtkXMLPartitionedDataSetCollectionReader.h"
 #include "vtkXMLPolyDataReader.h"
 #include "vtkXMLUnstructuredGridReader.h"
-
-#include "vtkHDF5ScopedHandle.h"
-#include "vtk_hdf5.h"
 
 #include <string>
 
@@ -32,7 +30,6 @@ struct WriterConfigOptions
 {
   bool UseExternalPartitions;
   bool UseExternalComposite;
-  bool MergePartsOnRead; // Should be false when reading PartitionedData
   std::string FileNameSuffix;
   int CompressionLevel;
 };
@@ -65,7 +62,7 @@ bool WriteMiscData(const std::string& filename)
   // Create and fill dataset
   vtkHDF::ScopedH5DHandle dataset = H5Dcreate(
     data3, "MiscDataset", H5T_STD_I64LE, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-  std::array<int, 3> values{ 4, 5, 3 };
+  std::array<hsize_t, 3> values{ 4, 5, 3 };
   H5Dwrite(dataset, H5T_STD_I64LE, H5S_ALL, dataspace, H5P_DEFAULT, values.data());
 
   return true;
@@ -93,7 +90,6 @@ bool TestWriteAndRead(
   if (options)
   {
     fullPath = tempPath + options->FileNameSuffix;
-    writer->SetFileName(fullPath.c_str());
     writer->SetUseExternalComposite(options->UseExternalComposite);
     writer->SetUseExternalPartitions(options->UseExternalPartitions);
     writer->SetCompressionLevel(options->CompressionLevel);
@@ -103,11 +99,8 @@ bool TestWriteAndRead(
                  << " ext partitions: " << options->UseExternalPartitions << " compression "
                  << options->CompressionLevel);
   }
-  else
-  {
-    writer->SetFileName(fullPath.c_str());
-  }
 
+  writer->SetFileName(fullPath.c_str());
   writer->Write();
 
   // Append data that should be ignored by the reader
@@ -123,10 +116,6 @@ bool TestWriteAndRead(
     return false;
   }
   reader->SetFileName(fullPath.c_str());
-  if (options)
-  {
-    reader->SetMergeParts(options->MergePartsOnRead);
-  }
   reader->Update();
   vtkDataObject* output = vtkDataObject::SafeDownCast(reader->GetOutput());
   if (output == nullptr)
@@ -146,12 +135,11 @@ bool TestWriteAndRead(
 }
 
 //----------------------------------------------------------------------------
-bool TestWriteAndReadConfigurations(vtkDataObject* data, const std::string& path, bool mergeParts)
+bool TestWriteAndReadConfigurations(vtkDataObject* data, const std::string& path)
 {
-  std::vector<WriterConfigOptions> options{ { false, false, mergeParts, "_NoExtPartNoExtComp", 3 },
-    { false, true, mergeParts, "_NoExtPartExtComp", 1 },
-    { true, true, mergeParts, "_ExtPartExtComp", 2 },
-    { true, false, mergeParts, "_ExtPartNoExtComp", 5 } };
+  std::vector<WriterConfigOptions> options{ { false, false, "_NoExtPartNoExtComp", 3 },
+    { false, true, "_NoExtPartExtComp", 1 }, { true, true, "_ExtPartExtComp", 2 },
+    { true, false, "_ExtPartNoExtComp", 5 } };
 
   for (auto& optionSet : options)
   {
@@ -240,7 +228,7 @@ bool TestSanitizeName(const std::string& tempDir, const std::string& dataRoot)
 {
   // Write data with a field name using slashes, that must be replaced to comply with the VTKHDF
   // standard.
-  std::string baseName{ "vtkHDF/sanitization.vtu" };
+  std::string baseName = "vtkHDF/sanitization.vtu";
   const std::string basePath = dataRoot + "/Data/" + baseName;
   vtkNew<vtkXMLUnstructuredGridReader> baseReader;
   baseReader->SetFileName(basePath.c_str());
@@ -277,85 +265,123 @@ bool TestSanitizeName(const std::string& tempDir, const std::string& dataRoot)
 //----------------------------------------------------------------------------
 bool TestPartitionedUnstructuredGrid(const std::string& tempDir, const std::string& dataRoot)
 {
-  std::vector<std::string> baseNames = { "can-pvtu.hdf" };
-  for (const auto& baseName : baseNames)
-  {
-    // Get an Partitioned Unstructured grid from a VTKHDF file
-    const std::string basePath = dataRoot + "/Data/" + baseName;
-    vtkNew<vtkHDFReader> baseReader;
-    baseReader->SetFileName(basePath.c_str());
-    baseReader->SetMergeParts(false);
-    baseReader->Update();
-    auto baseData = vtkPartitionedDataSet::SafeDownCast(baseReader->GetOutput());
-    if (baseData == nullptr)
-    {
-      std::cerr << "Can't read base data from: " << basePath << std::endl;
-      return false;
-    }
+  std::string baseName = "can-pvtu.hdf";
 
-    // Write and read the partitioned unstructuredGrid in a temp file, compare with base
-    std::string tempPath = tempDir + "/HDFWriter_" + baseName + ".vtkhdf";
-    if (!TestWriteAndReadConfigurations(baseData, tempPath, false))
-    {
-      return false;
-    }
+  // Get an Partitioned Unstructured grid from a VTKHDF file
+  const std::string basePath = dataRoot + "/Data/" + baseName;
+  vtkNew<vtkHDFReader> baseReader;
+  baseReader->SetFileName(basePath.c_str());
+  baseReader->Update();
+  auto baseData = vtkPartitionedDataSet::SafeDownCast(baseReader->GetOutput());
+  if (baseData == nullptr)
+  {
+    std::cerr << "Can't read base data from: " << basePath << std::endl;
+    return false;
   }
+
+  // Write and read the partitioned unstructuredGrid in a temp file, compare with base
+  std::string tempPath = tempDir + "/HDFWriter_" + baseName + ".vtkhdf";
+  if (!TestWriteAndReadConfigurations(baseData, tempPath))
+  {
+    return false;
+  }
+
   return true;
 }
 
 //----------------------------------------------------------------------------
 bool TestPartitionedPolyData(const std::string& tempDir, const std::string& dataRoot)
 {
-  std::vector<std::string> baseNames = { "test_poly_data.hdf" };
-  for (const auto& baseName : baseNames)
-  {
-    // Get an Partitioned PolyData from a VTKHDF file
-    const std::string basePath = dataRoot + "/Data/" + baseName;
-    vtkNew<vtkHDFReader> baseReader;
-    baseReader->SetFileName(basePath.c_str());
-    baseReader->SetMergeParts(false);
-    baseReader->Update();
-    auto baseData = vtkPartitionedDataSet::SafeDownCast(baseReader->GetOutput());
-    if (baseData == nullptr)
-    {
-      std::cerr << "Can't read base data from: " << basePath << std::endl;
-      return false;
-    }
+  std::string baseName = "test_poly_data.hdf";
 
-    // Write and read the partitioned PolyData in a temp file, compare with base
-    std::string tempPath = tempDir + "/HDFWriter_" + baseName + ".vtkhdf";
-    if (!TestWriteAndReadConfigurations(baseData, tempPath, false))
-    {
-      return false;
-    }
+  // Get an Partitioned PolyData from a VTKHDF file
+  const std::string basePath = dataRoot + "/Data/" + baseName;
+  vtkNew<vtkHDFReader> baseReader;
+  baseReader->SetFileName(basePath.c_str());
+  baseReader->Update();
+  auto baseData = vtkPartitionedDataSet::SafeDownCast(baseReader->GetOutput());
+  if (baseData == nullptr)
+  {
+    std::cerr << "Can't read base data from: " << basePath << std::endl;
+    return false;
   }
+
+  // Write and read the partitioned PolyData in a temp file, compare with base
+  std::string tempPath = tempDir + "/HDFWriter_" + baseName + ".vtkhdf";
+  if (!TestWriteAndReadConfigurations(baseData, tempPath))
+  {
+    return false;
+  }
+
   return true;
 }
 
 //----------------------------------------------------------------------------
 bool TestMultiBlock(const std::string& tempDir, const std::string& dataRoot)
 {
-  std::vector<std::string> baseNamesMB = { "test_multiblock_hdf.vtm" };
-  for (const auto& baseName : baseNamesMB)
-  {
-    // Read the multiblock from vtm file
-    const std::string basePath = dataRoot + "/Data/vtkHDF/" + baseName;
-    vtkNew<vtkXMLMultiBlockDataReader> baseReader;
-    baseReader->SetFileName(basePath.c_str());
-    baseReader->Update();
-    vtkMultiBlockDataSet* baseData = vtkMultiBlockDataSet::SafeDownCast(baseReader->GetOutput());
-    if (baseData == nullptr)
-    {
-      std::cerr << "Can't read base data from: " << basePath << std::endl;
-      return false;
-    }
+  std::string baseName = "test_multiblock_hdf.vtm";
 
-    // Write and read the vtkMultiBlockDataSet in a temp file, compare with base
-    std::string tempPath = tempDir + "/HDFWriter_" + baseName + ".vtkhdf";
-    if (!TestWriteAndReadConfigurations(baseData, tempPath, true))
-    {
-      return false;
-    }
+  // Read the multiblock from vtm file
+  const std::string basePath = dataRoot + "/Data/vtkHDF/" + baseName;
+  vtkNew<vtkXMLMultiBlockDataReader> baseReader;
+  baseReader->SetFileName(basePath.c_str());
+  baseReader->Update();
+  vtkMultiBlockDataSet* baseData = vtkMultiBlockDataSet::SafeDownCast(baseReader->GetOutput());
+  if (baseData == nullptr)
+  {
+    std::cerr << "Can't read base data from: " << basePath << std::endl;
+    return false;
+  }
+
+  // Write and read the vtkMultiBlockDataSet in a temp file, compare with base
+  std::string tempPath = tempDir + "/HDFWriter_" + baseName + ".vtkhdf";
+  if (!TestWriteAndReadConfigurations(baseData, tempPath))
+  {
+    return false;
+  }
+
+  return true;
+}
+
+//----------------------------------------------------------------------------
+bool TestMultiBlockIdenticalBlockNames(const std::string& tempDir, const std::string& dataRoot)
+{
+  std::string baseName = "test_poly_data.hdf";
+  const std::string basePath = dataRoot + "/Data/" + baseName;
+  vtkNew<vtkHDFReader> baseReader;
+  baseReader->SetFileName(basePath.c_str());
+  baseReader->Update();
+  vtkPartitionedDataSet* pds =
+    vtkPartitionedDataSet::SafeDownCast(baseReader->GetOutputDataObject(0));
+  vtkPolyData* pd = vtkPolyData::SafeDownCast(pds->GetPartition(0));
+
+  // Create a nested MultiBlock with several times the same block
+  vtkNew<vtkMultiBlockDataSet> subSubBlock;
+  subSubBlock->SetNumberOfBlocks(2);
+  subSubBlock->SetBlock(0u, pd);
+  subSubBlock->SetBlock(1u, pd);
+  subSubBlock->GetMetaData(0u)->Set(vtkCompositeDataSet::NAME(), "PolyData");
+  subSubBlock->GetMetaData(1u)->Set(vtkCompositeDataSet::NAME(), "PolyData2");
+
+  vtkNew<vtkMultiBlockDataSet> subBlock;
+  subBlock->SetNumberOfBlocks(2);
+  subBlock->SetBlock(0, subSubBlock);
+  subBlock->SetBlock(1, pd);
+  subBlock->GetMetaData(0u)->Set(vtkCompositeDataSet::NAME(), "Group");
+  subBlock->GetMetaData(1u)->Set(vtkCompositeDataSet::NAME(), "PolyData");
+
+  vtkNew<vtkMultiBlockDataSet> multiBlock;
+  multiBlock->SetNumberOfBlocks(2);
+  multiBlock->SetBlock(0, pd);
+  multiBlock->SetBlock(1, subBlock);
+  multiBlock->GetMetaData(0u)->Set(vtkCompositeDataSet::NAME(), "PolyData");
+  multiBlock->GetMetaData(1u)->Set(vtkCompositeDataSet::NAME(), "Group");
+
+  // Write and read the vtkMultiBlockDataSet in a temp file, compare with base
+  std::string tempPath = tempDir + "/HDFWriter_multiblock_identical.vtkhdf";
+  if (!TestWriteAndReadConfigurations(multiBlock, tempPath))
+  {
+    return false;
   }
 
   return true;
@@ -382,7 +408,7 @@ bool TestPartitionedDataSetCollection(const std::string& tempDir, const std::str
 
     // Write and read the vtkPartitionedDataSetCollection in a temp file, compare with base
     std::string tempPath = tempDir + "/HDFWriter_" + baseName + ".vtkhdf";
-    if (!TestWriteAndReadConfigurations(baseData, tempPath, true))
+    if (!TestWriteAndReadConfigurations(baseData, tempPath))
     {
       return false;
     }
@@ -421,6 +447,7 @@ int TestHDFWriter(int argc, char* argv[])
   testPasses &= TestPartitionedPolyData(tempDir, dataRoot);
   testPasses &= TestPartitionedDataSetCollection(tempDir, dataRoot);
   testPasses &= TestMultiBlock(tempDir, dataRoot);
+  testPasses &= TestMultiBlockIdenticalBlockNames(tempDir, dataRoot);
 
   return testPasses ? EXIT_SUCCESS : EXIT_FAILURE;
 }

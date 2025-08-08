@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
 // SPDX-License-Identifier: BSD-3-Clause
 
+#include "vtkDataObject.h"
 #include "vtkHDFReader.h"
 
 #include "vtkAMRBox.h"
@@ -10,7 +11,10 @@
 #include "vtkDataArray.h"
 #include "vtkDataSet.h"
 #include "vtkFieldData.h"
+#include "vtkHyperTreeGrid.h"
+#include "vtkHyperTreeGridSource.h"
 #include "vtkImageData.h"
+#include "vtkInformation.h"
 #include "vtkMath.h"
 #include "vtkMathUtilities.h"
 #include "vtkOverlappingAMR.h"
@@ -66,6 +70,8 @@ int TestUGTemporalPartitionedNoCache(const std::string& dataRoot);
 int TestImageDataTemporalWithCache(const std::string& dataRoot);
 int TestPolyDataTemporalWithCache(const std::string& dataRoot);
 int TestPolyDataTemporalFieldData(const std::string& dataRoot);
+int TestHyperTreeGridTemporal(const std::string& dataRoot, unsigned int depthLimit);
+int TestHyperTreeGridPartitionedTemporal(const std::string& dataRoot);
 int TestOverlappingAMRTemporal(const std::string& dataRoot);
 int TestOverlappingAMRTemporalLegacy(const std::string& dataRoot);
 }
@@ -85,6 +91,9 @@ int TestHDFReaderTemporal(int argc, char* argv[])
   res |= ::TestImageDataTemporalWithCache(dataRoot);
   res |= ::TestPolyDataTemporalWithCache(dataRoot);
   res |= ::TestPolyDataTemporalFieldData(dataRoot);
+  res |= ::TestHyperTreeGridTemporal(dataRoot, 3);
+  res |= ::TestHyperTreeGridTemporal(dataRoot, 1);
+  res |= ::TestHyperTreeGridPartitionedTemporal(dataRoot);
   res |= ::TestOverlappingAMRTemporal(dataRoot);
   res |= ::TestOverlappingAMRTemporalLegacy(dataRoot);
 
@@ -103,7 +112,8 @@ double Sin11T(double time, const Vec& point)
 struct OpenerWorklet
 {
 public:
-  OpenerWorklet(const std::string& filePath)
+  OpenerWorklet(const std::string& filePath, bool mergeParts = true)
+    : MergeParts(mergeParts)
   {
     this->Reader->SetFileName(filePath.c_str());
     this->Reader->Update();
@@ -112,8 +122,14 @@ public:
   {
     this->Reader->SetStep(timeStep);
     this->Reader->Update();
-    vtkSmartPointer<vtkDataObject> res = this->Reader->GetOutputDataObject(0);
-    return res;
+    if (this->MergeParts)
+    {
+      return this->MergeBlocksIfNeeded(this->Reader->GetOutputDataObject(0));
+    }
+    else
+    {
+      return this->Reader->GetOutputDataObject(0);
+    }
   }
 
   vtkOverlappingAMR* GetDataObjectAsAMR()
@@ -129,8 +145,32 @@ public:
 
   vtkHDFReader* GetReader() { return this->Reader; }
 
+  vtkSmartPointer<vtkDataObject> MergeBlocksIfNeeded(vtkDataObject* data)
+  {
+    vtkPartitionedDataSet* pds = vtkPartitionedDataSet::SafeDownCast(data);
+
+    if (!pds)
+    {
+      return data; // No merging to do
+    }
+
+    vtkNew<vtkAppendDataSets> append;
+    append->SetOutputDataSetType(pds->GetPartition(0)->GetDataObjectType());
+    for (unsigned int iPiece = 0; iPiece < pds->GetNumberOfPartitions(); ++iPiece)
+    {
+      append->AddInputData(pds->GetPartition(iPiece));
+    }
+    append->Update();
+    vtkDataObject* merged = append->GetOutputDataObject(0);
+    merged->SetFieldData(pds->GetFieldData());
+    merged->GetInformation()->Set(vtkDataObject::DATA_TIME_STEP(),
+      data->GetInformation()->Get(vtkDataObject::DATA_TIME_STEP()));
+    return merged;
+  }
+
 private:
   vtkNew<vtkHDFReader> Reader;
+  bool MergeParts = true;
 };
 
 struct CheckerWorklet
@@ -341,11 +381,20 @@ int TestUGTemporalBase(OpenerWorklet& opener, bool testMeshMTime = false)
     // Open data at right time
     vtkSmartPointer<vtkDataSet> dSet = vtkDataSet::SafeDownCast(opener(iStep));
     // Local Time Checks
+    double readerTime = opener.GetReader()->GetTimeValue();
     if (!vtkMathUtilities::FuzzyCompare(
-          opener.GetReader()->GetTimeValue(), static_cast<double>(iStep) / 10, CHECK_TOLERANCE))
+          readerTime, static_cast<double>(iStep) / 10, CHECK_TOLERANCE))
     {
-      std::cerr << "Property: TimeValue is wrong: " << opener.GetReader()->GetTimeValue()
+      std::cerr << "Property: TimeValue is wrong: " << readerTime
                 << " != " << static_cast<double>(iStep) / 10 << std::endl;
+      return EXIT_FAILURE;
+    }
+
+    double dataTime = dSet->GetInformation()->Get(vtkDataObject::DATA_TIME_STEP());
+    if (readerTime != dataTime)
+    {
+      std::cerr << "Output DATA_TIME_STEP is wrong: " << dataTime << " != " << readerTime
+                << std::endl;
       return EXIT_FAILURE;
     }
 
@@ -536,8 +585,7 @@ int TestUGTemporalPartitioned(
 //------------------------------------------------------------------------------
 int TestUGTemporalPartitionedNoCache(const std::string& dataRoot)
 {
-  OpenerWorklet opener(dataRoot + "/Data/transient_sphere.hdf");
-  opener.GetReader()->SetMergeParts(false);
+  OpenerWorklet opener(dataRoot + "/Data/transient_sphere.hdf", false);
   return TestUGTemporalPartitioned(opener, dataRoot, false);
 }
 
@@ -551,9 +599,8 @@ int TestUGTemporal(const std::string& dataRoot)
 //------------------------------------------------------------------------------
 int TestUGTemporalWithCachePartitioned(const std::string& dataRoot)
 {
-  OpenerWorklet opener(dataRoot + "/Data/transient_sphere.hdf");
+  OpenerWorklet opener(dataRoot + "/Data/transient_sphere.hdf", false);
   opener.GetReader()->UseCacheOn();
-  opener.GetReader()->SetMergeParts(false);
   return TestUGTemporalPartitioned(opener, dataRoot, true);
 }
 
@@ -662,7 +709,6 @@ int TestImageDataTemporalWithCache(const std::string& dataRoot)
 {
   OpenerWorklet opener(dataRoot + "/Data/transient_wavelet.hdf");
   opener.GetReader()->UseCacheOn();
-  opener.GetReader()->SetMergeParts(false);
   return TestImageDataTemporalBase(opener);
 }
 
@@ -887,7 +933,7 @@ int TestPolyDataTemporalPartitionedWithCache(
     {
       if (meshMTime[0] == meshMTime[1])
       {
-        std::cerr << "MTime: Failed MeshMTime souldn't be equal - previous = " << meshMTime[1]
+        std::cerr << "MTime: Failed MeshMTime shouldn't be equal - previous = " << meshMTime[1]
                   << " while current = " << meshMTime[0] << std::endl;
         return EXIT_FAILURE;
       }
@@ -929,9 +975,8 @@ int TestPolyDataTemporal(const std::string& dataRoot)
 //------------------------------------------------------------------------------
 int TestPolyDataTemporalWithCache(const std::string& dataRoot)
 {
-  OpenerWorklet opener(dataRoot + "/Data/test_transient_poly_data.hdf");
+  OpenerWorklet opener(dataRoot + "/Data/test_transient_poly_data.hdf", false);
   opener.GetReader()->UseCacheOn();
-  opener.GetReader()->SetMergeParts(false);
 
   // We should be able to activate the MeshMTime testing once the cache can store
   // the intermediate vtkPoints and vtkCellArrays
@@ -1014,7 +1059,7 @@ int TestPolyDataTemporalWithOffset(const std::string& dataRoot)
 //------------------------------------------------------------------------------
 int TestPolyDataTemporalFieldData(const std::string& dataRoot)
 {
-  OpenerWorklet opener(dataRoot + "/Data/test_transient_poly_data_field_data.vtkhdf");
+  OpenerWorklet opener(dataRoot + "/Data/test_transient_poly_data_field_data.vtkhdf", false);
 
   // Generic Time data checks
   if (opener.GetReader()->GetNumberOfSteps() != 10)
@@ -1071,6 +1116,134 @@ int TestPolyDataTemporalFieldData(const std::string& dataRoot)
     }
   }
 
+  return EXIT_SUCCESS;
+}
+
+//------------------------------------------------------------------------------
+int TestHyperTreeGridTemporal(const std::string& dataRoot, unsigned int depthLimit)
+{
+  OpenerWorklet opener(dataRoot + "/Data/vtkHDF/temporal_htg.hdf");
+
+  // Generic Time data checks
+  constexpr vtkIdType numberOfSteps = 5;
+  if (opener.GetReader()->GetNumberOfSteps() != numberOfSteps)
+  {
+    std::cerr << "Number of time steps is not correct: " << opener.GetReader()->GetNumberOfSteps()
+              << " != " << numberOfSteps << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  auto tRange = opener.GetReader()->GetTimeRange();
+  if (!vtkMathUtilities::FuzzyCompare(tRange[0], 0.0, CHECK_TOLERANCE) ||
+    !vtkMathUtilities::FuzzyCompare(tRange[1], (numberOfSteps - 1) * 0.1, CHECK_TOLERANCE))
+  {
+    std::cerr << "Time range is incorrect: (0.0, " << (numberOfSteps - 1) * 0.1 << ") != ("
+              << tRange[0] << ", " << tRange[1] << ")" << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  // Create HTG Source to compare data to.
+  const std::array descriptors = { "....", ".R.. | ....", "RR.. | .... ....", "RR.. | .... ....",
+    "RRRR | .... R... .... .... | ...." };
+  vtkNew<vtkHyperTreeGridSource> htgSource;
+  htgSource->SetBranchFactor(2);
+  htgSource->SetDimensions(3, 3, 1);
+  htgSource->SetMaxDepth(depthLimit);
+
+  opener.GetReader()->SetMaximumLevelsToReadByDefaultForAMR(depthLimit);
+
+  for (int iStep = 0; iStep < numberOfSteps; iStep++)
+  {
+    // Open data at right time
+    vtkSmartPointer<vtkDataObject> dSet = vtkDataObject::SafeDownCast(opener(iStep));
+
+    htgSource->SetDescriptor(descriptors[iStep]);
+    htgSource->Update();
+    vtkHyperTreeGrid* expectedHTG = htgSource->GetHyperTreeGridOutput();
+    vtkHyperTreeGrid* readHTG = vtkHyperTreeGrid::SafeDownCast(dSet);
+
+    // Generated HTG Source is not temporal, so it will not have a time field array
+    vtkNew<vtkFieldData> field;
+    readHTG->SetFieldData(field);
+
+    if (!vtkTestUtilities::CompareDataObjects(expectedHTG, readHTG))
+    {
+      std::cerr << "HyperTreeGrids are not the same for time step " << iStep << std::endl;
+      return EXIT_FAILURE;
+    }
+  }
+  return EXIT_SUCCESS;
+}
+
+//------------------------------------------------------------------------------
+int TestHyperTreeGridPartitionedTemporal(const std::string& dataRoot)
+{
+  OpenerWorklet opener(dataRoot + "/Data/vtkHDF/multipiece_temporal_htg.hdf", false);
+
+  // Generic Time data checks
+  constexpr vtkIdType numberOfSteps = 2;
+  if (opener.GetReader()->GetNumberOfSteps() != numberOfSteps)
+  {
+    std::cerr << "Number of time steps is not correct: " << opener.GetReader()->GetNumberOfSteps()
+              << " != " << numberOfSteps << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  // Create HTG Source to compare data to.
+  const std::array descriptorsPart1 = {
+    "... .R. ... ... ... | ....",
+    "... RRR ... ... ... | .... ...R .... | ....",
+  };
+  const std::array descriptorsPart2 = {
+    "... ... ... .R. ... | ....",
+    "... ... ... .RR ... | .... ....",
+  };
+  const std::array masksPart1 = {
+    "111 111 111 000 000 | 1111",
+    "111 111 111 000 000 | 1111 1111 1111 | 1111",
+  };
+  const std::array masksPart2 = { "000 000 000 111 111 | 1111", "000 000 000 111 111 | 1111 1111" };
+
+  vtkNew<vtkHyperTreeGridSource> htgSource;
+  htgSource->SetBranchFactor(2);
+  htgSource->SetDimensions(6, 4, 1);
+  htgSource->SetMaxDepth(3);
+  htgSource->SetUseMask(true);
+
+  for (int iStep = 0; iStep < numberOfSteps; iStep++)
+  {
+    // Open data at right time
+    vtkSmartPointer<vtkDataObject> dSet = vtkDataObject::SafeDownCast(opener(iStep));
+    vtkPartitionedDataSet* pds = vtkPartitionedDataSet::SafeDownCast(dSet);
+
+    htgSource->SetDescriptor(descriptorsPart1[iStep]);
+    htgSource->SetMask(masksPart1[iStep]);
+    htgSource->Update();
+    vtkHyperTreeGrid* expectedHTG = htgSource->GetHyperTreeGridOutput();
+    vtkHyperTreeGrid* readHTG = vtkHyperTreeGrid::SafeDownCast(pds->GetPartitionAsDataObject(0));
+
+    // Generated HTG Source is not temporal, so it will not have a time field array
+    vtkNew<vtkFieldData> field;
+    readHTG->SetFieldData(field);
+
+    if (!vtkTestUtilities::CompareDataObjects(expectedHTG, readHTG))
+    {
+      std::cerr << "HyperTreeGrids are not the same for part 0 of time step " << iStep << std::endl;
+      return EXIT_FAILURE;
+    }
+
+    htgSource->SetDescriptor(descriptorsPart2[iStep]);
+    htgSource->SetMask(masksPart2[iStep]);
+    htgSource->Update();
+    expectedHTG = htgSource->GetHyperTreeGridOutput();
+    readHTG = vtkHyperTreeGrid::SafeDownCast(pds->GetPartitionAsDataObject(1));
+    readHTG->SetFieldData(field);
+    if (!vtkTestUtilities::CompareDataObjects(expectedHTG, readHTG))
+    {
+      std::cerr << "HyperTreeGrids are not the same for part 1 of time step " << iStep << std::endl;
+      return EXIT_FAILURE;
+    }
+  }
   return EXIT_SUCCESS;
 }
 

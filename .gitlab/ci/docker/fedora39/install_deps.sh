@@ -47,7 +47,8 @@ dnf install -y --setopt=install_weak_deps=False \
 # Python dependencies
 dnf install -y --setopt=install_weak_deps=False \
     python3 python3-devel python3-numpy python3-tkinter \
-    python3-pip python3-mpi4py-mpich python3-mpi4py-openmpi python3-matplotlib
+    python3-pip python3-mpi4py-mpich python3-mpi4py-openmpi python3-matplotlib \
+    python3-xarray python3-cftime netcdf4-python
 
 # Tcl/Tk dependencies (for building RenderingTk)
 dnf install -y --setopt=install_weak_deps=False \
@@ -73,9 +74,10 @@ dnf install -y --setopt=install_weak_deps=False \
     dnf-plugins-core
 
 # Openturns dependencies
-dnf config-manager --add-repo https://download.opensuse.org/repositories/science:/openturns/Fedora_39/science:openturns.repo
-dnf install -y --setopt=install_weak_deps=False \
-    openturns-libs openturns-devel
+# Disabling for now because Fedora 39 is no longer provided by the OpenSuse science team.
+# dnf config-manager --add-repo https://download.opensuse.org/repositories/science:/openturns/Fedora_39/science:openturns.repo
+# dnf install -y --setopt=install_weak_deps=False \
+#     openturns-libs openturns-devel
 
 # Vulkan backend dependencies
 dnf install -y --setopt=install_weak_deps=False \

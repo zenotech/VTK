@@ -34,12 +34,12 @@ vtkWebAssemblyWebGPURenderWindow::~vtkWebAssemblyWebGPURenderWindow()
 {
   this->Finalize();
 
-  vtkRenderer* ren;
+  vtkRenderer* renderer;
   vtkCollectionSimpleIterator rit;
   this->Renderers->InitTraversal(rit);
-  while ((ren = this->Renderers->GetNextRenderer(rit)))
+  while ((renderer = this->Renderers->GetNextRenderer(rit)))
   {
-    ren->SetRenderWindow(nullptr);
+    renderer->SetRenderWindow(nullptr);
   }
   this->SetCanvasSelector(nullptr);
 }
@@ -82,7 +82,7 @@ bool vtkWebAssemblyWebGPURenderWindow::WindowSetup()
   if (this->WGPUInit())
   {
     // render into canvas elememnt
-    wgpu::SurfaceDescriptorFromCanvasHTMLSelector htmlSurfDesc;
+    wgpu::EmscriptenSurfaceSourceCanvasHTMLSelector htmlSurfDesc;
     htmlSurfDesc.selector = this->CanvasSelector;
     wgpu::SurfaceDescriptor surfDesc = {};
     surfDesc.label = "VTK HTML5 surface";
@@ -165,12 +165,6 @@ void vtkWebAssemblyWebGPURenderWindow::SetFullScreen(vtkTypeBool arg)
     return;
   }
   this->Modified();
-}
-
-//------------------------------------------------------------------------------
-void vtkWebAssemblyWebGPURenderWindow::SetShowWindow(bool val)
-{
-  this->Superclass::SetShowWindow(val);
 }
 
 //------------------------------------------------------------------------------

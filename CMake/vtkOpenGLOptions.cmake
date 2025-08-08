@@ -40,18 +40,18 @@ endif ()
 #-----------------------------------------------------------------------------
 
 set(default_has_egl OFF)
+set(default_use_gles OFF)
 if (ANDROID)
-  set(VTK_OPENGL_USE_GLES ON)
   set(default_has_egl ON)
+  set(default_use_gles ON)
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-  set(VTK_OPENGL_USE_GLES ON)
+  set(default_use_gles ON)
 elseif (UNIX AND NOT APPLE)
   set(default_has_egl ON)
-else ()
-  # OpenGLES implementation.
-  option(VTK_OPENGL_USE_GLES "Use the OpenGL ES API" OFF)
-  mark_as_advanced(VTK_OPENGL_USE_GLES)
 endif ()
+# OpenGLES implementation.
+option(VTK_OPENGL_USE_GLES "Use the OpenGL ES API" "${default_use_gles}")
+mark_as_advanced(VTK_OPENGL_USE_GLES)
 
 #-----------------------------------------------------------------------------
 # EGL variables
@@ -59,7 +59,9 @@ endif ()
 # Whether VTK should attempt to use EGL for creating offscreen context.
 option(VTK_OPENGL_HAS_EGL "Enable EGL support for creating GPU accelerated offscreen context" "${default_has_egl}")
 mark_as_advanced(VTK_OPENGL_HAS_EGL)
-
+if (VTK_OPENGL_HAS_EGL AND APPLE)
+  message(FATAL_ERROR "VTK_OPENGL_HAS_EGL is ON, but APPLE platform does not support EGL!")
+endif ()
 set(VTK_DEFAULT_EGL_DEVICE_INDEX "0" CACHE STRING
   "EGL device (graphics card) index to use by default for EGL render windows.")
 mark_as_advanced(VTK_DEFAULT_EGL_DEVICE_INDEX)
@@ -75,7 +77,7 @@ mark_as_advanced(VTK_DEFAULT_RENDER_WINDOW_OFFSCREEN)
 set(vtk_can_do_offscreen FALSE)
 set(vtk_can_do_onscreen FALSE)
 # VTK OSMesa support is always built on major desktop platforms because it's far cheaper and simpler
-# to just build software-only support rather than making `vtkOpenGLRenderWindow` handle situations when 
+# to just build software-only support rather than making `vtkOpenGLRenderWindow` handle situations when
 # neither the hardware accelerated on/offscreen backends, nor the software-only backends are available.
 set(vtk_can_do_headless TRUE)
 

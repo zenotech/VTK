@@ -21,6 +21,7 @@ class vtkAbstractArray;
 class vtkDataArray;
 class vtkStringArray;
 class vtkDataAssembly;
+class vtkBitArray;
 
 /**
  * Implementation for the vtkHDFReader. Opens, closes and
@@ -53,6 +54,10 @@ public:
    */
   template <typename T>
   bool GetAttribute(const char* attributeName, size_t numberOfElements, T* value);
+  /**
+   * Return true if the attribute exists in the specified group
+   */
+  bool HasAttribute(const char* groupName, const char* attributeName);
   /**
    * Returns the number of partitions for this dataset at the time step
    * `step` if applicable.
@@ -151,9 +156,15 @@ public:
    */
   bool RetrieveHDFInformation(const std::string& rootName);
 
+  /**
+   * Retrieve ImageData attributes and store them.
+   * Return false on failure.
+   */
+  bool GetImageAttributes(int WholeExtent[6], double Origin[3], double Spacing[3]);
+
   ///@{
   /**
-   * Specific public API for AMR supports.
+   * Specific public API for AMR support.
    */
   /**
    * Retrieve for each required level AMRBlocks size and position.
@@ -178,6 +189,51 @@ public:
   bool ReadAMRData(vtkOverlappingAMR* data, unsigned int level, unsigned int maxLevel,
     vtkDataArraySelection* dataArraySelection[3], bool isTemporalData);
   ///@}
+
+  /**
+   * Create a new dataset given its type and the number of pieces.
+   * Create a vtkPartitionedDataSet when the number of pieces is more than 1.
+   */
+  vtkSmartPointer<vtkDataObject> GetNewDataSet(int dataSetType, int numPieces);
+
+  /**
+   * Read data and build the HyperTreeGrid from descriptors, mask information and cell data array in
+   * the file, reading from the offsets specified as arguments.
+   * Return false on failure.
+   */
+  bool ReadHyperTreeGridData(vtkHyperTreeGrid* htg, const vtkDataArraySelection* arraySelection,
+    vtkIdType cellOffset, vtkIdType treeIdsOffset, vtkIdType depthOffset,
+    vtkIdType descriptorOffset, vtkIdType maskOffset, vtkIdType partOffset,
+    vtkIdType verticesPerDepthOffset, vtkIdType depthLimit, vtkIdType step);
+
+  /**
+   * Read HTG meta-information stored in attributes
+   */
+  bool ReadHyperTreeGridMetaInfo(vtkHyperTreeGrid* htg);
+
+  /**
+   * Read HTG dimensions and coordinates
+   */
+  bool ReadHyperTreeGridDimensions(vtkHyperTreeGrid* htg);
+
+  /**
+   * Initialize selected Cell arrays for HyperTreeGrid
+   */
+  bool CreateHyperTreeGridCellArrays(vtkHyperTreeGrid* htg,
+    std::vector<vtkSmartPointer<vtkAbstractArray>>& cellArrays,
+    const vtkDataArraySelection* arraySelection, vtkIdType cellCount);
+
+  /**
+   * Read & add cell data for the tree currently processed.
+   */
+  bool AppendCellDataForHyperTree(std::vector<vtkSmartPointer<vtkAbstractArray>>& cellArrays,
+    vtkIdType cellOffset, vtkIdType inputCellOffset, vtkIdType step, vtkIdType readableTreeSize);
+
+  /**
+   * Read & add mask data for the current tree
+   */
+  bool AppendMaskForHyperTree(vtkHyperTreeGrid* htg, vtkIdType inputCellOffset,
+    vtkIdType maskOffset, vtkIdType readableTreeSize);
 
 private:
   std::string FileName;

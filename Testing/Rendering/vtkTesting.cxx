@@ -568,6 +568,13 @@ int vtkTesting::RegressionTest(vtkAlgorithm* imageSource, double thresh, ostream
   this->GetValidImageFileName();
   string tmpDir = this->GetTempDirectory();
 
+  // Make sure the tmpDir actual exists
+  if (!vtksys::SystemTools::MakeDirectory(tmpDir))
+  {
+    vtkWarningMacro("Could not create a temporary directory to write images to:'"
+      << tmpDir << "'. Output images may be missing.");
+  }
+
   // construct the names for the error images
   string validName = this->ValidImageFileName;
   string::size_type slashPos = validName.rfind('/');
@@ -770,7 +777,7 @@ int vtkTesting::RegressionTest(vtkAlgorithm* imageSource, double thresh, ostream
           << " values within the used method (TIGHT or LOOSE) using the threshold " << thresh);
       vtkLog(
         INFO, "Error computations on Lab channels using Minkownski and Wasserstein distances:");
-      vtkLog(INFO, "TIGHT_VALID metric (euclidian): " << tight);
+      vtkLog(INFO, "TIGHT_VALID metric (euclidean): " << tight);
       vtkLog(INFO, "LOOSE_VALID metric (manhattan / earth's mover): " << loose);
       vtkLog(INFO,
         "Note: if the test fails but is visually acceptable, one can make the test pass"

@@ -9,13 +9,6 @@ vtk_module_test_data(
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   set(_vtk_test_cxx_wasm_enabled_in_browser ON)
-  set(_vtk_test_emscripten_extra_linker_args
-    # O2 or higher make wasm-opt terribly slow.
-    # test executables take a minute to link.
-    "-O1"
-    # we need emscripten to emit code that handles exit code and atexit(s)
-    "-sEXIT_RUNTIME=1"
-    "-sALLOW_MEMORY_GROWTH=1")
 endif ()
 vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
   TestBlockVisibility.cxx
@@ -26,22 +19,6 @@ vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
   TestCompositeDataOverlappingCells.cxx,
   TestCompositeDataPointGaussian.cxx,NO_DATA
   TestCompositeDataPointGaussianSelection.cxx,NO_DATA
-  TestCompositePolyDataMapper2.cxx,NO_DATA
-  TestCompositePolyDataMapper2CameraShiftScale.cxx,NO_DATA
-  TestCompositePolyDataMapper2CellScalars.cxx,NO_DATA
-  TestCompositePolyDataMapper2CustomShader.cxx,NO_DATA
-  TestCompositePolyDataMapper2MixedGeometryCellScalars.cxx,NO_DATA
-  TestCompositePolyDataMapper2MixedGeometryEdges.cxx,NO_DATA
-  TestCompositePolyDataMapper2NaNPartial.cxx,NO_DATA
-  TestCompositePolyDataMapper2PartialFieldData.cxx,NO_DATA
-  TestCompositePolyDataMapper2PartialPointData.cxx,NO_DATA
-  TestCompositePolyDataMapper2Pickability.cxx,NO_DATA
-  TestCompositePolyDataMapper2Picking.cxx,NO_DATA
-  TestCompositePolyDataMapper2Scalars.cxx,NO_DATA
-# TestCompositePolyDataMapper2ScalarsSurfaceOpacity.cxx,NO_DATA #19221
-  TestCompositePolyDataMapper2SharedArray.cxx,NO_DATA
-  TestCompositePolyDataMapper2Spheres.cxx,NO_DATA
-  TestCompositePolyDataMapper2Vertices.cxx,NO_DATA
   TestComputeShader.cxx,NO_DATA,NO_VALID,NO_OUTPUT
   TestCubeMap.cxx
   TestCubeMap2.cxx
@@ -136,8 +113,16 @@ endif()
 set_tests_properties(VTK::RenderingOpenGL2Cxx-TestFramebufferHDR
   PROPERTIES TIMEOUT ${VTK_TEST_TIMEOUT_TestFramebufferHDR})
 
-if (VTK_USE_SDL2)
-  vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests TestSDL2.cxx)
+if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  if (VTK_USE_SDL2)
+    vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests TestSDL2.cxx)
+  endif ()
+endif ()
+
+if (NOT VTK_OPENGL_USE_GLES)
+  # vtkFastLabeledDataMapper needs geometry shaders and GLES does not have them.
+  vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
+    TestLabeledDataMappers.cxx)
 endif ()
 
 if (VTK_USE_WIN32_OPENGL)

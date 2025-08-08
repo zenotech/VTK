@@ -47,6 +47,11 @@ import builtins
 import inspect
 import importlib.util
 
+# ==== Cancel any module overrides ====
+
+import vtkmodules
+
+vtkmodules.MODULE_MAPPER = {}
 
 # ==== For type inspection ====
 
@@ -622,6 +627,15 @@ def main(argv=sys.argv):
                 continue
             # the module is definitely an extension module
             modules.append(modname)
+
+    # Give all PATH environment variable entries to add_dll_directory on Windows
+    # This enable third-party libraries like OpenXR loader's DLL to be found easily.
+    if os.name == "nt":
+        for p in os.environ.get("PATH").split(';'):
+            try:
+                os.add_dll_directory(p)
+            except Exception as e:
+                print(f"Warning: Failed to add {p} as DLL search directory: ${e}")
 
     # iterate through the modules in the package
     errflag = False

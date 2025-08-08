@@ -213,6 +213,7 @@ bool ApplyGLTFMaterialToVTKActor(std::shared_ptr<vtkGLTFDocumentLoader::Model> m
   {
     // Apply base material color
     actor->GetProperty()->SetColor(material.PbrMetallicRoughness.BaseColorFactor.data());
+    actor->GetProperty()->SetOpacity(material.PbrMetallicRoughness.BaseColorFactor[3]);
     actor->GetProperty()->SetMetallic(material.PbrMetallicRoughness.MetallicFactor);
     actor->GetProperty()->SetRoughness(material.PbrMetallicRoughness.RoughnessFactor);
     actor->GetProperty()->SetEmissiveFactor(material.EmissiveFactor.data());
@@ -403,9 +404,9 @@ void vtkGLTFImporter::InitializeLoader()
 int vtkGLTFImporter::ImportBegin()
 {
   // Make sure we have a file to read.
-  if (!this->FileName)
+  if (!this->Stream && !this->FileName)
   {
-    vtkErrorMacro("A FileName must be specified.");
+    vtkErrorMacro("Neither FileName nor Stream has been specified.");
     return 0;
   }
 
@@ -417,26 +418,47 @@ int vtkGLTFImporter::ImportBegin()
   vtkNew<vtkEventForwarderCommand> forwarder;
   forwarder->SetTarget(this);
   this->Loader->AddObserver(vtkCommand::ProgressEvent, forwarder);
-  this->Loader->AddObserver(vtkCommand::WarningEvent, forwarder);
-  this->Loader->AddObserver(vtkCommand::ErrorEvent, forwarder);
 
   // Check extension
   std::vector<char> glbBuffer;
-  std::string extension = vtksys::SystemTools::GetFilenameLastExtension(this->FileName);
-  if (extension == ".glb")
+  if (this->Stream != nullptr)
   {
-    if (!this->Loader->LoadFileBuffer(this->FileName, glbBuffer))
+    // this->Stream is defined.
+    if (this->StreamIsBinary)
     {
-      vtkErrorMacro("Error loading binary data");
+      if (!this->Loader->LoadStreamBuffer(this->Stream, glbBuffer))
+      {
+        vtkErrorMacro("Error loading binary data");
+        return 0;
+      }
+    }
+
+    if (!this->Loader->LoadModelMetaDataFromStream(this->Stream, this->StreamURILoader))
+    {
+      vtkErrorMacro("Error loading model metadata");
+      return 0;
+    }
+  }
+  else
+  {
+    // this->FileName is defined.
+    std::string extension = vtksys::SystemTools::GetFilenameLastExtension(this->FileName);
+    if (extension == ".glb")
+    {
+      if (!this->Loader->LoadFileBuffer(this->FileName, glbBuffer))
+      {
+        vtkErrorMacro("Error loading binary data");
+        return 0;
+      }
+    }
+
+    if (!this->Loader->LoadModelMetaDataFromFile(this->FileName))
+    {
+      vtkErrorMacro("Error loading model metadata");
       return 0;
     }
   }
 
-  if (!this->Loader->LoadModelMetaDataFromFile(this->FileName))
-  {
-    vtkErrorMacro("Error loading model metadata");
-    return 0;
-  }
   if (!this->Loader->LoadModelData(glbBuffer))
   {
     vtkErrorMacro("Error loading model data");
@@ -482,6 +504,7 @@ void vtkGLTFImporter::ImportActors(vtkRenderer* renderer)
   this->OutputsDescription = "";
 
   this->Actors.clear();
+  this->ArmatureActors.clear();
   this->ActorCollection->RemoveAllItems();
 
   // Iterate over tree
@@ -589,6 +612,28 @@ void vtkGLTFImporter::ImportActors(vtkRenderer* renderer)
       }
     }
 
+    // Import node's armature
+    if (this->GetImportArmature() && node.Skin >= 0)
+    {
+      auto skin = model->Skins[node.Skin];
+
+      if (skin.Skeleton >= 0)
+      {
+        vtkNew<vtkActor> actor;
+
+        vtkNew<vtkPolyDataMapper> mapper;
+        mapper->SetInputData(skin.Armature);
+        actor->SetMapper(mapper);
+
+        this->ApplyArmatureProperties(actor);
+
+        renderer->AddActor(actor);
+
+        this->ArmatureActors[nodeId] = actor;
+        this->ActorCollection->AddItem(actor);
+      }
+    }
+
     // Add node's children to stack
     for (int childNodeId : node.Children)
     {
@@ -598,6 +643,13 @@ void vtkGLTFImporter::ImportActors(vtkRenderer* renderer)
   }
 
   this->ApplySkinningMorphing();
+}
+
+//----------------------------------------------------------------------------
+void vtkGLTFImporter::ApplyArmatureProperties(vtkActor* actor)
+{
+  actor->GetProperty()->RenderPointsAsSpheresOn();
+  actor->GetProperty()->RenderLinesAsTubesOn();
 }
 
 //------------------------------------------------------------------------------
@@ -887,6 +939,34 @@ void vtkGLTFImporter::ApplySkinningMorphing()
       }
     }
 
+    // armature
+    if (this->GetImportArmature())
+    {
+      auto& actor = this->ArmatureActors[nodeId];
+      if (actor)
+      {
+        vtkGLTFDocumentLoader::Skin& skin = model->Skins[node.Skin];
+
+        vtkNew<vtkPoints> points;
+        points->SetNumberOfPoints(skin.Armature->GetPoints()->GetNumberOfPoints());
+
+        for (size_t i = 0; i < skin.Joints.size(); i++)
+        {
+          int jointId = skin.Joints[i];
+          vtkGLTFDocumentLoader::Node& joint = model->Nodes[jointId];
+
+          double p[3];
+          p[0] = joint.GlobalTransform->GetElement(0, 3);
+          p[1] = joint.GlobalTransform->GetElement(1, 3);
+          p[2] = joint.GlobalTransform->GetElement(2, 3);
+
+          points->SetPoint(i, p);
+        }
+
+        skin.Armature->SetPoints(points);
+      }
+    }
+
     // Add node's children to stack
     for (int childNodeId : node.Children)
     {
@@ -979,7 +1059,16 @@ bool vtkGLTFImporter::GetTemporalInformation(vtkIdType animationIndex, double fr
 void vtkGLTFImporter::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
-  os << indent << "File Name: " << (this->FileName ? this->FileName : "(none)") << "\n";
+  os << indent;
+  if (this->Stream != nullptr)
+  {
+    os << "Stream (" << (this->StreamIsBinary ? "binary" : "ascii") << ")";
+  }
+  else
+  {
+    os << "File Name: " << (this->FileName ? this->FileName : "(none)");
+  }
+  os << "\n";
 }
 
 //------------------------------------------------------------------------------

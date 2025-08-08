@@ -191,9 +191,19 @@ public:
   /**
    * Specifies the maximum number of records to read from the file.  Limiting the
    * number of records to read is useful for previewing the contents of a file.
+   * Note: see Preview.
    */
   vtkGetMacro(MaxRecords, vtkIdType);
   vtkSetMacro(MaxRecords, vtkIdType);
+  ///@}
+
+  ///@{
+  /**
+   * Specifies the first records to read, so it is possible to skip some header text.
+   * Default is 0.
+   */
+  vtkGetMacro(SkippedRecords, vtkIdType);
+  vtkSetMacro(SkippedRecords, vtkIdType);
   ///@}
 
   ///@{
@@ -317,10 +327,39 @@ public:
   vtkGetMacro(ReplacementCharacter, vtkTypeUInt32);
   ///@}
 
+  /**
+   * Return the first lines as a single string.
+   * Number of read lines is defined by PreviewNumberOfLines
+   * This is updated in RequestInformation pass, so one can use
+   * it before the actual RequestData.
+   */
+  vtkGetMacro(Preview, std::string);
+
+  ///@{
+  /**
+   * Set / Get The number of lines to read for the preview.
+   * Default is 0.
+   */
+  vtkSetMacro(PreviewNumberOfLines, vtkIdType);
+  vtkGetMacro(PreviewNumberOfLines, vtkIdType);
+  ///@}
+
+  ///@{
+  /**
+   * Set / Get the list of possible characters used to start comments section.
+   * Comment section will start at first matching character.
+   * So multi-character (like `//`) is not supported.
+   * Default is `#`.
+   */
+  vtkGetMacro(CommentCharacters, std::string);
+  vtkSetMacro(CommentCharacters, std::string);
+  ///@}
+
 protected:
   vtkDelimitedTextReader();
   ~vtkDelimitedTextReader() override;
 
+  int RequestInformation(vtkInformation*, vtkInformationVector**, vtkInformationVector*) override;
   int RequestData(vtkInformation*, vtkInformationVector**, vtkInformationVector*) override;
 
   // Read the content of the input file.
@@ -331,12 +370,14 @@ protected:
   char* InputString = nullptr;
   int InputStringLength = 0;
   char* UnicodeCharacterSet = nullptr;
+  vtkIdType SkippedRecords = 0;
   vtkIdType MaxRecords = 0;
   std::string UnicodeRecordDelimiters = "\r\n";
   std::string UnicodeFieldDelimiters = ",";
   std::string UnicodeStringDelimiters = "\"";
   std::string UnicodeWhitespace = " \t\r\n\v\f";
   std::string UnicodeEscapeCharacter = "\\";
+  std::string CommentCharacters = "#";
   bool DetectNumericColumns = false;
   bool ForceDouble = false;
   bool TrimWhitespacePriorToNumericConversion = false;
@@ -353,6 +394,9 @@ protected:
   bool AddTabFieldDelimiter = false;
   vtkStdString LastError = "";
   vtkTypeUInt32 ReplacementCharacter = 'x';
+
+  std::string Preview;
+  vtkIdType PreviewNumberOfLines = 0;
 
 private:
   /**

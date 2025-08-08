@@ -30,6 +30,7 @@
 #include "vtkUnsignedCharArray.h"
 #include "vtkUnsignedLongArray.h"
 
+#include <cmath>
 #include <string.h>
 #include <time.h>
 #include <vector>
@@ -113,24 +114,18 @@ inline int AreEqual(T a, T b)
   return a == b;
 }
 
-template <class T>
-inline T myAbs(T x)
-{
-  return (x < 0) ? -x : x;
-}
-
 template <>
 inline int AreEqual(float a, float b)
 {
-  float tolerance = myAbs(0.01f * a);
-  return (myAbs(a - b) <= tolerance);
+  float tolerance = std::abs(0.01f * a);
+  return (std::abs(a - b) <= tolerance);
 }
 
 template <>
 inline int AreEqual(double a, double b)
 {
-  double tolerance = myAbs(0.000001f * a);
-  return (myAbs(a - b) <= tolerance);
+  double tolerance = std::abs(0.000001f * a);
+  return (std::abs(a - b) <= tolerance);
 }
 
 //=============================================================================
@@ -519,8 +514,8 @@ void ExerciseType(vtkMultiProcessController* controller)
   }
   else
   {
-    controller->GatherV(
-      sourceArrays[rank]->GetPointer(0), nullptr, lengths[rank], nullptr, nullptr, destProcessId);
+    controller->GatherV(sourceArrays[rank]->GetPointer(0), nullptr, lengths[rank], lengths.data(),
+      offsets.data(), destProcessId);
   }
   CheckSuccess(controller, result);
 

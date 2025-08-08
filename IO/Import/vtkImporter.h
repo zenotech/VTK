@@ -47,6 +47,7 @@ class vtkActorCollection;
 class vtkCollection;
 class vtkDataSet;
 class vtkDoubleArray;
+class vtkInformationIntegerKey;
 class vtkLightCollection;
 class vtkRenderWindow;
 class vtkRenderer;
@@ -100,7 +101,7 @@ public:
 
   /**
    * Import the actors, cameras, lights and properties into a vtkRenderWindow
-   * and return if it was sucessful of not.
+   * and return if it was successful of not.
    */
   VTK_UNBLOCKTHREADS
   bool Update();
@@ -108,7 +109,7 @@ public:
   /**
    * Import the actors, cameras, lights and properties into a vtkRenderWindow
    */
-  VTK_DEPRECATED_IN_9_4_0("This method is deprected, please use Update instead")
+  VTK_DEPRECATED_IN_9_4_0("This method is deprecated, please use Update instead")
   void Read() { this->Update(); };
 
   /**
@@ -116,6 +117,28 @@ public:
    * Describe their outputs.
    */
   virtual std::string GetOutputsDescription() { return ""; }
+
+  enum class AnimationSupportLevel : unsigned char
+  {
+    NONE,
+    UNIQUE,
+    SINGLE,
+    MULTI
+  };
+
+  /**
+   * Get the level of animation support, this is coming either
+   * from the file format or as a limitation of the implementation.
+   * NONE: There is no support for animation, GetNumberOfAnimations() return -1.
+   * UNIQUE: There will always will ever be, at most, a single animation, with any file,
+   * GetNumberOfAnimations() returns 0 or 1. SINGLE: There can be multiple available animations, but
+   * only one can be enable. Calling EnableAnimation(i) will disable other animations. MULTI: There
+   * can be multiple animations and multiple ones can be enabled at the same time. Calling
+   * EnableAnimation(i) will not disable other animation.
+   *
+   * In this base implementation, this method returns NONE.
+   */
+  virtual AnimationSupportLevel GetAnimationSupportLevel() { return AnimationSupportLevel::NONE; }
 
   /**
    * Get the number of available animations.
@@ -173,7 +196,7 @@ public:
   /**
    * Import the actors, camera, lights and properties at a specific time value.
    */
-  VTK_DEPRECATED_IN_9_4_0("This method is deprected, please use UpdateAtTimeValue instead")
+  VTK_DEPRECATED_IN_9_4_0("This method is deprecated, please use UpdateAtTimeValue instead")
   virtual void UpdateTimeStep(double timeValue);
 
   /**
@@ -182,6 +205,15 @@ public:
    * If not reimplemented, only call Update() and return its output.
    */
   virtual bool UpdateAtTimeValue(double timeValue);
+
+  ///@{
+  /**
+   * Enable/Disable armature actors import if supported.
+   */
+  vtkSetMacro(ImportArmature, bool);
+  vtkGetMacro(ImportArmature, bool);
+  vtkBooleanMacro(ImportArmature, bool);
+  ///@}
 
 protected:
   vtkImporter();
@@ -237,6 +269,7 @@ private:
   bool SetAndCheckUpdateStatus();
 
   UpdateStatusEnum UpdateStatus = UpdateStatusEnum::SUCCESS;
+  bool ImportArmature = false;
 };
 
 VTK_ABI_NAMESPACE_END

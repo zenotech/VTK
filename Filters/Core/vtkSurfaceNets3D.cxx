@@ -402,7 +402,7 @@ struct SurfaceNets
 
   // Return whether a triad, and its associated voxel cell, requires the
   // generation of a point.
-  inline bool ProducesPoint(TriadType triad) { return (triad & SurfaceNets::ProducePoint) > 0; }
+  bool ProducesPoint(TriadType triad) { return (triad & SurfaceNets::ProducePoint) > 0; }
 
   // Input and output data.
   T* Scalars;                // input image scalars
@@ -1185,7 +1185,7 @@ void SurfaceNets<T>::ClassifyXEdges(
     else
     {
       // Processing triads which are associated with voxels.
-      s1 = static_cast<T>(inPtr[i * this->Inc0]);
+      s1 = inPtr[i * this->Inc0];
       isLV1 = (s0 == s1 ? isLV0 : lMap->IsLabelValue(s1));
     }
 
@@ -1755,7 +1755,7 @@ struct NetsWorker
 
     // Compute the starting offset location for scalar data.  We may be operating
     // on a part of the volume.
-    ValueType* scalars = static_cast<ValueType*>(static_cast<ST*>(scalarsArray)->GetPointer(0));
+    ValueType* scalars = static_cast<ValueType*>(scalarsArray->GetPointer(0));
     algo.Scalars = scalars + incs[0] * (updateExt[0] - ext[0]) + incs[1] * (updateExt[2] - ext[2]) +
       incs[2] * (updateExt[4] - ext[4]) + self->GetArrayComponent();
 
@@ -1816,7 +1816,7 @@ void ComputeSmoothingConstraints(
 void SmoothOutput(vtkPolyData* geomCache, vtkCellArray* stencils, vtkPolyData* output,
   vtkConstrainedSmoothingFilter* smoother)
 {
-  vtkLog(INFO, "Smoothing output");
+  vtkLog(TRACE, "Smoothing output");
 
   // Smooth the data and replace the output points.
   smoother->SetInputData(geomCache);
@@ -2032,7 +2032,7 @@ void TransformMeshType(
   outputMeshType =
     (outputMeshType == vtkSurfaceNets3D::MESH_TYPE_DEFAULT ? vtkSurfaceNets3D::MESH_TYPE_TRIANGLES
                                                            : outputMeshType);
-  vtkLog(INFO, "Transforming output mesh type to: " << outputMeshType);
+  vtkLog(TRACE, "Transforming output mesh type to: " << outputMeshType);
 
   if (outputMeshType == vtkSurfaceNets3D::MESH_TYPE_QUADS)
   {
@@ -2324,7 +2324,7 @@ double vtkSurfaceNets3D::GetSelectedLabel(vtkIdType ithLabel)
 int vtkSurfaceNets3D::RequestData(vtkInformation* vtkNotUsed(request),
   vtkInformationVector** inputVector, vtkInformationVector* outputVector)
 {
-  vtkLog(INFO, "Executing Surface Nets 3D");
+  vtkLog(TRACE, "Executing Surface Nets 3D");
 
   // Get the information objects
   vtkInformation* inInfo = inputVector[0]->GetInformationObject(0);
@@ -2396,7 +2396,7 @@ int vtkSurfaceNets3D::RequestData(vtkInformation* vtkNotUsed(request),
       return 1;
     }
 
-    vtkLog(INFO,
+    vtkLog(TRACE,
       "Extracted: " << newPts->GetNumberOfPoints() << " points, " << newQuads->GetNumberOfCells()
                     << " quads");
 
@@ -2449,7 +2449,7 @@ int vtkSurfaceNets3D::RequestData(vtkInformation* vtkNotUsed(request),
   {
     TransformMeshType(this->OutputMeshType, output, newScalars, this->TriangulationStrategy);
     cellSize = 3;
-    vtkLog(INFO, "Triangulated to produce: " << output->GetNumberOfCells() << " triangles");
+    vtkLog(TRACE, "Triangulated to produce: " << output->GetNumberOfCells() << " triangles");
   }
 
   // If the output style is other than default, then extra works needs
@@ -2462,7 +2462,7 @@ int vtkSurfaceNets3D::RequestData(vtkInformation* vtkNotUsed(request),
     SelectWorker selectWorker;
     SelectDispatch::Execute(output->GetCellData()->GetArray("BoundaryLabels"), selectWorker, output,
       this->OutputStyle, this, cellSize);
-    vtkLog(INFO, "Selected: " << output->GetNumberOfCells() << " cells");
+    vtkLog(TRACE, "Selected: " << output->GetNumberOfCells() << " cells");
   }
 
   // Flush the cache if caching is disabled.

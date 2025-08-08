@@ -126,7 +126,7 @@ void SlidingNormalsOnLine(vtkPoints* pts, vtkIdType npts, const vtkIdType* lineP
 
     if (sNextId >= npts) // only one valid segment
     {
-      // a little trick to find othogonal normal
+      // a little trick to find orthogonal normal
       for (int i = 0; i < 3; ++i)
       {
         if (sPrev[i] != 0.0)
@@ -321,19 +321,22 @@ int vtkPolyLine::EvaluatePosition(const double x[3], double closestPoint[3], int
 void vtkPolyLine::EvaluateLocation(
   int& subId, const double pcoords[3], double x[3], double* weights)
 {
-  int i;
   double a1[3];
   double a2[3];
   this->Points->GetPoint(subId, a1);
   this->Points->GetPoint(subId + 1, a2);
 
-  for (i = 0; i < 3; i++)
+  for (int i = 0; i < 3; i++)
   {
     x[i] = a1[i] + pcoords[0] * (a2[i] - a1[i]);
   }
 
-  weights[0] = 1.0 - pcoords[0];
-  weights[1] = pcoords[0];
+  std::fill_n(weights, this->Points->GetNumberOfPoints(), 0.0);
+  if (subId >= 0)
+  {
+    weights[subId] = 1.0 - pcoords[0];
+    weights[subId + 1] = pcoords[0];
+  }
 }
 
 //------------------------------------------------------------------------------

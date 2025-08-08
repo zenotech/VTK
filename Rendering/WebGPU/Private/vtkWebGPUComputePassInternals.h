@@ -126,14 +126,14 @@ public:
   bool CheckBufferIndex(int bufferIndex, const std::string& callerFunctionName);
 
   /**
-   * Checks if a given index correponds to a texture of this compute pass.
+   * Checks if a given index corresponds to a texture of this compute pass.
    *
    * Returns true if the texture index is valid, false if it's not.
    */
   bool CheckTextureIndex(int textureIndex, const std::string& callerFunctionName);
 
   /**
-   * Checks if a given index correponds to a texture texture view of this compute pass.
+   * Checks if a given index corresponds to a texture texture view of this compute pass.
    *
    * Returns true if the texture view index is valid, false if it's not.
    */
@@ -316,12 +316,15 @@ private:
   // For the mapper to be able to access the wgpu::Buffer objects for use in a render pipeline
   friend class vtkWebGPUPointCloudMapperInternals;
 
+  vtkWebGPUComputePassInternals(const vtkWebGPUComputePassInternals&) = delete;
+  void operator=(const vtkWebGPUComputePassInternals&) = delete;
+
   /**
    * Whether or not the shader module, binds groups, layouts and the wgpu::ComputePipeline have
    * been created already
    */
   bool Initialized = false;
-  // Wheter or not the binds group / layouts have changed since they were last created and so they
+  // Whether or not the binds group / layouts have changed since they were last created and so they
   // need to be recreated. Defaults to true since the bind group / layouts are initially not created
   // so they are invalid.
   bool BindGroupOrLayoutsInvalidated = true;

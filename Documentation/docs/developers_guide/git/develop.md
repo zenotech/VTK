@@ -260,19 +260,17 @@ to be merged in a reasonable timeframe.
 
  * @mwestphal: Qt, filters, data Model, widgets, parallel, anything else.
  * @charles.gueunet: filters, data model, SMP, events, pipeline, computational geometry, distributed algorithms.
- * @kmorel: General VTK Expertise, VTK-m accelerators.
- * @demarle: Ray tracing.
+ * @kmorel: General VTK Expertise, Viskores accelerators.
  * @will.schroeder: algorithms, computational geometry, filters, SPH, SMP, widgets,  point cloud, spatial locators.
- * @sujin.philip: VTK-m Accelerators, SMP, DIY.
- * @yohann.bearzi: filters, data model, HTG, computational geometry, algorithms.
  * @sebastien.jourdain: web, WebAssembly, Python, Java.
- * @allisonvacanti: VTK-m, vtkDataArray, vtkArrayDispatch, vtk::Range, data model, text rendering.
- * @sankhesh: volume rendering, Qt, OpenGL, widgets, vtkImageData, DICOM, VR.
+ * @sankhesh: volume rendering, Qt, OpenGL, widgets, vtkImageData, DICOM, VR, Raytracing, webgpu, QtQuick, QtQml, OpenXR
  * @ben.boeckel: CMake, module system, third-parties.
  * @cory.quammen: readers, filters, data modeling, general usage, documentation.
  * @seanm: macOS, Cocoa, cppcheck, clang.
  * @spiros.tsalikis: filters, SMP, computational geometry.
- * @thomas.galland: readers, filters, selection, VR.
+ * @louis.gombert: VTKHDF, HyperTreeGrid, Catalyst
+ * @jaswant.panchumarti: Rendering, WASM, WebGPU, emscripten
+ * @dcthomp: CellGrid
 
 If you would like to be included in this list, juste create a merge request.
 
@@ -391,7 +389,7 @@ methods:
 
  1. Navigate to your fork (change the username in the URL): (https://gitlab.kitware.com/username/vtk/)
  2. Click on `Settings > General`, then expand "Visibility, project features, permissions"
- 3. Make sure `Project Visbility` is `Public` and `CI/CD` is enabled for `Everyone With Access`
+ 3. Make sure `Project Visibility` is `Public` and `CI/CD` is enabled for `Everyone With Access`
  4. Click on `Settings > CI/CD`, then expand `General`
  5. Make sure `Public Pipelines` is enabled
 

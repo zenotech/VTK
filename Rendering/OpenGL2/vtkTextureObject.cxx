@@ -433,12 +433,14 @@ void vtkTextureObject::ReleaseGraphicsResources(vtkWindow* win)
     this->Type = 0;
     this->Components = 0;
     this->Width = this->Height = this->Depth = 0;
+    this->Modified();
   }
   if (this->ShaderProgram)
   {
     this->ShaderProgram->ReleaseGraphicsResources(win);
     delete this->ShaderProgram;
     this->ShaderProgram = nullptr;
+    this->Modified();
   }
 }
 
@@ -473,6 +475,9 @@ bool vtkTextureObject::IsBound()
 #endif
       case GL_TEXTURE_2D:
         target = GL_TEXTURE_BINDING_2D;
+        break;
+      case GL_TEXTURE_2D_ARRAY:
+        target = GL_TEXTURE_BINDING_2D_ARRAY;
         break;
 #if defined(GL_TEXTURE_2D_MULTISAMPLE) && defined(GL_TEXTURE_BINDING_2D_MULTISAMPLE)
       case GL_TEXTURE_2D_MULTISAMPLE:
@@ -1636,6 +1641,54 @@ bool vtkTextureObject::Create2DFromRaw(
 }
 
 //------------------------------------------------------------------------------
+bool vtkTextureObject::Create2DArrayFromRaw(
+  unsigned int width, unsigned int height, int numComps, int dataType, int nbLayers, void* data)
+{
+  assert(this->Context);
+
+  // Now determine the texture parameters using the arguments.
+  this->GetDataType(dataType);
+  this->GetInternalFormat(dataType, numComps, false);
+  this->GetFormat(dataType, numComps, false);
+
+  if (!this->InternalFormat || !this->Format || !this->Type)
+  {
+    vtkErrorMacro("Failed to determine texture parameters. IF="
+      << this->InternalFormat << " F=" << this->Format << " T=" << this->Type);
+    return false;
+  }
+
+  GLenum target = GL_TEXTURE_2D_ARRAY;
+  this->Target = target;
+  this->Components = numComps;
+  this->Width = width;
+  this->Height = height;
+  this->Depth = nbLayers;
+  this->NumberOfDimensions = 2;
+  this->Context->ActivateTexture(this);
+  this->CreateTexture();
+  this->Bind();
+
+  // Source texture data from the PBO.
+  this->Context->GetState()->vtkglPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+  glTexImage3D(GL_TEXTURE_2D_ARRAY, /*level=*/0, this->InternalFormat,
+    static_cast<GLsizei>(this->Width), static_cast<GLsizei>(this->Height),
+    static_cast<GLsizei>(this->Depth), /*border=*/0, this->Format, this->Type, data);
+
+  vtkOpenGLCheckErrorMacro("failed at glTexImage3D");
+
+  if (this->GenerateMipmap)
+  {
+    glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
+    vtkOpenGLCheckErrorMacro("failed at glGenerateMipmap");
+  }
+
+  this->Deactivate();
+  return true;
+}
+
+//------------------------------------------------------------------------------
 bool vtkTextureObject::CreateCubeFromRaw(
   unsigned int width, unsigned int height, int numComps, int dataType, void* data[6])
 {
@@ -1958,8 +2011,8 @@ void vtkTextureObject::CopyToFrameBuffer(vtkShaderProgram* program, vtkOpenGLVer
 {
   // the following math really only works when texture
   // and viewport are of the same dimensions
-  float minXTexCoord = static_cast<float>(static_cast<double>(0.5) / this->Width);
-  float minYTexCoord = static_cast<float>(static_cast<double>(0.5) / this->Height);
+  float minXTexCoord = static_cast<float>(0.5 / this->Width);
+  float minYTexCoord = static_cast<float>(0.5 / this->Height);
 
   float maxXTexCoord = static_cast<float>(static_cast<double>(this->Width - 0.5) / this->Width);
   float maxYTexCoord = static_cast<float>(static_cast<double>(this->Height - 0.5) / this->Height);
@@ -2241,6 +2294,9 @@ void vtkTextureObject::PrintSelf(ostream& os, vtkIndent indent)
 #endif
     case GL_TEXTURE_2D:
       os << "GL_TEXTURE_2D" << endl;
+      break;
+    case GL_TEXTURE_2D_ARRAY:
+      os << "GL_TEXTURE_2D_ARRAY" << endl;
       break;
 #ifdef GL_TEXTURE_3D
     case GL_TEXTURE_3D:

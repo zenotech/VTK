@@ -164,7 +164,7 @@ public:
 
   ///@{
   /**
-   * Get/set whether or not the window has been initilized yet.
+   * Get/set whether or not the window has been initialized yet.
    */
   vtkGetMacro(Initialized, bool);
   ///@}
@@ -250,60 +250,22 @@ public:
 
   ///@{
   /**
+   * Set/Get whether windows should be coverable (as opposed to always on
+   * top).
+   */
+  vtkGetMacro(Coverable, vtkTypeBool);
+  vtkBooleanMacro(Coverable, vtkTypeBool);
+  virtual void SetCoverable(vtkTypeBool coverable);
+  ///@}
+
+  ///@{
+  /**
    * Prescribe that the window be created in a stereo-capable mode. This
    * method must be called before the window is realized. Default is off.
    */
   vtkGetMacro(StereoCapableWindow, vtkTypeBool);
   vtkBooleanMacro(StereoCapableWindow, vtkTypeBool);
   virtual void SetStereoCapableWindow(vtkTypeBool capable);
-  ///@}
-
-  ///@{
-  /**
-   * Turn on/off stereo rendering.
-   */
-  vtkGetMacro(StereoRender, vtkTypeBool);
-  void SetStereoRender(vtkTypeBool stereo);
-  vtkBooleanMacro(StereoRender, vtkTypeBool);
-  ///@}
-
-  ///@{
-  /**
-   * Turn on/off the use of alpha bitplanes.
-   */
-  vtkSetMacro(AlphaBitPlanes, vtkTypeBool);
-  vtkGetMacro(AlphaBitPlanes, vtkTypeBool);
-  vtkBooleanMacro(AlphaBitPlanes, vtkTypeBool);
-  ///@}
-
-  ///@{
-  /**
-   * Turn on/off point smoothing. Default is off.
-   * This must be applied before the first Render.
-   */
-  vtkSetMacro(PointSmoothing, vtkTypeBool);
-  vtkGetMacro(PointSmoothing, vtkTypeBool);
-  vtkBooleanMacro(PointSmoothing, vtkTypeBool);
-  ///@}
-
-  ///@{
-  /**
-   * Turn on/off line smoothing. Default is off.
-   * This must be applied before the first Render.
-   */
-  vtkSetMacro(LineSmoothing, vtkTypeBool);
-  vtkGetMacro(LineSmoothing, vtkTypeBool);
-  vtkBooleanMacro(LineSmoothing, vtkTypeBool);
-  ///@}
-
-  ///@{
-  /**
-   * Turn on/off polygon smoothing. Default is off.
-   * This must be applied before the first Render.
-   */
-  vtkSetMacro(PolygonSmoothing, vtkTypeBool);
-  vtkGetMacro(PolygonSmoothing, vtkTypeBool);
-  vtkBooleanMacro(PolygonSmoothing, vtkTypeBool);
   ///@}
 
   ///@{
@@ -352,6 +314,54 @@ public:
    */
   const char* GetStereoTypeAsString();
   static const char* GetStereoTypeAsString(int type);
+  ///@}
+
+  ///@{
+  /**
+   * Turn on/off stereo rendering.
+   */
+  vtkGetMacro(StereoRender, vtkTypeBool);
+  void SetStereoRender(vtkTypeBool stereo);
+  vtkBooleanMacro(StereoRender, vtkTypeBool);
+  ///@}
+
+  ///@{
+  /**
+   * Turn on/off the use of alpha bitplanes.
+   */
+  vtkSetMacro(AlphaBitPlanes, vtkTypeBool);
+  vtkGetMacro(AlphaBitPlanes, vtkTypeBool);
+  vtkBooleanMacro(AlphaBitPlanes, vtkTypeBool);
+  ///@}
+
+  ///@{
+  /**
+   * Turn on/off point smoothing. Default is off.
+   * This must be applied before the first Render.
+   */
+  vtkSetMacro(PointSmoothing, vtkTypeBool);
+  vtkGetMacro(PointSmoothing, vtkTypeBool);
+  vtkBooleanMacro(PointSmoothing, vtkTypeBool);
+  ///@}
+
+  ///@{
+  /**
+   * Turn on/off line smoothing. Default is off.
+   * This must be applied before the first Render.
+   */
+  vtkSetMacro(LineSmoothing, vtkTypeBool);
+  vtkGetMacro(LineSmoothing, vtkTypeBool);
+  vtkBooleanMacro(LineSmoothing, vtkTypeBool);
+  ///@}
+
+  ///@{
+  /**
+   * Turn on/off polygon smoothing. Default is off.
+   * This must be applied before the first Render.
+   */
+  vtkSetMacro(PolygonSmoothing, vtkTypeBool);
+  vtkGetMacro(PolygonSmoothing, vtkTypeBool);
+  vtkBooleanMacro(PolygonSmoothing, vtkTypeBool);
   ///@}
 
   /**
@@ -833,6 +843,7 @@ protected:
   vtkRendererCollection* Renderers;
   vtkNew<vtkRenderTimerLog> RenderTimer;
   vtkTypeBool Borders;
+  vtkTypeBool Coverable;
   vtkTypeBool FullScreen;
   int OldScreen[5];
   vtkTypeBool PointSmoothing;

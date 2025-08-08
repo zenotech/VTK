@@ -345,6 +345,21 @@ public:
   }
 
   /**
+   * Set the offset (into the connectivity) for a specified cell id.
+   */
+  void SetOffset(vtkIdType cellId, vtkIdType offset)
+  {
+    if (this->Storage.Is64Bit())
+    {
+      this->Storage.GetArrays64().Offsets->SetValue(cellId, offset);
+    }
+    else
+    {
+      this->Storage.GetArrays32().Offsets->SetValue(cellId, offset);
+    }
+  }
+
+  /**
    * Get the size of the connectivity array that stores the point ids.
    * @note Do not confuse this with the deprecated
    * GetNumberOfConnectivityEntries(), which refers to the legacy memory
@@ -612,6 +627,13 @@ public:
     cellPoints, cellSize) VTK_EXPECTS(0 <= cellId && cellId < GetNumberOfCells()) override;
 
   /**
+   * Return the point id at @a cellPointIndex for the cell at @a cellId.
+   */
+  vtkIdType GetCellPointAtId(vtkIdType cellId, vtkIdType cellPointIndex) const
+    VTK_EXPECTS(0 <= cellId && cellId < GetNumberOfCells())
+      VTK_EXPECTS(0 <= cellPointIndex && cellPointIndex < this->GetCellSize(cellId));
+
+  /**
    * Return the size of the cell at @a cellId.
    */
   vtkIdType GetCellSize(vtkIdType cellId) const override;
@@ -712,7 +734,7 @@ public:
    */
   void ReplaceCellAtId(vtkIdType cellId, const std::initializer_list<vtkIdType>& cell)
   {
-    return this->ReplaceCellAtId(cellId, static_cast<vtkIdType>(cell.size()), cell.begin());
+    this->ReplaceCellAtId(cellId, static_cast<vtkIdType>(cell.size()), cell.begin());
   }
 
   /**
@@ -1035,6 +1057,8 @@ public:
     }
   }
 
+#endif // __VTK_WRAP__
+
   /** @} */
 
   /**
@@ -1046,8 +1070,6 @@ public:
   static bool GetDefaultStorageIs64Bit() { return vtkCellArray::DefaultStorageIs64Bit; }
   static void SetDefaultStorageIs64Bit(bool val) { vtkCellArray::DefaultStorageIs64Bit = val; }
   /** @} */
-
-#endif // __VTK_WRAP__
 
   //=================== Begin Legacy Methods ===================================
   // These should be deprecated at some point as they are confusing or very slow
@@ -1533,6 +1555,16 @@ struct GetCellAtIdImpl
   }
 };
 
+struct CellPointAtIdImpl
+{
+  template <typename CellStateT>
+  vtkIdType operator()(CellStateT& cells, vtkIdType cellId, vtkIdType cellPointIndex) const
+  {
+    return static_cast<vtkIdType>(
+      cells.GetConnectivity()->GetValue(cells.GetBeginOffset(cellId) + cellPointIndex));
+  }
+};
+
 struct ResetImpl
 {
   template <typename CellStateT>
@@ -1605,6 +1637,12 @@ inline void vtkCellArray::GetCellAtId(vtkIdType cellId, vtkIdList* pts)
 inline void vtkCellArray::GetCellAtId(vtkIdType cellId, vtkIdType& cellSize, vtkIdType* cellPoints)
 {
   this->Visit(vtkCellArray_detail::GetCellAtIdImpl{}, cellId, cellSize, cellPoints);
+}
+
+//----------------------------------------------------------------------------
+inline vtkIdType vtkCellArray::GetCellPointAtId(vtkIdType cellId, vtkIdType cellPointIndex) const
+{
+  return this->Visit(vtkCellArray_detail::CellPointAtIdImpl{}, cellId, cellPointIndex);
 }
 
 //----------------------------------------------------------------------------

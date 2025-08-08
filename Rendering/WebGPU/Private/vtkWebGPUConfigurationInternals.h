@@ -14,6 +14,7 @@ public:
   wgpu::Adapter Adapter;
   wgpu::Device Device;
   bool DeviceReady = false;
+  bool Timedout = false;
 
   // in milliseconds
   static double DefaultTimeout;
@@ -22,7 +23,7 @@ public:
   // Helps clean up the instance after it is no longer needed.
   static std::size_t InstanceCount;
 
-  wgpu::RequiredLimits RequiredLimits;
+  wgpu::Limits RequiredLimits;
   std::vector<wgpu::FeatureName> RequiredFeatures;
 
   static void AddInstanceRef();
@@ -36,9 +37,6 @@ public:
   static wgpu::PowerPreference ToWGPUPowerPreferenceType(
     vtkWebGPUConfiguration::PowerPreferenceType powerPreference);
 
-  static void OnAdapterRequestCompleted(
-    WGPURequestAdapterStatus status, WGPUAdapter cAdapter, const char* message, void* userdata);
-
   /**
    * Stores the required limits needed for querying the device in the RequiredLimits attribute of
    * this ConfigurationInternals
@@ -50,9 +48,6 @@ public:
    * ConfigurationInternals
    */
   void PopulateRequiredFeatures();
-
-  static void OnDeviceRequestCompleted(
-    WGPURequestDeviceStatus status, WGPUDevice cDevice, const char* message, void* userdata);
 };
 VTK_ABI_NAMESPACE_END
 

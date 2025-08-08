@@ -6,8 +6,11 @@ endif ()
 
 set(classes
   vtkWebGPUActor
+  vtkWebGPUBatchedPolyDataMapper
   vtkWebGPUCamera
-  vtkWebGPUClearDrawPass
+  vtkWebGPUCellToPrimitiveConverter
+  vtkWebGPUCommandEncoderDebugGroup
+  vtkWebGPUCompositePolyDataMapperDelegator
   vtkWebGPUComputeBuffer
   vtkWebGPUComputeFrustumCuller
   vtkWebGPUComputeOcclusionCuller
@@ -19,22 +22,26 @@ set(classes
   vtkWebGPUComputeTexture
   vtkWebGPUComputeTextureView
   vtkWebGPUConfiguration
+  vtkWebGPUGlyph3DMapper
   vtkWebGPUHardwareSelector
   vtkWebGPUHelpers
   vtkWebGPULight
   vtkWebGPURenderWindow
+  vtkWebGPURenderPipelineCache
   vtkWebGPUPolyDataMapper
+  vtkWebGPUPolyDataMapper2D
   vtkWebGPUProperty
   vtkWebGPURenderer
-  vtkWebGPURenderPass
+  vtkWebGPUShaderDatabase
+  vtkWebGPUShaderProperty
   vtkWebGPUTexture
   vtkWebGPUTextureView)
 
 set(private_headers
+  "Private/vtkWebGPUActorInternals.h"
   "Private/vtkWebGPUBindGroupInternals.h"
   "Private/vtkWebGPUBindGroupLayoutInternals.h"
   "Private/vtkWebGPUBufferInternals.h"
-  "Private/vtkWebGPUCallbacksInternals.h"
   "Private/vtkWebGPUComputeBufferInternals.h"
   "Private/vtkWebGPUComputePassInternals.h"
   "Private/vtkWebGPUComputePassTextureStorageInternals.h"
@@ -42,6 +49,7 @@ set(private_headers
   "Private/vtkWebGPUConfigurationInternals.h"
   "Private/vtkWebGPUPipelineLayoutInternals.h"
   "Private/vtkWebGPUPointCloudMapperInternals.h"
+  "Private/vtkWebGPUPolyDataMapper2DInternals.h"
   "Private/vtkWebGPURenderPassCreateInfoInternals.h"
   "Private/vtkWebGPURenderPassDescriptorInternals.h"
   "Private/vtkWebGPURenderPipelineDescriptorInternals.h"
@@ -52,7 +60,6 @@ set(private_sources
   "Private/vtkWebGPUBindGroupInternals.cxx"
   "Private/vtkWebGPUBindGroupLayoutInternals.cxx"
   "Private/vtkWebGPUBufferInternals.cxx"
-  "Private/vtkWebGPUCallbacksInternals.cxx"
   "Private/vtkWebGPUComputeBufferInternals.cxx"
   "Private/vtkWebGPUComputePassInternals.cxx"
   "Private/vtkWebGPUComputePassTextureStorageInternals.cxx"
@@ -60,6 +67,7 @@ set(private_sources
   "Private/vtkWebGPUConfigurationInternals.cxx"
   "Private/vtkWebGPUPipelineLayoutInternals.cxx"
   "Private/vtkWebGPUPointCloudMapperInternals.cxx"
+  "Private/vtkWebGPUPolyDataMapper2DInternals.cxx"
   "Private/vtkWebGPURenderPassCreateInfoInternals.cxx"
   "Private/vtkWebGPURenderPassDescriptorInternals.cxx"
   "Private/vtkWebGPURenderPipelineDescriptorInternals.cxx"
@@ -72,18 +80,19 @@ set(webgpu_overrides
   Actor
   # NI: BillboardTextActor3D
   Camera
+  CompositePolyDataMapperDelegator
   # NI: LabeledContourMapper
   HardwareSelector
   # NI: ImageMapper
   # NI: ImageSliceMapper
-  # NI: Glyph3DMapper
+  Glyph3DMapper
   # NI: HyperTreeGridMapper
   Light
   # NI: PointGaussianMapper
   PolyDataMapper
-  # NI: PolyDataMapper2D
+  PolyDataMapper2D
   Property
-  # NI: ShaderProperty
+  ShaderProperty
   # NI: Uniforms
   Renderer
   # NI: RenderTimerLog
@@ -98,14 +107,32 @@ unset(wgsl_shader_sources)
 unset(private_wgsl_shader_headers)
 unset(public_wgsl_shader_headers)
 set(private_shader_files
+  wgsl/ActorColorOptions.wgsl
+  wgsl/ActorRenderOptions.wgsl
+  wgsl/ActorTransform.wgsl
+  wgsl/CopyDepthTextureToBuffer.wgsl
   wgsl/FrustumCullingShader.wgsl
-  wgsl/PolyData.wgsl
+  wgsl/LineFragmentShader.wgsl
+  wgsl/LineGlyphShader.wgsl
+  wgsl/LineMiterJoinVertexShader.wgsl
+  wgsl/LineRoundJoinVertexShader.wgsl
+  wgsl/LineShaderOpaque.wgsl
+  wgsl/LineShaderTranslucent.wgsl
   wgsl/OcclusionCullingCopyDepthTexture.wgsl
   wgsl/OcclusionCullingDepthMipmaps.wgsl
   wgsl/OcclusionCullingPropsCulling.wgsl
   wgsl/PointCloudMapperCopyDepthFromWindow.wgsl
   wgsl/PointCloudMapperCopyDepthToWindow.wgsl
-  wgsl/PointCloudMapperShader.wgsl)
+  wgsl/PointCloudMapperShader.wgsl
+  wgsl/PointGlyphShader.wgsl
+  wgsl/PointShader.wgsl
+  wgsl/PolyData2D.wgsl
+  wgsl/SceneLight.wgsl
+  wgsl/SceneTransform.wgsl
+  wgsl/SurfaceMeshGlyphShader.wgsl
+  wgsl/SurfaceMeshShader.wgsl
+  wgsl/Utilities.wgsl
+  wgsl/VTKCellToGraphicsPrimitive.wgsl)
 
 set(public_shader_files
   Testing/Cxx/TestShaders/TestComputePassShader.wgsl
@@ -200,7 +227,9 @@ elseif (VTK_USE_WIN32_OPENGL) # FIXME: We need a VTK_USE_WIN32_WINDOW flag here
 endif ()
 
 if (NOT has_vtkRenderWindow_override)
-  message(FATAL_ERROR "A render window factory override was not found! This module currently supports X11 and Emscripten platforms")
+  message(WARNING "A render window factory override was not found!"
+    "This module currently supports rendering on X11 and Emscripten platforms."
+    "However, you can still execute webgpu compute pipelines.")
 endif ()
 
 list (APPEND classes ${vtk_webgpu_factory_override_classname})
@@ -208,9 +237,11 @@ configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/vtkWebGPUObjectFactoryInit.cxx.in"
   "${CMAKE_CURRENT_BINARY_DIR}/vtkWebGPUObjectFactoryInit.cxx")
 
-vtk_object_factory_declare(
-  BASE vtkRenderWindow
-  OVERRIDE ${vtk_webgpu_factory_override_classname})
+if (has_vtkRenderWindow_override)
+  vtk_object_factory_declare(
+    BASE vtkRenderWindow
+    OVERRIDE ${vtk_webgpu_factory_override_classname})
+endif ()
 vtk_object_factory_configure(
   SOURCE_FILE vtk_object_factory_source
   HEADER_FILE vtk_object_factory_header
@@ -230,9 +261,8 @@ vtk_module_compile_features(VTK::RenderingWebGPU
     cxx_std_17)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-  vtk_module_link_options(VTK::RenderingWebGPU
-    PUBLIC
-      "-sUSE_WEBGPU=1")
+  vtk_module_find_package(PACKAGE emdawnwebgpu)
+  vtk_module_link(VTK::RenderingWebGPU PUBLIC emdawnwebgpu)
   # VTK_DEPRECATED_IN_9_4_0() Remove when vtkSDL2WebGPURenderWindow is removed.
   if (VTK_USE_SDL2)
     vtk_module_compile_options(VTK::RenderingWebGPU
@@ -248,10 +278,10 @@ else ()
     vtk_module_link(VTK::RenderingWebGPU PUBLIC X11::X11)
     if (TARGET X11::Xcursor)
       vtk_module_link(VTK::RenderingWebGPU PRIVATE X11::Xcursor)
-    else()
+    else ()
       message(WARNING "X11::Xcursor not found; custom cursors will be ignored.")
-    endif()
-    set_property(SOURCE vtkXOpenGLRenderWindow.cxx APPEND
+    endif ()
+    set_property(SOURCE vtkXWebGPURenderWindow.cxx APPEND
       PROPERTY
         COMPILE_DEFINITIONS "VTK_HAVE_XCURSOR=$<TARGET_EXISTS:X11::Xcursor>"
     )
@@ -261,7 +291,6 @@ else ()
     # TODO
   endif ()
   vtk_module_find_package(PACKAGE Dawn)
-  # Must include these source files here.
   vtk_module_link(VTK::RenderingWebGPU
     PUBLIC
       dawn::webgpu_dawn)

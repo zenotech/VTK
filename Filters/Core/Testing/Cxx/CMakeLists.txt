@@ -20,6 +20,7 @@ vtk_add_test_cxx(vtkFiltersCoreCxxTests tests
   TestCenterOfMass.cxx,NO_VALID
   TestCleanPolyData.cxx,NO_VALID
   TestCleanPolyData2.cxx,NO_VALID
+  TestCleanPolyDataWithGhostCells.cxx
   TestClipPolyData.cxx,NO_VALID
   TestCompositeDataProbeFilterWithHyperTreeGrid.cxx
   TestConnectivityFilter.cxx,NO_VALID
@@ -43,6 +44,7 @@ vtk_add_test_cxx(vtkFiltersCoreCxxTests tests
   TestFieldDataToDataSetAttribute.cxx,NO_VALID
   TestFlyingEdges.cxx
   TestGenerateIdsHTG.cxx,NO_VALID,NO_OUTPUT
+  TestGenerateRegionIds.cxx,NO_VALID
   TestGlyph3D.cxx
   TestGlyph3DFollowCamera.cxx,NO_VALID
   TestHedgeHog.cxx,NO_VALID
@@ -66,6 +68,7 @@ vtk_add_test_cxx(vtkFiltersCoreCxxTests tests
   TestProbeFilterOutputAttributes.cxx,NO_VALID
   TestQuadricDecimationRegularization.cxx
   TestQuadricDecimationMapPointData.cxx
+  TestQuadricDecimationMaximumError.cxx,NO_DATA,NO_VALID,NO_OUTPUT
   TestResampleToImage.cxx,NO_VALID
   TestResampleToImage2D.cxx,NO_VALID
   TestResampleWithDataSet.cxx,
@@ -97,14 +100,25 @@ vtk_add_test_cxx(vtkFiltersCoreCxxTests tests
 
 # This test fails on vtk-m due to bug #804 (vtk/vtkm)
 # TODO: Remove from condition when fixed
-if (NOT VTK_ENABLE_VTKM_OVERRIDES)
-  vtk_add_test_cxx(vtkFiltersCoreCxxTests no_vtkm_tests
+if (NOT VTK_ENABLE_VISKORES_OVERRIDES)
+  vtk_add_test_cxx(vtkFiltersCoreCxxTests no_viskores_tests
     TestThresholdComponents.cxx,NO_VALID)
 endif()
 
 set(all_tests
   ${tests}
-  ${no_vtkm_tests}
+  ${no_viskores_tests}
   )
+
+if (TARGET VTK::ParallelMPI)
+  set(vtkFiltersCoreCxxTests-MPI_NUMPROCS 2)
+  vtk_add_test_mpi(vtkFiltersCoreCxxTests-MPI mpi_test
+    TESTING_DATA
+    TestAppendFilterDistributed.cxx,NO_VALID
+    TestCleanPolyDataWithGhostCells.cxx
+  )
+
+  vtk_test_cxx_executable(vtkFiltersCoreCxxTests-MPI mpi_test)
+endif()
 
 vtk_test_cxx_executable(vtkFiltersCoreCxxTests all_tests)

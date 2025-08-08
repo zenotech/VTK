@@ -84,6 +84,7 @@ set(classes
   vtkExtractStructuredGridHelper
   vtkFieldData
   vtkFindCellStrategy
+  vtkFrustum
   vtkGenericAdaptorCell
   vtkGenericAttribute
   vtkGenericAttributeCollection
@@ -336,13 +337,14 @@ if (VTK_WRAP_SERIALIZATION)
   list(APPEND serialization_helper_sources
     vtkCellArraySerDesHelper.cxx
     vtkDataSetAttributesSerDesHelper.cxx
+    vtkFieldDataSerDesHelper.cxx
     vtkMultiBlockDataSetSerDesHelper.cxx
     vtkPartitionedDataSetSerDesHelper.cxx
     vtkPartitionedDataSetCollectionSerDesHelper.cxx
     vtkPiecewiseFunctionSerDesHelper.cxx
     vtkTableSerDesHelper.cxx
     vtkUnstructuredGridSerDesHelper.cxx)
-endif ()    
+endif ()
 
 set(sources
   ${serialization_helper_sources}

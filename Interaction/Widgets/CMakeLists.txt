@@ -23,6 +23,7 @@ set(classes
   vtkBorderRepresentation
   vtkBorderWidget
   vtkBoundedPlanePointPlacer
+  vtkBoundedWidgetRepresentation
   vtkBoxRepresentation
   vtkBoxWidget
   vtkBoxWidget2
@@ -86,6 +87,8 @@ set(classes
   vtkImplicitConeWidget
   vtkImplicitCylinderRepresentation
   vtkImplicitCylinderWidget
+  vtkImplicitFrustumRepresentation
+  vtkImplicitFrustumWidget
   vtkImplicitImageRepresentation
   vtkImplicitPlaneRepresentation
   vtkImplicitPlaneWidget

@@ -1,20 +1,12 @@
 if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   set(_vtk_test_cxx_wasm_enabled_in_browser ON)
-  set(_vtk_test_emscripten_extra_linker_args
-    "-sASYNCIFY=1"
-    "-sASYNCIFY_STACK_SIZE=81920" #~297 nesting levels
-    # O2 or higher make wasm-opt terribly slow.
-    # test executables take a minute to link.
-    "-O1"
-    # we need emscripten to emit code that handles exit code and atexit(s)
-    "-sEXIT_RUNTIME=1"
-    "-sALLOW_MEMORY_GROWTH=1")
 endif ()
 # (vtk/vtk#19322): Add baselines for these unit tests
 vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
   TestActorFaceCullingProperty.cxx,NO_DATA
+  TestAxesActor.cxx,NO_DATA
   TestCellScalarMappedColors.cxx,NO_DATA
-  # TestCompositePolyDataMapper.cxx,NO_DATA,NO_VALID # FIXME: Composite PolyDataMapper needs updated to delegator design pattern.
+  TestCompositePolyDataMapper.cxx,NO_DATA
   TestComputeDoublePipelineRenderBuffer.cxx,NO_DATA
   TestComputeFrustumCulling.cxx,NO_DATA,NO_VALID
   TestComputeOcclusionCulling.cxx,NO_DATA,NO_VALID
@@ -31,10 +23,31 @@ vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
   TestComputePointCloudMapperGeometry.cxx,NO_DATA
   TestComputePointCloudMapperResize.cxx,NO_DATA
   TestComputeTexture.cxx,NO_DATA,NO_VALID
+  TestGlyph3DMapper.cxx,NO_DATA
+  TestGlyph3DMapperArrow.cxx
+  TestGlyph3DMapperBounds.cxx,NO_DATA,NO_VALID
+  TestGlyph3DMapperCompositeDisplayAttributeInheritance.cxx,NO_DATA
+  TestGlyph3DMapperIndexing.cxx,NO_DATA
+  TestGlyph3DMapperMasking.cxx,NO_DATA
+  TestGlyph3DMapperOrientationArray.cxx,NO_DATA
+  TestGlyph3DMapperQuaternionArray.cxx,NO_DATA
+  TestGlyph3DMapperTreeIndexing.cxx,NO_DATA
+  TestHardwareSelector.cxx,NO_DATA,NO_VALID
   TestLineRendering.cxx,NO_DATA
   TestLowPowerRenderWindow.cxx,NO_DATA
+  TestNActorsNMappersOneInput.cxx,NO_DATA
+  TestNActorsOneMapper.cxx,NO_DATA
+  TestNViewportsNActorsNMappersNInputs.cxx,NO_DATA
+  TestNViewportsNActorsNMappersOneInput.cxx,NO_DATA
+  TestNViewportsNActorsOneMapper.cxx,NO_DATA
+  TestNViewportsOneActor.cxx,NO_DATA
   TestPointScalarMappedColors.cxx,NO_DATA
+  TestPolyDataMapper2D.cxx,NO_DATA
   TestReadPixels.cxx,NO_DATA,NO_VALID
+  TestRemoveActors.cxx,NO_DATA,NO_VALID
+  TestRenderPointsAsSpheres.cxx,NO_DATA
+  TestRenderLinesAsTubes.cxx,NO_DATA
+  TestReportWebGPUCapabilities.cxx,NO_DATA,NO_VALID
   TestScalarModeToggle.cxx,NO_DATA
   TestSurfacePlusEdges.cxx,NO_DATA
   TestQuad.cxx,NO_DATA
@@ -42,6 +55,26 @@ vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
   TestRenderWindowChangeDeviceLater.cxx,NO_DATA
   TestVertexRendering.cxx,NO_DATA
   TestWireframe.cxx,NO_DATA)
+
+vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
+  --verify
+  TestComputeTriangulationVerifyPointIds,TestComputeTriangulation.cxx,NO_DATA,NO_VALID)
+
+vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
+  --translucent
+  TestLineRenderingTranslucent,TestLineRendering.cxx,NO_DATA)
+
+vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
+  --point-size 0.5 --line-width 0.5
+  TestMixedGeometry_1,TestMixedGeometry.cxx,NO_DATA)
+
+vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
+  --point-size 1.0 --line-width 1.0
+  TestMixedGeometry_2,TestMixedGeometry.cxx,NO_DATA)
+
+vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
+  --point-size 3.0 --line-width 3.0
+  TestMixedGeometry_3,TestMixedGeometry.cxx,NO_DATA)
 
 vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
   --point-size 0.5
@@ -60,15 +93,43 @@ vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
   TestPointRendering_4,TestPointRendering.cxx,NO_DATA)
 
 vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
-  --point-size 0.5 --line-width 0.5
-  TestMixedGeometry_1,TestMixedGeometry.cxx,NO_DATA)
+  --point-size 0.5 --round
+  TestPointRenderingRound_1,TestPointRendering.cxx,NO_DATA)
 
 vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
-  --point-size 1.0 --line-width 1.0
-  TestMixedGeometry_2,TestMixedGeometry.cxx,NO_DATA)
+  --point-size 1.0 --round
+  TestPointRenderingRound_2,TestPointRendering.cxx,NO_DATA)
 
 vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
-  --point-size 3.0 --line-width 3.0
-  TestMixedGeometry_3,TestMixedGeometry.cxx,NO_DATA)
+  --point-size 3.0 --round
+  TestPointRenderingRound_3,TestPointRendering.cxx,NO_DATA)
 
+vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
+  --point-size 7.0 --round
+  TestPointRenderingRound_4,TestPointRendering.cxx,NO_DATA)
+
+vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
+  --ortho
+  TestRenderPointsAsSpheresOrthoCamera,TestRenderPointsAsSpheres.cxx,NO_DATA)
+
+vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
+  --ortho
+  TestRenderLinesAsTubesOrthoCamera,TestRenderLinesAsTubes.cxx,NO_DATA)
+
+vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
+  --point-colors
+  TestPolyDataMapper2DPointScalarColorMapping,TestPolyDataMapper2D.cxx,NO_DATA)
+
+vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
+  --cell-colors
+  TestPolyDataMapper2DCellScalarColorMapping,TestPolyDataMapper2D.cxx,NO_DATA)
 vtk_test_cxx_executable(vtkRenderingWebGPUCxxTests tests)
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  # Enable asyncify for webgpu async API
+  target_link_options(vtkRenderingWebGPUCxxTests
+    PRIVATE
+      "-sASYNCIFY=1"
+      #~297 nesting levels
+      "-sASYNCIFY_STACK_SIZE=81920")
+endif ()

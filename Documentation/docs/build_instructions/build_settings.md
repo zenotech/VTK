@@ -31,9 +31,11 @@ Less common, but variables which may be of interest to some:
     available or not.
   * `VTK_WRAP_JAVA` (default `OFF`; requires `VTK_ENABLE_WRAPPING`):
     Whether Java support will be available or not.
+  * `VTK_JAVA_RELEASE_VERSION` (default `8`; requires `VTK_WRAP_JAVA`):
+    The version of Java in which VTK's Java wrapping will be built for.
   * `VTK_WRAP_SERIALIZATION` (default `OFF`; requires `VTK_ENABLE_WRAPPING`):
     Whether serialization code will be auto generated or not.
-  * `VTK_JAVA_INSTALL` (default `OFF`; requires `VTK_WRAP_JAVA`):
+  * `VTK_BUILD_MAVEN_PKG` (default `OFF`; requires `VTK_WRAP_JAVA`):
     Whether to build the Java Maven package for VTK.
   * `VTK_SMP_IMPLEMENTATION_TYPE` (default `Sequential`): Set which SMPTools
     will be implemented by default. Must be either `Sequential`, `STDThread`,
@@ -44,16 +46,17 @@ Less common, but variables which may be of interest to some:
   * `VTK_WEBASSEMBLY_64_BIT` (default `OFF`):
     This option is applicable only when building with Emscripten toolchain.
     Adds -sMEMORY64 compiler and linker flags.
+  * `VTK_WEBASSEMBLY_EXCEPTIONS` (default `OFF`):
+    This option is applicable only when building with Emscripten toolchain.
+    Adds `-fexceptions` compiler and linker flags.
   * `VTK_WEBASSEMBLY_THREADS` (default `OFF`):
     This option is applicable only when building with Emscripten toolchain.
-    Adds -pthread compiler and linker flags. When `VTK_BUILD_TESTING` is `ON`,
+    Adds `-pthread` compiler and linker flags. When `VTK_BUILD_TESTING` is `ON`,
     this also runs unit tests in web workers, which is the only way for the tests
     to reliably load data files without having to embed entire datasets inside
     the test binaries.
   * `VTK_TESTING_WASM_ENGINE` (default ``):
     Path to a wasm runtime executable. This is used to run C++ tests in wasm environments.
-  * `VTK_TESTING_WASM_ENGINE_ARGUMENTS` (default ``):
-    Space separated arguments passed to the wasm runtime executable.
 
 ## OpenGL related build options:
 
@@ -248,10 +251,10 @@ More advanced options:
     `vtkStandardNewMacro` will use `vtkObjectFactoryNewMacro` allowing
     overrides to be available even when not explicitly requested through
     `vtkObjectFactoryNewMacro` or `vtkAbstractObjectFactoryNewMacro`.
-  * `VTK_ENABLE_VTKM_OVERRIDES` (default `OFF`): If `ON`, enables factory override
-     of certain VTK filters by their VTK-m counterparts. There is also a runtime
+  * `VTK_ENABLE_VISKORES_OVERRIDES` (default `OFF`): If `ON`, enables factory override
+     of certain VTK filters by their Viskores counterparts. There is also a runtime
      switch that can be used to enable/disable the overrides at run-time (on by default).
-     It can be accessed using the static function `vtkmFilterOverrides::SetEnabled(bool)`.
+     It can be accessed using the static function `viskoresFilterOverrides::SetEnabled(bool)`.
   * `VTK_GENERATE_SPDX` (default `OFF`): If `ON`, SPDX file will be generated at build time
      and installed for each module and third party, in order to be able to create a SBOM.
      See [](/api/cmake/ModuleSystem.md#spdx-files-generation) and
@@ -273,7 +276,7 @@ currently exist for use with the VTK dispatch mechanism:
   * `VTK_DISPATCH_SOA_ARRAYS` (default `OFF`): includes dispatching for "structure-of-array"
     ordered arrays derived from `vtkSOADataArrayTemplate`
   * `VTK_DISPATCH_TYPED_ARRAYS` (default `OFF`): includes dispatching for arrays derived
-    from `vtkTypedDataArray`
+    from `vtkTypedDataArray` (VTK_DEPRECATED_IN_9_5_0).
   * `VTK_DISPATCH_AFFINE_ARRAYS` (default `OFF`): includes dispatching for linearly varying
     `vtkAffineArray`s as part of the implicit array framework
   * `VTK_DISPATCH_CONSTANT_ARRAYS` (default `OFF`): includes dispatching for constant arrays

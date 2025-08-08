@@ -330,14 +330,14 @@ public:
 
   /**
    * Return the center of the cell in parametric coordinates. In this cell,
-   * the center of the bounding box is returned.
+   * the parametric location (within its bounds) of the centroid of its points is returned.
    */
   int GetParametricCenter(double pcoords[3]) override;
 
   /**
    * A polyhedron is a full-fledged primary cell.
    */
-  int IsPrimaryCell() override { return 1; }
+  int IsPrimaryCell() VTK_FUTURE_CONST override { return 1; }
 
   ///@{
   /**
@@ -354,7 +354,7 @@ public:
    * needs explicit faces definition in order to describe the topology
    * of the cell.
    */
-  int RequiresExplicitFaceRepresentation() override { return 1; }
+  int RequiresExplicitFaceRepresentation() VTK_FUTURE_CONST override { return 1; }
 
   /**
    * Set the faces of the polyhedron.
@@ -519,13 +519,6 @@ private:
   vtkNew<vtkMinimalStandardRandomSequence> RandomSequence;
   std::atomic<bool> IsRandomSequenceSeedInitialized{ false };
 };
-
-//----------------------------------------------------------------------------
-inline int vtkPolyhedron::GetParametricCenter(double pcoords[3])
-{
-  pcoords[0] = pcoords[1] = pcoords[2] = 0.5;
-  return 0;
-}
 
 VTK_ABI_NAMESPACE_END
 #endif

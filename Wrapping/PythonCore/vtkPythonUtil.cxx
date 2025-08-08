@@ -687,7 +687,7 @@ vtkObjectBase* vtkPythonUtil::GetPointerFromObject(PyObject* obj, const char* re
 #endif
     snprintf(error_string, sizeof(error_string), "method requires a %.500s, a %.500s was provided.",
       vtkPythonUtil::PythonicClassName(result_type),
-      vtkPythonUtil::PythonicClassName(((vtkObjectBase*)ptr)->GetClassName()));
+      vtkPythonUtil::PythonicClassName(ptr->GetClassName()));
     PyErr_SetString(PyExc_TypeError, error_string);
     return nullptr;
   }
@@ -1042,7 +1042,7 @@ void vtkPythonUtil::AddModule(const char* name)
 {
   vtkPythonMap->ModuleList->push_back(name);
 
-  // Register module name into pending list for defered side module loading
+  // Register module name into pending list for deferred side module loading
   PyObject* pModule = PyImport_ImportModule("vtkmodules");
   PyObject* pFunc = PyObject_GetAttrString(pModule, "on_vtk_module_init");
   PyObject* pArgs = PyTuple_New(1);

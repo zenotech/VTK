@@ -65,7 +65,10 @@ public:
    * Get the number of cells using the point specified by ptId. This is an
    * alias for GetNumberOfCells(); consistent with the vtkCellLinks API.
    */
-  vtkIdType GetNcells(vtkIdType ptId) { return this->Impl->GetNumberOfCells(ptId); }
+  vtkIdType GetNcells(vtkIdType ptId) VTK_FUTURE_CONST
+  {
+    return this->Impl->GetNumberOfCells(ptId);
+  }
 
   /**
    * Return a list of cell ids using the specified point.
@@ -82,7 +85,7 @@ public:
    */
   void SelectCells(vtkIdType minMaxDegree[2], unsigned char* cellSelection) override
   {
-    return this->Impl->SelectCells(minMaxDegree, cellSelection);
+    this->Impl->SelectCells(minMaxDegree, cellSelection);
   }
   ///@}
 

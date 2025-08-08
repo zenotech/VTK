@@ -42,7 +42,6 @@
 // Keep clang-format from adding spaces around the '/' path separator:
 // clang-format off
 #include VTK_FMT(fmt/args.h)
-#include VTK_FMT(fmt/core.h)
 #include VTK_FMT(fmt/format.h)
 #include VTK_FMT(fmt/ostream.h)
 // clang-format on
@@ -864,7 +863,7 @@ bool vtkDGRenderResponder::DrawShapes(vtkCellGridRenderRequest* request, vtkDGCe
 
     // specify farthest distance of a vertex to the camera for distance-based tessellation
     double bounds[6];
-    vtkVector4d cornersWC[8], cornersVC[8]; // WC: Wolrd Coordinate, VC: View coord
+    vtkVector4d cornersWC[8], cornersVC[8]; // WC: World Coordinate, VC: View coord
     auto* wcvc = renderer->GetActiveCamera()->GetModelViewTransformMatrix();
     double maxDistance = VTK_DOUBLE_MIN;
     renderer->ComputeVisiblePropBounds(bounds);

@@ -10,6 +10,7 @@
 #include "vtkArrayDispatch.h"
 #include "vtkCellArray.h"
 #include "vtkCellType.h"
+#include "vtkCellTypes.h"
 #include "vtkDataSet.h"
 #include "vtkGenericCell.h"
 #include "vtkHigherOrderCurve.h"
@@ -171,21 +172,19 @@ std::string CaptureNonErrorMessages::GetMessages() const
   return this->Stream.str();
 }
 
-//============================================================================
 //----------------------------------------------------------------------------
 std::vector<std::pair<int, double>> GetTime(const Ioss::Region* region)
 {
-  const auto mxtime = region->get_max_time();
-  if (mxtime.first <= 0)
+  const int numTimeSteps = static_cast<int>(region->get_optional_property("state_count", 0));
+  if (numTimeSteps == 0)
   {
-    // timestep index is 1-based, 0 implies time is not present in the dataset.
     return {};
   }
 
-  const auto mntime = region->get_min_time();
-
   std::vector<std::pair<int, double>> result;
-  for (int cc = mntime.first; cc <= mxtime.first; ++cc)
+  result.reserve(static_cast<size_t>(numTimeSteps));
+  // timestep index is 1-based
+  for (int cc = 1; cc <= numTimeSteps; ++cc)
   {
     result.emplace_back(cc, region->get_state_time(cc));
   }
@@ -301,10 +300,9 @@ vtkSmartPointer<vtkDataArray> GetData(const Ioss::GroupingEntity* entity,
   }
 
   // Check for Transient 2D data that should be 3D for WarpByVector/Glyphs
-  if (entity->type() == vtkioss_Ioss::NODEBLOCK &&
-    field.get_role() == vtkioss_Ioss::Field::RoleType::TRANSIENT && // Nodal / Elem Variables
-    entity->get_property("component_degree").get_int() == 2 &&      // dimension 2 mesh nodeblock
-    field.raw_storage()->component_count() == 2)                    // 2D Vector
+  bool isField2DTransientVector = field.get_role() == Ioss::Field::RoleType::TRANSIENT &&
+    field.raw_storage()->component_count() == 2;
+  if (isField2DTransientVector)
   {
     array = ChangeComponents(array, 3);
   }
@@ -540,8 +538,9 @@ const Ioss::ElementTopology* GetElementTopology(int vtk_cell_type)
     return element;
   }
 
-  vtkLogF(ERROR, "VTK cell type (%d) cannot be mapped to an Ioss element type!", vtk_cell_type);
-  throw std::runtime_error("Unsupported cell type " + std::to_string(vtk_cell_type));
+  const std::string cellName = vtkCellTypes::GetClassNameFromTypeId(vtk_cell_type);
+  vtkLogF(ERROR, "%s cannot be mapped to an Ioss element type!", cellName.c_str());
+  throw std::runtime_error("Unsupported cell type " + cellName);
 }
 
 //----------------------------------------------------------------------------

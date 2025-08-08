@@ -38,18 +38,10 @@ list(APPEND tests
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   set(_vtk_test_cxx_wasm_enabled_in_browser ON)
-  set(_vtk_test_emscripten_extra_linker_args
-    # O2 or higher make wasm-opt terribly slow.
-    # test executables take a minute to link.
-    "-O1"
-    # we need emscripten to emit code that handles exit code and atexit(s)
-    "-sEXIT_RUNTIME=1"
-    "-sALLOW_MEMORY_GROWTH=1")
   set(_vtk_test_cxx_pre_args
     "$<TARGET_FILE:Python3::Interpreter>"
     "${VTK_SOURCE_DIR}/Testing/WebAssembly/runner.py"
     "--engine=${VTK_TESTING_WASM_ENGINE}"
-    "--engine-args=${VTK_TESTING_WASM_ENGINE_ARGUMENTS}"
     "--exit")
 else ()
   set(_vtk_test_cxx_pre_args)

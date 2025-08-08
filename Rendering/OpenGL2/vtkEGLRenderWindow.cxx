@@ -127,6 +127,12 @@ public:
     , Context(EGL_NO_CONTEXT)
     , EGLInitialized(false)
   {
+#if defined(__ANDROID__) || defined(ANDROID)
+    // On Android platform, unconditionally load the EGL functions with EGL_NO_DISPLAY
+    // because the EGL library is always available.
+    gladLoaderLoadEGL(this->Display);
+    this->EGLInitialized = true;
+#endif
   }
 };
 
@@ -140,7 +146,7 @@ vtkEGLRenderWindow::vtkEGLRenderWindow()
   // this is initialized in vtkRenderWindow
   // so we don't need to initialize on else
   this->DeviceIndex = -1;
-#ifdef VTK_USE_OFFSCREEN_EGL
+#if !defined(__ANDROID__) && !defined(ANDROID)
   this->ShowWindow = false;
 #endif
 
@@ -414,19 +420,13 @@ bool vtkEGLRenderWindow::SetDeviceAsDisplay(int deviceIndex)
 
 void vtkEGLRenderWindow::SetShowWindow(bool val)
 {
-  if (val == this->ShowWindow)
+#if !defined(__ANDROID__) && !defined(ANDROID)
+  if (val)
   {
-    return;
+    vtkWarningMacro("vtkEGLRenderWindow does not support showing the window onscreen");
   }
-
-#if defined(VTK_USE_OFFSCREEN_EGL)
-  if (!val)
-  {
-    this->Superclass::SetShowWindow(val);
-  }
-#else
-  this->Superclass::SetShowWindow(val);
 #endif
+  this->Superclass::SetShowWindow(val);
 }
 
 void vtkEGLRenderWindow::ResizeWindow(int width, int height)
@@ -804,14 +804,10 @@ const char* vtkEGLRenderWindow::ReportCapabilities()
   {
     return "Display ID not set";
   }
-  const char* eglVersion =
-    reinterpret_cast<const char*>(eglQueryString(internals.Display, EGL_VERSION));
-  const char* eglVendor =
-    reinterpret_cast<const char*>(eglQueryString(internals.Display, EGL_VENDOR));
-  const char* eglClientAPIs =
-    reinterpret_cast<const char*>(eglQueryString(internals.Display, EGL_CLIENT_APIS));
-  const char* eglExtensions =
-    reinterpret_cast<const char*>(eglQueryString(internals.Display, EGL_EXTENSIONS));
+  const char* eglVersion = eglQueryString(internals.Display, EGL_VERSION);
+  const char* eglVendor = eglQueryString(internals.Display, EGL_VENDOR);
+  const char* eglClientAPIs = eglQueryString(internals.Display, EGL_CLIENT_APIS);
+  const char* eglExtensions = eglQueryString(internals.Display, EGL_EXTENSIONS);
   const char* glVendor = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
   const char* glRenderer = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
   const char* glVersion = reinterpret_cast<const char*>(glGetString(GL_VERSION));

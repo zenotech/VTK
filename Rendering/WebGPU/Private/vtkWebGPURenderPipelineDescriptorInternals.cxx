@@ -80,18 +80,17 @@ vtkWebGPURenderPipelineDescriptorInternals::vtkWebGPURenderPipelineDescriptorInt
     cFragment.module = nullptr;
     cFragment.entryPoint = "main";
     cFragment.targetCount = 1;
-    cFragment.targets = &cTargets[0];
+    cFragment.targets = cTargets.data();
     descriptor->fragment = &cFragment;
 
     wgpu::BlendComponent blendComponent;
     blendComponent.srcFactor = wgpu::BlendFactor::One;
-    blendComponent.dstFactor = wgpu::BlendFactor::Zero;
+    blendComponent.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
     blendComponent.operation = wgpu::BlendOperation::Add;
 
     for (uint32_t i = 0; i < kMaxColorAttachments; ++i)
     {
       cTargets[i].format = wgpu::TextureFormat::RGBA8Unorm;
-      cTargets[i].blend = nullptr;
       cTargets[i].writeMask = wgpu::ColorWriteMask::All;
 
       cBlends[i].color = blendComponent;
@@ -114,4 +113,17 @@ void vtkWebGPURenderPipelineDescriptorInternals::DisableDepthStencil()
 {
   this->depthStencil = nullptr;
 }
+
+wgpu::BlendState* vtkWebGPURenderPipelineDescriptorInternals::EnableBlending(
+  std::size_t colorTargetId)
+{
+  this->cTargets[colorTargetId].blend = &cBlends[colorTargetId];
+  return &cBlends[colorTargetId];
+}
+
+void vtkWebGPURenderPipelineDescriptorInternals::DisableBlending(std::size_t colorTargetId)
+{
+  this->cTargets[colorTargetId].blend = nullptr;
+}
+
 VTK_ABI_NAMESPACE_END

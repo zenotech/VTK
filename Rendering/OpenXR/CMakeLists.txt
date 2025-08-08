@@ -1,4 +1,4 @@
-vtk_module_find_package(PACKAGE OpenXR)
+vtk_module_find_package(PACKAGE OpenXR VERSION 1.0.31)
 
 set(classes
   vtkOpenXRRenderWindow
@@ -7,7 +7,10 @@ set(classes
   vtkOpenXRControlsHelper
   vtkOpenXRModel
   vtkOpenXRRenderer
-  vtkOpenXRInteractorStyle)
+  vtkOpenXRInteractorStyle
+  vtkOpenXRSceneObserver
+  vtkOpenXRSceneComponent
+  )
 
 set(nowrap_classes
   vtkOpenXRManager

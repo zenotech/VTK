@@ -247,7 +247,7 @@ vtkOpenGLLowMemoryPolyDataMapper::~vtkOpenGLLowMemoryPolyDataMapper()
 //------------------------------------------------------------------------------
 void vtkOpenGLLowMemoryPolyDataMapper::PrintSelf(ostream& os, vtkIndent indent)
 {
-  return this->Superclass::PrintSelf(os, indent);
+  this->Superclass::PrintSelf(os, indent);
 }
 
 //------------------------------------------------------------------------------
@@ -274,6 +274,8 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReleaseGraphicsResources(vtkWindow* windo
     this->InternalColorTexture->ReleaseGraphicsResources(window);
   }
   this->ReleaseResources(window);
+  // Reset the render timestamp so that the next render will update the buffers.
+  this->RenderTimeStamp = vtkTimeStamp();
 }
 
 //------------------------------------------------------------------------------
@@ -1146,7 +1148,14 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderNormal(
         "in vec3 normalVCVSOutput;");
       vtkShaderProgram::Substitute(fsSource, "//VTK::Normal::Impl",
         " vec3 vertexNormalVCVS = normalVCVSOutput;\n"
-        " if (gl_FrontFacing == false) vertexNormalVCVS = -vertexNormalVCVS;\n"
+        // Ensure normal is pointing towards camera for points so that both
+        // the back face and front face are lit up and colored by
+        // the vertex color.
+        " if (primitiveSize == 1) vertexNormalVCVS = vec3(0.0, 0.0, 1.0);\n"
+        // In similar vein, enforce non-negative components for the normal of
+        // line segments to ensure the backside of lines do not appear black.
+        " else if (primitiveSize == 2) vertexNormalVCVS = abs(vertexNormalVCVS);\n"
+        " else if (gl_FrontFacing == false) vertexNormalVCVS = -vertexNormalVCVS;\n"
         "//VTK::Normal::Impl");
       if (this->HasClearCoat)
       {
@@ -1268,7 +1277,14 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderNormal(
         "in vec3 normalVCVSOutput;");
       vtkShaderProgram::Substitute(fsSource, "//VTK::Normal::Impl",
         "vec3 vertexNormalVCVS = normalVCVSOutput;\n"
-        "if (gl_FrontFacing == false) vertexNormalVCVS = -vertexNormalVCVS;\n"
+        // Ensure normal is pointing towards camera for points so that both
+        // the back face and front face are lit up and colored by
+        // the vertex color.
+        " if (primitiveSize == 1) vertexNormalVCVS = vec3(0.0, 0.0, 1.0);\n"
+        // In similar vein, enforce non-negative components for the normal of
+        // line segments to ensure the backside of lines do not appear black.
+        " else if (primitiveSize == 2) vertexNormalVCVS = abs(vertexNormalVCVS);\n"
+        " else if (gl_FrontFacing == false) vertexNormalVCVS = -vertexNormalVCVS;\n"
         "//VTK::Normal::Impl");
       if (this->HasClearCoat)
       {
@@ -1519,6 +1535,7 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderEdges(
   vtkShaderProgram::Substitute(vsSource, "//VTK::EdgesGLES30::Dec",
     R"(flat out mat4 edgeEqn;
 uniform highp int wireframe;
+uniform float edgeWidth;
 uniform highp int edgeVisibility;)");
   std::ostringstream vsImpl;
   vsImpl
@@ -1551,7 +1568,7 @@ uniform highp int edgeVisibility;)");
     }
     if (usesEdgeValues == 1)
     {
-      float nudge = halfLineWidth * 2.0 + 0.5;
+      float nudge = edgeWidth + 0.5;
       int edgeValue = int(texelFetchBuffer(edgeValueBuffer, primitiveId + edgeValueBufferOffset).x);
       // all but last triangle in a polygon's implicit triangulation
       if (edgeValue < 4) edgeEqn[2].z = nudge;
@@ -1569,7 +1586,7 @@ uniform vec3 edgeColor;
 uniform float edgeOpacity;
 uniform highp int wireframe;
 uniform highp int edgeVisibility;
-uniform float halfLineWidth;
+uniform float edgeWidth;
 )");
 
   std::ostringstream fsImpl;
@@ -1590,7 +1607,7 @@ uniform float halfLineWidth;
       edist[1] += edgeEqn[1].z;
       edist[2] += edgeEqn[2].z;
     }
-    float emix = clamp(0.5 + halfLineWidth - min(min(edist[0], edist[1]), edist[2]), 0.0, 1.0);
+    float emix = clamp(0.5 + 0.5 * edgeWidth - min(min(edist[0], edist[1]), edist[2]), 0.0, 1.0);
     if (wireframe == 1)
     {
       opacity = mix(0.0, opacity, emix);
@@ -2062,6 +2079,7 @@ void vtkOpenGLLowMemoryPolyDataMapper::SetShaderParameters(vtkRenderer* renderer
     vpDims[i] = vp[i];
   }
   const float lineWidth = actor->GetProperty()->GetLineWidth();
+  const float edgeWidth = actor->GetProperty()->GetEdgeWidth();
 
   this->ShaderProgram->SetUniform4f("viewportDimensions", vpDims);
   this->ShaderProgram->SetUniformf("lineWidthStepSize", lineWidth / vtkMath::Ceil(lineWidth));
@@ -2072,6 +2090,14 @@ void vtkOpenGLLowMemoryPolyDataMapper::SetShaderParameters(vtkRenderer* renderer
   this->ShaderProgram->SetUniformi("edgeVisibility", actor->GetProperty()->GetEdgeVisibility());
   this->ShaderProgram->SetUniformi(
     "wireframe", actor->GetProperty()->GetRepresentation() == VTK_WIREFRAME);
+  if (actor->GetProperty()->GetUseLineWidthForEdgeThickness())
+  {
+    this->ShaderProgram->SetUniformf("edgeWidth", lineWidth);
+  }
+  else
+  {
+    this->ShaderProgram->SetUniformf("edgeWidth", edgeWidth);
+  }
 
   vtkHardwareSelector* selector = renderer->GetSelector();
   if (selector && this->ShaderProgram->IsUniformUsed("mapperIndex"))
@@ -2754,9 +2780,7 @@ void vtkOpenGLLowMemoryPolyDataMapper::ProcessSelectorPixelBuffers(
 
     if (sel->GetUseProcessIdFromData())
     {
-      processArray = !this->ProcessIdArrayName.empty()
-        ? pd->GetArray(this->ProcessIdArrayName.c_str())
-        : nullptr;
+      processArray = this->ProcessIdArrayName ? pd->GetArray(this->ProcessIdArrayName) : nullptr;
     }
 
     // do we need to do anything to the process pass data?
@@ -2778,8 +2802,8 @@ void vtkOpenGLLowMemoryPolyDataMapper::ProcessSelectorPixelBuffers(
 
   if (currPass == vtkHardwareSelector::POINT_ID_LOW24)
   {
-    vtkIdTypeArray* pointArrayId = !this->PointIdArrayName.empty()
-      ? vtkArrayDownCast<vtkIdTypeArray>(pd->GetArray(this->PointIdArrayName.c_str()))
+    vtkIdTypeArray* pointArrayId = this->PointIdArrayName
+      ? vtkArrayDownCast<vtkIdTypeArray>(pd->GetArray(this->PointIdArrayName))
       : nullptr;
 
     // do we need to do anything to the point id data?
@@ -2810,8 +2834,8 @@ void vtkOpenGLLowMemoryPolyDataMapper::ProcessSelectorPixelBuffers(
 
   if (currPass == vtkHardwareSelector::POINT_ID_HIGH24)
   {
-    vtkIdTypeArray* pointArrayId = !this->PointIdArrayName.empty()
-      ? vtkArrayDownCast<vtkIdTypeArray>(pd->GetArray(this->PointIdArrayName.c_str()))
+    vtkIdTypeArray* pointArrayId = this->PointIdArrayName
+      ? vtkArrayDownCast<vtkIdTypeArray>(pd->GetArray(this->PointIdArrayName))
       : nullptr;
 
     // do we need to do anything to the point id data?
@@ -2845,9 +2869,8 @@ void vtkOpenGLLowMemoryPolyDataMapper::ProcessSelectorPixelBuffers(
   {
     unsigned char* compositedata = sel->GetPixelBuffer(vtkHardwareSelector::COMPOSITE_INDEX_PASS);
 
-    vtkDataArray* compositeArray = !this->CompositeIdArrayName.empty()
-      ? cd->GetArray(this->CompositeIdArrayName.c_str())
-      : nullptr;
+    vtkDataArray* compositeArray =
+      this->CompositeIdArrayName ? cd->GetArray(this->CompositeIdArrayName) : nullptr;
 
     if (compositedata && (compositeArray && compositeArray->GetDataType() == VTK_UNSIGNED_INT) &&
       rawclowdata)
@@ -2867,8 +2890,8 @@ void vtkOpenGLLowMemoryPolyDataMapper::ProcessSelectorPixelBuffers(
   // process the cellid array?
   if (currPass == vtkHardwareSelector::CELL_ID_LOW24)
   {
-    vtkIdTypeArray* cellArrayId = !this->CellIdArrayName.empty()
-      ? vtkArrayDownCast<vtkIdTypeArray>(cd->GetArray(this->CellIdArrayName.c_str()))
+    vtkIdTypeArray* cellArrayId = this->CellIdArrayName
+      ? vtkArrayDownCast<vtkIdTypeArray>(cd->GetArray(this->CellIdArrayName))
       : nullptr;
     unsigned char* clowdata = sel->GetPixelBuffer(vtkHardwareSelector::CELL_ID_LOW24);
 
@@ -2901,8 +2924,8 @@ void vtkOpenGLLowMemoryPolyDataMapper::ProcessSelectorPixelBuffers(
 
   if (currPass == vtkHardwareSelector::CELL_ID_HIGH24)
   {
-    vtkIdTypeArray* cellArrayId = !this->CellIdArrayName.empty()
-      ? vtkArrayDownCast<vtkIdTypeArray>(cd->GetArray(this->CellIdArrayName.c_str()))
+    vtkIdTypeArray* cellArrayId = this->CellIdArrayName
+      ? vtkArrayDownCast<vtkIdTypeArray>(cd->GetArray(this->CellIdArrayName))
       : nullptr;
     unsigned char* chighdata = sel->GetPixelBuffer(vtkHardwareSelector::CELL_ID_HIGH24);
 
@@ -2945,9 +2968,8 @@ void vtkOpenGLLowMemoryPolyDataMapper::UpdateMaximumPointCellIds(vtkRenderer* re
   vtkIdType maxPointId = mesh->GetPoints()->GetNumberOfPoints() - 1;
   if (mesh && mesh->GetPointData())
   {
-    vtkIdTypeArray* pointArrayId = !this->PointIdArrayName.empty()
-      ? vtkArrayDownCast<vtkIdTypeArray>(
-          mesh->GetPointData()->GetArray(this->PointIdArrayName.c_str()))
+    vtkIdTypeArray* pointArrayId = this->PointIdArrayName
+      ? vtkArrayDownCast<vtkIdTypeArray>(mesh->GetPointData()->GetArray(this->PointIdArrayName))
       : nullptr;
     if (pointArrayId)
     {
@@ -2963,9 +2985,8 @@ void vtkOpenGLLowMemoryPolyDataMapper::UpdateMaximumPointCellIds(vtkRenderer* re
   vtkIdType maxCellId = mesh->GetNumberOfCells() - 1;
   if (mesh && mesh->GetCellData())
   {
-    vtkIdTypeArray* cellArrayId = !this->CellIdArrayName.empty()
-      ? vtkArrayDownCast<vtkIdTypeArray>(
-          mesh->GetCellData()->GetArray(this->CellIdArrayName.c_str()))
+    vtkIdTypeArray* cellArrayId = this->CellIdArrayName
+      ? vtkArrayDownCast<vtkIdTypeArray>(mesh->GetCellData()->GetArray(this->CellIdArrayName))
       : nullptr;
     if (cellArrayId)
     {

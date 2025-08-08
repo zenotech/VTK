@@ -694,7 +694,7 @@ int vtkDataSetSurfaceFilter::StructuredExecuteNoBlanking(
   // Cell Array Size is a pretty good estimate.
 
   // Lets figure out how many cells and points we are going to have.
-  // It may be overkill comptuing the exact amount, but we can do it, so ...
+  // It may be overkill computing the exact amount, but we can do it, so ...
   cellArraySize = numPoints = 0;
   // xMin face
   if (ext[0] == wholeExt[0] && ext[2] != ext[3] && ext[4] != ext[5] && ext[0] != ext[1])
@@ -2086,7 +2086,7 @@ int vtkDataSetSurfaceFilter::UnstructuredGridExecuteInternal(
         parametricCoords.resize(maxNumberOfIds * 3);
         std::copy(&pc[0], &pc[0] + numFacePts * 3, parametricCoords.begin());
 
-        // localEdgeMap is simular to this->EdgeMap, but only stores local ids
+        // localEdgeMap is similar to this->EdgeMap, but only stores local ids
         localEdgeMap->clear();
 
         auto isEqualTo1Or0 = [](double a, double e = 1e-10)
@@ -2723,14 +2723,6 @@ vtkIdType vtkDataSetSurfaceFilter::GetOutputPointId(
   }
 
   return outPtId;
-}
-
-//------------------------------------------------------------------------------
-vtkIdType vtkDataSetSurfaceFilter::GetOutputPointIdAndInterpolate(vtkIdType cellPtId,
-  vtkDataSet* input, vtkCell* cell, double* weights, vtkPoints* outPts, vtkPointData* outPD)
-{
-  double* pc = cell->GetParametricCoords();
-  return this->GetOutputPointIdAndInterpolate(cellPtId, input, cell, pc, weights, outPts, outPD);
 }
 
 //------------------------------------------------------------------------------

@@ -14,11 +14,8 @@
 #include "vtkFloatArray.h"
 #include "vtkIdTypeArray.h"
 #include "vtkInformation.h"
-#include "vtkInformationVector.h"
 #include "vtkLogger.h"
-#include "vtkMultiProcessController.h"
 #include "vtkNew.h"
-#include "vtkObjectFactory.h"
 #include "vtkPartitionedDataSet.h"
 #include "vtkPartitionedDataSetCollection.h"
 #include "vtkPointData.h"
@@ -37,6 +34,7 @@
 
 #include <vtksys/SystemTools.hxx>
 
+#include <algorithm>
 #include <cstdlib>
 #include <numeric>
 #include <regex>
@@ -54,16 +52,35 @@ namespace
 constexpr int MAX_CASE_LINE_LENGTH = 1024;
 
 // used for the first part of a case file line (e.g. model:, measured:, etc)
-std::regex lineTypeRegEx(R"((?:^|\s)([[:alpha:]_\s]+:)(?=$|\s))");
+const std::regex& GetLineTypeRegEx()
+{
+  static const std::regex lineTypeRegEx(R"((?:^|\s)([[:alpha:]_\s]+:)(?=$|\s))");
+  return lineTypeRegEx;
+}
+
 // integers
-std::regex intRegEx(R"(^(?:\s+)(\d+)(?=$|\s))");
+const std::regex& GetIntRegEx()
+{
+  static const std::regex intRegEx(R"(^(?:\s+)(\d+)(?=$|\s))");
+  return intRegEx;
+}
+
 // floating point
-std::regex numRegEx(R"((?:^|\s)([-]?\d*\.?\d*e?[+-]?\d*[^\s])(?=$|\s))");
+const std::regex& GetNumRegEx()
+{
+  static const std::regex numRegEx(R"((?:^|\s)([-]?\d*\.?\d*e?[+-]?\d*[^\s])(?=$|\s))");
+  return numRegEx;
+}
+
 // filenames or other cases where it's not determining the type  (e.g., change_coords_only)
-std::regex fileNameRegEx(R"((?:^|\s)([[:alnum:]/_.*-]+)(?=$|\s))");
+const std::regex& GetFileNameRegEx()
+{
+  static const std::regex fileNameRegEx(R"((?:^|\s)([[:alnum:]/_.*-]+)(?=$|\s))");
+  return fileNameRegEx;
+}
 
 template <typename T>
-bool extractLinePart(std::regex& rx, std::string& line, T& value)
+bool extractLinePart(const std::regex& rx, std::string& line, T& value)
 {
   std::smatch sm;
   if (std::regex_search(line, sm, rx))
@@ -86,7 +103,7 @@ bool extractFileName(std::string& line, std::string& filename)
   if (quoteBegin == std::string::npos)
   {
     // no quotes - filename cannot contain spaces, so we can use regex
-    return extractLinePart(fileNameRegEx, line, filename);
+    return extractLinePart(GetFileNameRegEx(), line, filename);
   }
 
   // we have quotes, we know where the filename starts and ends
@@ -374,7 +391,7 @@ void readCaseFileValues(EnSightFile& file, std::string& line, std::vector<T>& va
   bool continueReading = true;
   while (continueReading)
   {
-    while (extractLinePart(numRegEx, line, val))
+    while (extractLinePart(GetNumRegEx(), line, val))
     {
       values.push_back(val);
     }
@@ -408,7 +425,7 @@ void readFileValues(EnSightFile& file, std::vector<T>& values)
   while (result.first)
   {
     T val;
-    while (extractLinePart(numRegEx, result.second, val))
+    while (extractLinePart(GetNumRegEx(), result.second, val))
     {
       values.push_back(val);
     }
@@ -627,13 +644,13 @@ void EnSightDataSet::ParseGeometrySection()
     std::string lineType, option, fileName;
     int timeSet = -1, fileSet = -1;
 
-    if (!extractLinePart(lineTypeRegEx, line, lineType))
+    if (!extractLinePart(GetLineTypeRegEx(), line, lineType))
     {
       vtkGenericWarningMacro("could not extract the line type from " << result.second);
     }
-    extractLinePart(intRegEx, line, timeSet);
+    extractLinePart(GetIntRegEx(), line, timeSet);
 
-    extractLinePart(intRegEx, line, fileSet);
+    extractLinePart(GetIntRegEx(), line, fileSet);
     if (!extractFileName(line, fileName))
     {
       vtkGenericWarningMacro("could not extract file name from " << result.second);
@@ -643,7 +660,7 @@ void EnSightDataSet::ParseGeometrySection()
     {
       this->GeometryFileName = this->GetFullPath(fileName);
       this->GeometryFile.SetFileNamePattern(this->GeometryFileName);
-      extractLinePart(fileNameRegEx, line, option);
+      extractLinePart(GetFileNameRegEx(), line, option);
 
       // option can be empty, 'change_coords_only', 'change_coords_only cstep', or
       // 'changing_geometry_per_part'. changing_geometry_per_part signals that part lines will have
@@ -653,7 +670,7 @@ void EnSightDataSet::ParseGeometrySection()
       {
         // change_coords_only indicates that only coords change in geometry, otherwise connectivity
         // changes too. cstep means the zero-based time step that contains the connectivity
-        extractLinePart(intRegEx, line, this->GeometryCStep);
+        extractLinePart(GetIntRegEx(), line, this->GeometryCStep);
       }
 
       // check to see if we do indeed have a static geometry
@@ -681,7 +698,7 @@ void EnSightDataSet::ParseGeometrySection()
       this->MeasuredFile.SetTimeAndFileSetInfo(timeSet, fileSet);
       this->MeasuredFileName = this->GetFullPath(fileName);
       this->MeasuredFile.SetFileNamePattern(this->MeasuredFileName);
-      extractLinePart(fileNameRegEx, line, option);
+      extractLinePart(GetFileNameRegEx(), line, option);
     }
     else if (lineType == "match:")
     {
@@ -730,7 +747,7 @@ void EnSightDataSet::ParseVariableSection()
     std::string varType, fileName;
     VariableOptions opts;
 
-    extractLinePart(lineTypeRegEx, line, varType);
+    extractLinePart(GetLineTypeRegEx(), line, varType);
     opts.Type = getVariableTypeFromString(varType);
     if (opts.Type == VariableType::Unknown)
     {
@@ -739,15 +756,15 @@ void EnSightDataSet::ParseVariableSection()
       continue;
     }
 
-    extractLinePart(intRegEx, line, opts.File.TimeSet);
+    extractLinePart(GetIntRegEx(), line, opts.File.TimeSet);
     if (opts.Type == VariableType::ConstantPerCase)
     {
-      extractLinePart(fileNameRegEx, line, opts.Name);
+      extractLinePart(GetFileNameRegEx(), line, opts.Name);
       readCaseFileValues(this->CaseFile, line, opts.Constants);
     }
     else if (opts.Type == VariableType::ConstantPerCaseFile)
     {
-      extractLinePart(fileNameRegEx, line, opts.Name);
+      extractLinePart(GetFileNameRegEx(), line, opts.Name);
       if (!extractFileName(line, fileName))
       {
         vtkGenericWarningMacro("could not extract file name from " << result.second);
@@ -768,8 +785,8 @@ void EnSightDataSet::ParseVariableSection()
         opts.File.TimeSet = 1;
       }
 
-      extractLinePart(intRegEx, line, opts.File.FileSet);
-      extractLinePart(fileNameRegEx, line, opts.Name);
+      extractLinePart(GetIntRegEx(), line, opts.File.FileSet);
+      extractLinePart(GetFileNameRegEx(), line, opts.Name);
 
       if (!extractFileName(line, fileName))
       {
@@ -780,11 +797,11 @@ void EnSightDataSet::ParseVariableSection()
       if (varType.find("complex") != std::string::npos)
       {
         // need to grab remaining info for complex var types
-        extractLinePart(fileNameRegEx, line, fileName);
+        extractLinePart(GetFileNameRegEx(), line, fileName);
         opts.ImaginaryFile.SetFileNamePattern(this->GetFullPath(fileName));
         opts.ImaginaryFile.TimeSet = opts.File.TimeSet;
         opts.ImaginaryFile.FileSet = opts.File.FileSet;
-        extractLinePart(numRegEx, line, opts.Frequency);
+        extractLinePart(GetNumRegEx(), line, opts.Frequency);
       }
     }
 
@@ -813,23 +830,23 @@ void EnSightDataSet::ParseTimeSection()
       }
 
       std::string lineType;
-      extractLinePart(lineTypeRegEx, line, lineType);
+      extractLinePart(GetLineTypeRegEx(), line, lineType);
       if (lineType == "time set:")
       {
         moreTimeSets = false;
-        extractLinePart(intRegEx, line, timeSet);
+        extractLinePart(GetIntRegEx(), line, timeSet);
       }
       else if (lineType == "number of steps:")
       {
-        extractLinePart(intRegEx, line, tsInfo->NumberOfSteps);
+        extractLinePart(GetIntRegEx(), line, tsInfo->NumberOfSteps);
       }
       else if (lineType == "filename start number:")
       {
-        extractLinePart(intRegEx, line, startNum);
+        extractLinePart(GetIntRegEx(), line, startNum);
       }
       else if (lineType == "filename increment:")
       {
-        extractLinePart(intRegEx, line, increment);
+        extractLinePart(GetIntRegEx(), line, increment);
       }
       else if (lineType == "time values:")
       {
@@ -914,19 +931,19 @@ void EnSightDataSet::ParseFileSection()
       }
 
       std::string lineType;
-      extractLinePart(lineTypeRegEx, line, lineType);
+      extractLinePart(GetLineTypeRegEx(), line, lineType);
       if (lineType == "file set:")
       {
-        extractLinePart(intRegEx, line, fileSet);
+        extractLinePart(GetIntRegEx(), line, fileSet);
       }
       else if (lineType == "number of steps:")
       {
-        extractLinePart(intRegEx, line, numSteps);
+        extractLinePart(GetIntRegEx(), line, numSteps);
         fsInfo->NumberOfSteps.push_back(numSteps);
       }
       else if (lineType == "filename index:")
       {
-        extractLinePart(intRegEx, line, fileIndex);
+        extractLinePart(GetIntRegEx(), line, fileIndex);
         fsInfo->FileNameIndex.push_back(fileIndex);
       }
 
@@ -1049,6 +1066,7 @@ bool EnSightDataSet::ReadGeometry(vtkPartitionedDataSetCollection* output,
       vtkGenericWarningMacro("Part Id " << partId << " could not be found in PartInfoMap");
       return false;
     }
+
     auto& partInfo = it->second;
 
     result = this->GeometryFile.ReadNextLine(); // part description line
@@ -2305,7 +2323,7 @@ void EnSightDataSet::CreateStructuredGridOutput(const GridOptions& opts, vtkStru
     this->ProcessGhostCells(numCells, output);
   }
 
-  // it's not clear in the user manual if it is required for the node id section to be preceeded by
+  // it's not clear in the user manual if it is required for the node id section to be preceded by
   // 'node_ids'. The old reader makes this assumption
   auto result = this->GeometryFile.ReadNextLine();
   if (result.second.find("node_ids") != std::string::npos)
@@ -2501,11 +2519,11 @@ void EnSightDataSet::PassThroughUnstructuredGrid(const GridOptions& vtkNotUsed(o
   {
     if (elementType == ElementType::NSided)
     {
-      this->ReadNSidedSection(numCellsPerType[static_cast<int>(elementType)], nullptr);
+      this->SkipNSidedSection(numCellsPerType[static_cast<int>(elementType)]);
     }
     else if (elementType == ElementType::NFaced)
     {
-      this->ReadNFacedSection(numCellsPerType[static_cast<int>(elementType)], nullptr);
+      this->SkipNFacedSection(numCellsPerType[static_cast<int>(elementType)]);
     }
     else
     {
@@ -2597,7 +2615,7 @@ void EnSightDataSet::ReadDimensions(bool hasRange, int dimensions[3], int& numPt
     auto result = this->GeometryFile.ReadNextLine();
     for (int i = 0; i < 3; i++)
     {
-      extractLinePart(numRegEx, result.second, dimensions[i]);
+      extractLinePart(GetNumRegEx(), result.second, dimensions[i]);
     }
   }
   else
@@ -2640,7 +2658,7 @@ void EnSightDataSet::ReadRange(int range[6])
     auto result = this->GeometryFile.ReadNextLine();
     for (int i = 0; i < 6; i++)
     {
-      extractLinePart(numRegEx, result.second, range[i]);
+      extractLinePart(GetNumRegEx(), result.second, range[i]);
     }
   }
   else
@@ -2660,7 +2678,7 @@ void EnSightDataSet::ReadOptionalValues(int numVals, int* array, std::string sec
 void EnSightDataSet::CheckForOptionalHeader(const std::string& sectionName)
 {
   // some data has an optional string before it. e.g., for ghost flags,
-  // there may be a string "ghost_flags" preceeding it
+  // there may be a string "ghost_flags" preceding it
   if (!sectionName.empty())
   {
     auto result = this->GeometryFile.ReadNextLine();
@@ -2747,7 +2765,46 @@ void EnSightDataSet::ReadNSidedSection(int& numElements, vtkUnstructuredGrid* ou
 }
 
 //------------------------------------------------------------------------------
-void EnSightDataSet::ReadNFacedSection(int& numElements, vtkUnstructuredGrid* output)
+void EnSightDataSet::SkipNFacedSection(int& numElements)
+{
+  this->GeometryFile.ReadNumber(&numElements);
+
+  // (optional) Element IDs
+  if (this->ElementIdsListed)
+  {
+    this->GeometryFile.SkipNNumbers<int>(numElements);
+  }
+
+  // Number of faces per element
+  std::vector<int> numFacesPerElement(numElements, 0);
+  this->GeometryFile.ReadArray(numFacesPerElement.data(), numElements);
+
+  vtkIdType totalNumFaces = std::accumulate(
+    numFacesPerElement.begin(), numFacesPerElement.end(), static_cast<vtkIdType>(0));
+
+  if (this->GeometryFile.Format == FileType::ASCII)
+  {
+    for (vtkIdType i = 0; i < totalNumFaces; ++i)
+    {
+      // Skip 2 lines: number of point per face per element, face connectivity
+      this->GeometryFile.SkipLine();
+      this->GeometryFile.SkipLine();
+    }
+  }
+  else
+  {
+    std::vector<int> numNodesPerFacePerElement(totalNumFaces);
+    this->GeometryFile.ReadArray(numNodesPerFacePerElement.data(), totalNumFaces);
+
+    vtkIdType totalNumNodes = std::accumulate(numNodesPerFacePerElement.begin(),
+      numNodesPerFacePerElement.end(), static_cast<vtkIdType>(0));
+
+    this->GeometryFile.SkipNNumbers<int>(totalNumNodes);
+  }
+}
+
+//------------------------------------------------------------------------------
+void EnSightDataSet::SkipNSidedSection(int& numElements)
 {
   this->GeometryFile.ReadNumber(&numElements);
 
@@ -2756,47 +2813,129 @@ void EnSightDataSet::ReadNFacedSection(int& numElements, vtkUnstructuredGrid* ou
     this->GeometryFile.SkipNNumbers<int>(numElements);
   }
 
-  // read number of faces per nfaced element
+  if (this->GeometryFile.Format == FileType::ASCII)
+  {
+    // Skip 2 lines per element: number of nodes, node numbers for this element
+    for (int elementIdx = 0; elementIdx < numElements; ++elementIdx)
+    {
+      this->GeometryFile.SkipLine();
+      this->GeometryFile.SkipLine();
+    }
+  }
+  else
+  {
+    std::vector<int> numNodesPerElement(numElements);
+    this->GeometryFile.ReadArray(numNodesPerElement.data(), numElements);
+
+    vtkIdType totalNumNodes = std::accumulate(
+      numNodesPerElement.begin(), numNodesPerElement.end(), static_cast<vtkIdType>(0));
+    this->GeometryFile.SkipNNumbers<int>(totalNumNodes);
+  }
+}
+
+//------------------------------------------------------------------------------
+void EnSightDataSet::ReadNFacedSection(int& numElements, vtkUnstructuredGrid* output)
+{
+  vtkLogScopeFunction(TRACE);
+
+  // Number of elements
+  this->GeometryFile.ReadNumber(&numElements);
+
+  // (optional) Element IDs
+  if (this->ElementIdsListed)
+  {
+    this->GeometryFile.SkipNNumbers<int>(numElements);
+  }
+
+  // Number of faces per element
   std::vector<int> numFacesPerElement(numElements, 0);
   this->GeometryFile.ReadArray(numFacesPerElement.data(), numElements);
 
-  // read number of nodes per face of each element
-  std::vector<std::vector<int>> nodesPerFacePerElement(numElements);
-  std::vector<int> totalNodesPerElement(numElements, 0);
-  for (int elem = 0; elem < numElements; elem++)
+  // Read the whole block in one go
+  vtkIdType totalNumFaces = std::accumulate(
+    numFacesPerElement.begin(), numFacesPerElement.end(), static_cast<vtkIdType>(0));
+
+  std::vector<int> numNodesPerFacePerElement(totalNumFaces);
+  this->GeometryFile.ReadArray(numNodesPerFacePerElement.data(), totalNumFaces);
+
+  vtkIdType totalNumNodes = std::accumulate(
+    numNodesPerFacePerElement.begin(), numNodesPerFacePerElement.end(), static_cast<vtkIdType>(0));
+  std::vector<int> faceNodesBuffer(totalNumNodes);
+
+  vtkIdType offset = 0;
+  for (vtkIdType i = 0; i < totalNumFaces; ++i)
   {
-    auto& numFaces = numFacesPerElement[elem];
-    auto& nodesPerFace = nodesPerFacePerElement[elem];
-    nodesPerFace.resize(numFaces);
-    this->GeometryFile.ReadArray(nodesPerFace.data(), numFaces);
-    totalNodesPerElement[elem] = std::accumulate(nodesPerFace.begin(), nodesPerFace.end(), 0);
+    this->GeometryFile.ReadArray(
+      faceNodesBuffer.data() + offset, numNodesPerFacePerElement[i], true);
+    offset += numNodesPerFacePerElement[i];
   }
 
+  // Now build the actual cells
   auto cellInfo = getVTKCellType(ElementType::NFaced);
-  for (int elem = 0; elem < numElements; elem++)
+
+  auto numNodesInFaceIt = numNodesPerFacePerElement.begin();
+  auto nodeIt = faceNodesBuffer.begin();
+
+  // Break through all loops if numNodesInFaceIt or nodeIt reach the end of vector
+  bool endReached = false;
+  vtkNew<vtkCellArray> faceStream;
+
+  for (int elemIdx = 0; elemIdx < numElements; elemIdx++)
   {
-    auto& numNodesAllFaces = totalNodesPerElement[elem];
-    auto& numFaces = numFacesPerElement[elem];
-    auto arraySize = numNodesAllFaces + numFaces;
-    std::vector<vtkIdType> nodeIds(arraySize, 0);
-    int arrayIdx = 0;
-    std::vector<int> tempIds;
-    auto& numNodesPerFace = nodesPerFacePerElement[elem];
-    for (int face = 0; face < numFaces; face++)
+    const int numFacesInElement = numFacesPerElement[elemIdx];
+    /// @note: we could save that value from the earlier "total" computation. It's not significant
+    // compared to the read time though
+    const vtkIdType numNodesInElement = std::accumulate(
+      numNodesInFaceIt, numNodesInFaceIt + numFacesInElement, static_cast<vtkIdType>(0));
+
+    std::vector<vtkIdType> uniqueCellIDs;
+    uniqueCellIDs.reserve(numNodesInElement);
+
+    faceStream->Reset();
+    faceStream->AllocateExact(numFacesInElement, numNodesInElement);
+
+    for (int faceIdx = 0; faceIdx < numFacesInElement; ++faceIdx)
     {
-      auto& numNodes = numNodesPerFace[face];
-      nodeIds[arrayIdx++] = numNodes;
-      tempIds.clear();
-      tempIds.resize(numNodes);
-      this->GeometryFile.ReadArray(tempIds.data(), numNodes, true);
-      for (auto& nodeId : tempIds)
+      const int numNodesInFace = *numNodesInFaceIt;
+      faceStream->InsertNextCell(numNodesInFace);
+
+      for (int i = 0; i < numNodesInFace; ++i)
       {
-        nodeIds[arrayIdx++] = nodeId - 1;
+        vtkIdType correctedId = (*nodeIt) - 1; // Ensight node IDs are 1-based
+        faceStream->InsertCellPoint(correctedId);
+
+        /// @note: We use an unsorted, unique vector instead of a set because:
+        // 1) This is a per-cell unique point list; we expect it to be relatively small
+        // 2) It allows us to use the insertNextCell call below which expects a contiguous container
+        if (std::find(uniqueCellIDs.begin(), uniqueCellIDs.end(), correctedId) ==
+          std::end(uniqueCellIDs))
+        {
+          uniqueCellIDs.push_back(correctedId);
+        }
+
+        ++nodeIt;
+        if (nodeIt == faceNodesBuffer.end())
+        {
+          endReached = true;
+          break;
+        }
+      }
+      ++numNodesInFaceIt;
+      if (endReached || numNodesInFaceIt == numNodesPerFacePerElement.end())
+      {
+        endReached = true;
+        break;
       }
     }
+
     if (output)
     {
-      output->InsertNextCell(cellInfo.first, numFaces, nodeIds.data());
+      output->InsertNextCell(
+        cellInfo.first, uniqueCellIDs.size(), uniqueCellIDs.data(), faceStream);
+    }
+    if (endReached)
+    {
+      break;
     }
   }
 }
@@ -2872,7 +3011,7 @@ bool EnSightDataSet::ReadRigidBodyGeometryFile()
   }
 
   float version;
-  extractLinePart(numRegEx, result.second, version);
+  extractLinePart(GetNumRegEx(), result.second, version);
   if (version != 2.0)
   {
     vtkGenericWarningMacro("currently only version 2.0 of the rigid body format is supported.");
@@ -3188,7 +3327,7 @@ bool EnSightDataSet::ReadRigidBodyEulerParameterFile(const std::string& path)
   vtkLog(TRACE, "number of timesteps: " << numTimes);
 
   // if we don't have any time info from regular time sets, then we'll create time steps
-  // using the euler tranformations
+  // using the euler transformations
   this->UseEulerTimeSteps = this->TimeSetInfoMap.empty();
   if (this->UseEulerTimeSteps)
   {

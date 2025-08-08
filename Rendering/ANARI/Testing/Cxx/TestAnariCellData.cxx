@@ -1,6 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
 // SPDX-License-Identifier: BSD-3-Clause
 // This tests whether ANARI properly handles cell data
+#include "vtkAnariPass.h"
+#include "vtkAnariSceneGraph.h"
+#include "vtkAnariTestInteractor.h"
+#include "vtkAnariTestUtilities.h"
 #include <vtkColorTransferFunction.h>
 #include <vtkGPUVolumeRayCastMapper.h>
 #include <vtkImageData.h>
@@ -19,11 +23,6 @@
 #include <vtkTesting.h>
 #include <vtkVolumeProperty.h>
 #include <vtkXMLImageDataReader.h>
-
-#include "vtkAnariPass.h"
-#include "vtkAnariRendererNode.h"
-#include "vtkAnariTestInteractor.h"
-#include "vtkAnariTestUtilities.h"
 
 int TestAnariCellData(int argc, char* argv[])
 {
@@ -106,8 +105,9 @@ int TestAnariCellData(int argc, char* argv[])
   vtkNew<vtkAnariPass> anariPass;
   ren->SetPass(anariPass);
 
-  SetAnariRendererParameterDefaults(ren, useDebugDevice, "TestAnariCellData");
-  vtkAnariRendererNode::SetAmbientIntensity(0.5, ren);
+  SetParameterDefaults(anariPass, ren, useDebugDevice, "TestAnariCellData");
+  auto* ar = anariPass->GetAnariRenderer();
+  ar->SetParameterf("ambientRadiance", 0.5f);
 
   renWin->Render();
   ren->ResetCamera();

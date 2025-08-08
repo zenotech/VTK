@@ -374,7 +374,7 @@ int vtkHyperTreeGridSource::RequestData(
   output->Initialize();
 
   // A mask is required when using UseMask or when assigning trees to pieces,
-  // so we create it everytime.
+  // so we create it every time.
   vtkNew<vtkBitArray> mask;
   output->SetMask(mask);
 
@@ -840,14 +840,14 @@ int vtkHyperTreeGridSource::InitializeFromStringDescriptor()
         {
           vtkErrorMacro(
             << "It is only possible to use digits to bind trees to parallel pieces at root level");
-          return 1;
+          return 0;
         }
         char piece = c - '0';
-        if (piece > this->NumPieces)
+        if (piece >= this->NumPieces)
         {
-          vtkErrorMacro(<< "Can not assign tree to piece " << piece
+          vtkErrorMacro(<< "Can not assign tree to piece " << static_cast<int>(piece)
                         << ". Available number of pieces: " << this->NumPieces);
-          return 1;
+          return 0;
         }
 
         // Simply append into the descriptor
@@ -859,7 +859,7 @@ int vtkHyperTreeGridSource::InitializeFromStringDescriptor()
         vtkErrorMacro(<< "Unrecognized character: " << c << " at pos " << i << " in descriptor "
                       << this->Descriptor);
 
-        return 1;
+        return 0;
     } // switch(c)
   }   // char loop
 
@@ -1065,10 +1065,10 @@ void vtkHyperTreeGridSource::SubdivideFromStringDescriptor(vtkHyperTreeGrid* out
     output->GetMask()->InsertTuple1(id, masked);
   } // else if
 
-  // Process selection for root trees: mask the entire tree if it's not selected for this process
+  // Process selection for root trees: remove the entire tree if it's not selected for this process
   if (level == 0 && this->CurrentTreeProcess != this->Piece)
   {
-    cursor->SetMask(true);
+    output->RemoveTree(treeIdx);
   }
 }
 

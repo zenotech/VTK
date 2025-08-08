@@ -13,11 +13,11 @@
 
 #define callSetterBeginMacro(fp, indent) fprintf(fp, "%sobject->%s(", indent, setterName)
 
-#define callSetterParameterMacro(fp, ...) fprintf(fp, __VA_ARGS__);
+#define callSetterParameterMacro(fp, ...) fprintf(fp, __VA_ARGS__)
 
-#define callSetterNextParameterMacro(fp, ...) fprintf(fp, ", " __VA_ARGS__);
+#define callSetterNextParameterMacro(fp, ...) fprintf(fp, ", " __VA_ARGS__)
 
-#define callSetterEndMacro(fp) fprintf(fp, ");\n");
+#define callSetterEndMacro(fp) fprintf(fp, ");\n")
 
 /* test whether all types in testTypes exist in methodTypes */
 static int vtkWrapSerDes_MethodTypeMatches(
@@ -274,6 +274,7 @@ int vtkWrapSerDes_WritePropertySerializer(FILE* fp, const ClassInfo* classInfo,
   const int isCharPointer = vtkWrap_IsCharPointer(propertyValueInfo);
   const int isArray = vtkWrap_IsArray(propertyValueInfo);
   const int isStdVector = vtkWrap_IsStdVector(propertyValueInfo);
+  const int isStdMap = vtkWrap_IsStdMap(propertyValueInfo);
   const int isEnumMember = vtkWrap_IsEnumMember(classInfo, propertyValueInfo);
   const int isEnum = functionInfo->ReturnValue->IsEnum;
   const int isConst = vtkWrap_IsConst(propertyValueInfo);
@@ -383,10 +384,18 @@ int vtkWrapSerDes_WritePropertySerializer(FILE* fp, const ClassInfo* classInfo,
       return 1;
     }
   }
-  else if (isString || (isStdVector && isString))
+  else if (isString)
   {
+    fprintf(fp, "// NOLINTNEXTLINE(readability-redundant-string-cstr)\n");
     fprintf(fp, "  state[\"%s\"] = ", keyName);
-    fprintf(fp, "object->%s();\n", getterName);
+    if (isStdVector)
+    {
+      fprintf(fp, "object->%s();\n", getterName);
+    }
+    else
+    {
+      fprintf(fp, "object->%s().c_str();\n", getterName);
+    }
     return 1;
   }
   else if (isEnumMember)
@@ -460,6 +469,33 @@ int vtkWrapSerDes_WritePropertySerializer(FILE* fp, const ClassInfo* classInfo,
     }
     free(element);
   }
+  else if (isStdMap)
+  {
+    const char** args;
+    const char* defaults[] = { NULL, NULL };
+    vtkParse_DecomposeTemplatedType(propertyInfo->ClassName, NULL, 2, &args, defaults);
+    size_t n;
+    ValueInfo* elements = (ValueInfo*)calloc(2, sizeof(ValueInfo));
+    vtkParse_BasicTypeFromString(args[0], &(elements[0].Type), &(elements[0].Class), &n);
+    vtkParse_BasicTypeFromString(args[1], &(elements[1].Type), &(elements[1].Class), &n);
+
+    /* check for a map from string to a vtkObject */
+    if (vtkWrap_IsString(&elements[0]) && vtkWrap_IsVTKObjectBaseType(hinfo, elements[1].Class))
+    {
+      fprintf(fp, "  const auto& map = object->%s();\n", getterName);
+      fprintf(fp, "  auto& dst = state[\"%s\"] = json::object();\n", keyName);
+      fprintf(fp, "  for (const auto& pair : map)\n");
+      fprintf(fp, "  {\n");
+      fprintf(fp, "    dst[pair.first] = serializer->SerializeJSON(");
+      fprintf(fp, "reinterpret_cast<vtkObjectBase*>(pair.second));\n");
+      fprintf(fp, "  }\n");
+      free(elements);
+      vtkParse_FreeTemplateDecomposition(NULL, 2, args);
+      return 1;
+    }
+    free(elements);
+    vtkParse_FreeTemplateDecomposition(NULL, 2, args);
+  }
   // __builtin_debugtrap();
   // __builtin_trap();
   fprintf(stderr,
@@ -487,7 +523,7 @@ int vtkWrapSerDes_WritePropertyDeserializer(FILE* fp, const ClassInfo* classInfo
       // These types are not settable on any instance.
       // For example:
       //  `vtkPolyData::GetPointData()` exists, but there is no `SetPointData`.
-      //  The owning type, vtkPolyData, in this exmaple constructs and returns an instance of point
+      //  The owning type, vtkPolyData, in this example constructs and returns an instance of point
       //  data. Similar story for vtkRenderer::Cullers, vtkViewPort::ViewProps, etc.
       // To overcome the absence of a setter, this code retrieves the instance and registers it
       // as a weak reference before deserializing it.
@@ -544,6 +580,7 @@ int vtkWrapSerDes_WritePropertyDeserializer(FILE* fp, const ClassInfo* classInfo
   const int isEnumMember = vtkWrap_IsEnumMember(classInfo, val);
   const int isArray = vtkWrap_IsArray(val);
   const int isStdVector = vtkWrap_IsStdVector(val);
+  const int isStdMap = vtkWrap_IsStdMap(val);
 
   int isEnum = 0;
   if (functionInfo->NumberOfParameters > 0)
@@ -557,25 +594,31 @@ int vtkWrapSerDes_WritePropertyDeserializer(FILE* fp, const ClassInfo* classInfo
     if (isVTKObject && (isPointer || isVTKSmartPointer))
     {
       fprintf(fp, "  {\n");
-      fprintf(fp, "    auto iter = state.find(\"%ss\");\n", keyName);
-      fprintf(fp, "    if ((iter != state.end()) && !iter->is_null())\n");
-      fprintf(fp, "    {\n");
-      fprintf(fp, "      const auto items = iter->get<nlohmann::json::array_t>();\n");
-      fprintf(fp, "      object->RemoveAll%ss();\n", keyName);
-      fprintf(fp, "      const auto* context = deserializer->GetContext();\n");
-      fprintf(fp, "      for (const auto& item: items)\n");
-      fprintf(fp, "      {\n");
-      fprintf(fp, "        const auto identifier = item.at(\"Id\").get<vtkTypeUInt32>();\n");
-      fprintf(fp, "        auto subObject = context->GetObjectAtId(identifier);\n");
-      fprintf(fp, "        deserializer->DeserializeJSON(identifier, subObject);\n");
-      fprintf(fp, "        if (subObject != nullptr)\n");
-      fprintf(fp, "        {\n");
-      fprintf(fp, "          auto* itemAsObject = vtkObject::SafeDownCast(subObject);\n");
-      fprintf(fp, "          object->Add%s(reinterpret_cast<%s*>(itemAsObject));\n", keyName,
+      fprintf(fp, "   auto iter = state.find(\"%ss\");\n", keyName);
+      fprintf(fp, "   if ((iter != state.end()) && !iter->is_null())\n");
+      fprintf(fp, "   {\n");
+      fprintf(fp, "     const auto items = iter->get<nlohmann::json::array_t>();\n");
+      fprintf(fp, "     std::vector<vtkSmartPointer<vtkObjectBase>> itemStore;\n");
+      fprintf(fp, "     const auto* context = deserializer->GetContext();\n");
+      fprintf(fp, "     for (const auto& item: items)\n");
+      fprintf(fp, "     {\n");
+      fprintf(fp, "       const auto identifier = item.at(\"Id\").get<vtkTypeUInt32>();\n");
+      fprintf(fp, "       auto subObject = context->GetObjectAtId(identifier);\n");
+      fprintf(fp, "       deserializer->DeserializeJSON(identifier, subObject);\n");
+      fprintf(fp, "       if (subObject != nullptr)\n");
+      fprintf(fp, "       {\n");
+      fprintf(fp, "         itemStore.emplace_back(subObject);\n");
+      fprintf(fp, "       }\n");
+      fprintf(fp, "     }\n");
+      fprintf(fp, "     object->RemoveAll%ss();\n", keyName);
+      fprintf(fp, "     for (const auto& item: itemStore)\n");
+      fprintf(fp, "     {\n");
+      fprintf(fp, "       auto* itemAsObject = vtkObject::SafeDownCast(item);\n");
+      fprintf(fp, "       /* NOLINTNEXTLINE(readability-redundant-casting) */\n");
+      fprintf(fp, "       object->Add%s(reinterpret_cast<%s*>(itemAsObject));\n", keyName,
         propertyInfo->ClassName);
-      fprintf(fp, "        }\n");
-      fprintf(fp, "      }\n");
-      fprintf(fp, "    }\n");
+      fprintf(fp, "     }\n");
+      fprintf(fp, "   }\n");
       fprintf(fp, "  }\n");
       return 1;
     }
@@ -667,8 +710,9 @@ int vtkWrapSerDes_WritePropertyDeserializer(FILE* fp, const ClassInfo* classInfo
     fprintf(fp, "    if ((iter != state.end()) && !iter->is_null())\n");
     fprintf(fp, "    {\n");
     fprintf(fp, "      auto values = iter->get<std::string>();\n");
+    fprintf(fp, "      // NOLINTNEXTLINE(readability-redundant-string-cstr)\n");
     callSetterBeginMacro(fp, "      ");
-    callSetterParameterMacro(fp, "values");
+    callSetterParameterMacro(fp, "values.c_str()");
     callSetterEndMacro(fp);
     fprintf(fp, "    }\n");
     fprintf(fp, "  }\n");
@@ -752,6 +796,54 @@ int vtkWrapSerDes_WritePropertyDeserializer(FILE* fp, const ClassInfo* classInfo
       return 1;
     }
     free(element);
+  }
+  else if (isStdMap)
+  {
+    const char** args;
+    const char* defaults[] = { NULL, NULL };
+    vtkParse_DecomposeTemplatedType(propertyInfo->ClassName, NULL, 2, &args, defaults);
+    size_t n;
+    ValueInfo* elements = (ValueInfo*)calloc(2, sizeof(ValueInfo));
+    vtkParse_BasicTypeFromString(args[0], &(elements[0].Type), &(elements[0].Class), &n);
+    vtkParse_BasicTypeFromString(args[1], &(elements[1].Type), &(elements[1].Class), &n);
+
+    /* check for a map from string to a vtkObject */
+    if (vtkWrap_IsString(&elements[0]) && vtkWrap_IsVTKObjectBaseType(hinfo, elements[1].Class))
+    {
+      fprintf(fp, "  {\n");
+      fprintf(fp, "    const auto iter = state.find(\"%s\");\n", keyName);
+      fprintf(fp, "    if ((iter != state.end()) && !iter->is_null())\n");
+      fprintf(fp, "    {\n");
+      fprintf(fp, "      const auto* context = deserializer->GetContext();\n");
+      fprintf(fp, "      auto values = iter->get<std::map<std::string, nlohmann::json>>();\n");
+      fprintf(fp, "      std::map<std::string, %s> map;\n", elements[1].Class);
+      fprintf(fp, "      for (const auto& item : values)\n");
+      fprintf(fp, "      {\n");
+      fprintf(fp, "        const auto identifier = item.second.at(\"Id\").get<vtkTypeUInt32>();\n");
+      fprintf(fp, "        auto subObject = context->GetObjectAtId(identifier);\n");
+      fprintf(fp, "        deserializer->DeserializeJSON(identifier, subObject);\n");
+      fprintf(fp, "        if (subObject != nullptr)\n");
+      fprintf(fp, "        {\n");
+      fprintf(fp, "          subObject->Register(object);\n");
+      fprintf(fp, "          map[item.first] = static_cast<%s>(static_cast<void*>(subObject));\n",
+        elements[1].Class);
+      fprintf(fp, "        }\n");
+      fprintf(fp, "      }\n");
+      callSetterBeginMacro(fp, "      ");
+      callSetterParameterMacro(fp, "map");
+      callSetterEndMacro(fp);
+      fprintf(fp, "      for (const auto& item : map)\n");
+      fprintf(fp, "      {\n");
+      fprintf(fp, "        item.second->UnRegister(object);\n");
+      fprintf(fp, "      }\n");
+      fprintf(fp, "    }\n");
+      fprintf(fp, "  }\n");
+      free(elements);
+      vtkParse_FreeTemplateDecomposition(NULL, 2, args);
+      return 1;
+    }
+    free(elements);
+    vtkParse_FreeTemplateDecomposition(NULL, 2, args);
   }
   free(val);
   // __builtin_debugtrap();

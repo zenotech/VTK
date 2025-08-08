@@ -17,6 +17,7 @@
 #include "vtkMatrix4x4.h"
 #include "vtkPointData.h"
 #include "vtkRenderer.h"
+#include "vtkWebGPUCommandEncoderDebugGroup.h"
 #include "vtkWebGPUComputeBuffer.h"
 #include "vtkWebGPUComputePass.h"
 #include "vtkWebGPUComputePipeline.h"
@@ -65,9 +66,10 @@ void vtkWebGPUPointCloudMapperInternals::SetMapper(vtkWebGPUComputePointCloudMap
 }
 
 //------------------------------------------------------------------------------
-vtkWebGPURenderWindow* vtkWebGPUPointCloudMapperInternals::GetRendererRenderWindow(vtkRenderer* ren)
+vtkWebGPURenderWindow* vtkWebGPUPointCloudMapperInternals::GetRendererRenderWindow(
+  vtkRenderer* renderer)
 {
-  vtkRenderWindow* renderWindow = ren->GetRenderWindow();
+  vtkRenderWindow* renderWindow = renderer->GetRenderWindow();
   vtkWebGPURenderWindow* wgpuRenderWindow = vtkWebGPURenderWindow::SafeDownCast(renderWindow);
 
   if (wgpuRenderWindow == nullptr)
@@ -92,9 +94,9 @@ vtkWebGPURenderWindow* vtkWebGPUPointCloudMapperInternals::GetRendererRenderWind
 }
 
 //------------------------------------------------------------------------------
-void vtkWebGPUPointCloudMapperInternals::UpdateRenderWindowDepthBuffer(vtkRenderer* ren)
+void vtkWebGPUPointCloudMapperInternals::UpdateRenderWindowDepthBuffer(vtkRenderer* renderer)
 {
-  vtkWebGPURenderWindow* wgpuRenderWindow = this->GetRendererRenderWindow(ren);
+  vtkWebGPURenderWindow* wgpuRenderWindow = this->GetRendererRenderWindow(renderer);
   if (wgpuRenderWindow == nullptr)
   {
     return;
@@ -117,7 +119,7 @@ void vtkWebGPUPointCloudMapperInternals::CreateCopyDepthBufferRenderPipeline(
   // Creating the buffer that will hold the width of the framebuffer for the fragment shader that
   // copies the point depth buffer into the depth buffer of the render window
   this->CopyDepthBufferPipeline.FramebufferWidthUniformBuffer =
-    vtkWebGPUBufferInternals::CreateBuffer(device, sizeof(unsigned int),
+    wgpuRenderWindow->GetWGPUConfiguration()->CreateBuffer(sizeof(unsigned int),
       wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform, false,
       "Point cloud mapper - Copy depth to RenderWindow - Framebuffer width uniform buffer");
 
@@ -152,7 +154,7 @@ void vtkWebGPUPointCloudMapperInternals::CreateCopyDepthBufferRenderPipeline(
   pipelineDesc.cFragment.entryPoint = "fragmentMain";
   // We are not going to use the color target but Dawn needs it
   pipelineDesc.cFragment.targetCount = 1;
-  pipelineDesc.cTargets[0].format = wgpuRenderWindow->GetPreferredSwapChainTextureFormat();
+  pipelineDesc.cTargets[0].format = wgpuRenderWindow->GetPreferredSurfaceTextureFormat();
   // Not writing to the color attachment
   pipelineDesc.cTargets[0].writeMask = wgpu::ColorWriteMask::None;
 
@@ -181,8 +183,9 @@ void vtkWebGPUPointCloudMapperInternals::CopyDepthBufferToRenderWindow(
   int* windowSize = wgpuRenderWindow->GetSize();
 
   wgpu::Device device = wgpuRenderWindow->GetDevice();
-  device.GetQueue().WriteBuffer(this->CopyDepthBufferPipeline.FramebufferWidthUniformBuffer, 0,
-    (uint8_t*)&windowSize[0], sizeof(unsigned int));
+  wgpuRenderWindow->GetWGPUConfiguration()->WriteBuffer(
+    this->CopyDepthBufferPipeline.FramebufferWidthUniformBuffer, 0, (uint8_t*)&windowSize[0],
+    sizeof(unsigned int));
 
   wgpu::CommandEncoderDescriptor encDesc;
   encDesc.label = "vtkWebGPURenderWindow::CommandEncoder";
@@ -192,15 +195,13 @@ void vtkWebGPUPointCloudMapperInternals::CopyDepthBufferToRenderWindow(
   encoder.SetLabel("Point cloud mapper - Encode copy point depth buffer to render window");
   encoder.SetViewport(0, 0, windowSize[0], windowSize[1], 0.0, 1.0);
   encoder.SetScissorRect(0, 0, windowSize[0], windowSize[1]);
-#ifndef NDEBUG
-  encoder.PushDebugGroup("Point cloud mapper - Copy point depth buffer to render window");
-#endif
-  encoder.SetPipeline(this->CopyDepthBufferPipeline.Pipeline);
-  encoder.SetBindGroup(0, this->CopyDepthBufferPipeline.BindGroup);
-  encoder.Draw(4);
-#ifndef NDEBUG
-  encoder.PopDebugGroup();
-#endif
+  {
+    vtkScopedEncoderDebugGroup(
+      encoder, "Point cloud mapper - Copy point depth buffer to render window");
+    encoder.SetPipeline(this->CopyDepthBufferPipeline.Pipeline);
+    encoder.SetBindGroup(0, this->CopyDepthBufferPipeline.BindGroup);
+    encoder.Draw(4);
+  }
   encoder.End();
 
   wgpu::CommandBufferDescriptor cmdBufDesc;
@@ -209,7 +210,7 @@ void vtkWebGPUPointCloudMapperInternals::CopyDepthBufferToRenderWindow(
 }
 
 //------------------------------------------------------------------------------
-void vtkWebGPUPointCloudMapperInternals::Initialize(vtkRenderer* ren)
+void vtkWebGPUPointCloudMapperInternals::Initialize(vtkRenderer* renderer)
 {
   if (this->Initialized)
   {
@@ -228,23 +229,23 @@ void vtkWebGPUPointCloudMapperInternals::Initialize(vtkRenderer* ren)
   this->RenderPointsPass->SetShaderSource(PointCloudMapperShader);
   this->RenderPointsPass->SetShaderEntryPoint("pointCloudRenderEntryPoint");
 
-  this->UseRenderWindowDevice(ren);
-  this->InitializeDepthCopyPass(ren);
-  this->InitializePointRenderPass(ren);
+  this->UseRenderWindowDevice(renderer);
+  this->InitializeDepthCopyPass(renderer);
+  this->InitializePointRenderPass(renderer);
 
   this->Initialized = true;
 }
 
 //------------------------------------------------------------------------------
-void vtkWebGPUPointCloudMapperInternals::Update(vtkRenderer* ren)
+void vtkWebGPUPointCloudMapperInternals::Update(vtkRenderer* renderer)
 {
-  this->ResizeToRenderWindow(ren);
+  this->ResizeToRenderWindow(renderer);
 }
 
 //------------------------------------------------------------------------------
-void vtkWebGPUPointCloudMapperInternals::UseRenderWindowDevice(vtkRenderer* ren)
+void vtkWebGPUPointCloudMapperInternals::UseRenderWindowDevice(vtkRenderer* renderer)
 {
-  vtkWebGPURenderWindow* wgpuRenderWindow = this->GetRendererRenderWindow(ren);
+  vtkWebGPURenderWindow* wgpuRenderWindow = this->GetRendererRenderWindow(renderer);
   if (wgpuRenderWindow == nullptr)
   {
     return;
@@ -254,9 +255,9 @@ void vtkWebGPUPointCloudMapperInternals::UseRenderWindowDevice(vtkRenderer* ren)
 }
 
 //------------------------------------------------------------------------------
-void vtkWebGPUPointCloudMapperInternals::ResizeToRenderWindow(vtkRenderer* ren)
+void vtkWebGPUPointCloudMapperInternals::ResizeToRenderWindow(vtkRenderer* renderer)
 {
-  vtkWebGPURenderWindow* wgpuRenderWindow = this->GetRendererRenderWindow(ren);
+  vtkWebGPURenderWindow* wgpuRenderWindow = this->GetRendererRenderWindow(renderer);
   if (wgpuRenderWindow == nullptr)
   {
     return;
@@ -281,9 +282,9 @@ void vtkWebGPUPointCloudMapperInternals::ResizeToRenderWindow(vtkRenderer* ren)
 }
 
 //------------------------------------------------------------------------------
-void vtkWebGPUPointCloudMapperInternals::InitializeDepthCopyPass(vtkRenderer* ren)
+void vtkWebGPUPointCloudMapperInternals::InitializeDepthCopyPass(vtkRenderer* renderer)
 {
-  vtkWebGPURenderWindow* wgpuRenderWindow = this->GetRendererRenderWindow(ren);
+  vtkWebGPURenderWindow* wgpuRenderWindow = this->GetRendererRenderWindow(renderer);
   if (wgpuRenderWindow == nullptr)
   {
     return;
@@ -320,9 +321,9 @@ void vtkWebGPUPointCloudMapperInternals::InitializeDepthCopyPass(vtkRenderer* re
 }
 
 //------------------------------------------------------------------------------
-void vtkWebGPUPointCloudMapperInternals::InitializePointRenderPass(vtkRenderer* ren)
+void vtkWebGPUPointCloudMapperInternals::InitializePointRenderPass(vtkRenderer* renderer)
 {
-  vtkWebGPURenderWindow* wgpuRenderWindow = this->GetRendererRenderWindow(ren);
+  vtkWebGPURenderWindow* wgpuRenderWindow = this->GetRendererRenderWindow(renderer);
   if (wgpuRenderWindow == nullptr)
   {
     return;
@@ -450,13 +451,13 @@ void vtkWebGPUPointCloudMapperInternals::UploadColorsToGPU()
 }
 
 //------------------------------------------------------------------------------
-void vtkWebGPUPointCloudMapperInternals::UploadCameraVPMatrix(vtkRenderer* ren)
+void vtkWebGPUPointCloudMapperInternals::UploadCameraVPMatrix(vtkRenderer* renderer)
 {
-  vtkCamera* camera = ren->GetActiveCamera();
+  vtkCamera* camera = renderer->GetActiveCamera();
 
   vtkMatrix4x4* viewMatrix = camera->GetModelViewTransformMatrix();
   vtkMatrix4x4* projectionMatrix =
-    camera->GetProjectionTransformMatrix(ren->GetTiledAspectRatio(), -1, 1);
+    camera->GetProjectionTransformMatrix(renderer->GetTiledAspectRatio(), -1, 1);
   vtkNew<vtkMatrix4x4> viewProj;
   vtkMatrix4x4::Multiply4x4(projectionMatrix, viewMatrix, viewProj);
   // WebGPU uses column major matrices but VTK is row major

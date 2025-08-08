@@ -30,7 +30,7 @@ VTK_ABI_NAMESPACE_BEGIN
  * between the quad of the actor (projection of its bounding box on the viewport) more efficient, a
  * mipmap chain of the depth buffer is used. Without this mipmap chain, we would have to compare the
  * depth of all the pixels (there could be dozens to hundreds of thousands depending on the
- * screen-space size of the actor) of the projected bouding box of the actor against the depth
+ * screen-space size of the actor) of the projected bounding box of the actor against the depth
  * buffer which would be way too expensive. Using a mipmap chain allows us to choose the right
  * mipmap so that we only have to check a few (~4 +/- 2) pixels for the depth.
  *
@@ -81,15 +81,16 @@ public:
   /**
    * Culls props and returns the number of props that still need to be rendered after the culling
    */
-  double Cull(vtkRenderer* ren, vtkProp** propList, int& listLength, int& initialized) override;
+  double Cull(
+    vtkRenderer* renderer, vtkProp** propList, int& listLength, int& initialized) override;
 
 protected:
   vtkWebGPUComputeOcclusionCuller();
   ~vtkWebGPUComputeOcclusionCuller() override;
-  vtkWebGPUComputeOcclusionCuller(const vtkWebGPUComputeOcclusionCuller&) = delete;
-  void operator=(const vtkWebGPUComputeOcclusionCuller&) = delete;
 
 private:
+  vtkWebGPUComputeOcclusionCuller(const vtkWebGPUComputeOcclusionCuller&) = delete;
+  void operator=(const vtkWebGPUComputeOcclusionCuller&) = delete;
   /**
    * Sets up the first compute pass for copying the depth buffer of the render window to the first
    * mip level (level 0) of the hierarchical Z-buffer
@@ -113,7 +114,7 @@ private:
    * Return a list of the props that were not rendered for the first (filling the depth buffer) but
    * that need to be tested for culling (they are in the propList given to the Cull() call).
    */
-  void FirstPassRender(vtkRenderer* ren, vtkProp** propList, int listLength);
+  void FirstPassRender(vtkRenderer* renderer, vtkProp** propList, int listLength);
 
   /**
    * Copies the depth buffer filled by the rendering of the props of last frame into the mipmap
@@ -129,12 +130,12 @@ private:
   /**
    * Culls the actors using the depth buffer mipmaps computed in the previous pass
    */
-  void PropCulling(vtkRenderer* ren, vtkProp** propList, int& listLength);
+  void PropCulling(vtkRenderer* renderer, vtkProp** propList, int& listLength);
 
   /**
    * Reuploads the camera MVP matrix to its GPU buffer
    */
-  void UpdateCameraMVPBuffer(vtkRenderer* ren);
+  void UpdateCameraMVPBuffer(vtkRenderer* renderer);
 
   /**
    * Resizes the various bounds buffers (inputBounds, outputBoundsIndices) and updates their data
@@ -145,7 +146,7 @@ private:
    * Adds the occlusion culling pipeline to the passed renderer so that the pipeline can reuse the
    * textures from the render window of the renderer
    */
-  void AddOcclusionCullingPipelineToRenderer(vtkRenderer* ren);
+  void AddOcclusionCullingPipelineToRenderer(vtkRenderer* renderer);
 
   /**
    * Sets-up the hierarchical z-buffer mipmapped texture
@@ -199,7 +200,7 @@ private:
    *
    * For a prop to be written to the propList that will be rendered, it needs to have passed the
    * culling test but also not having been rendered in the first pass (because rendering it twice is
-   * useless so we're not adding a prop that was alredy rendered to the list of props that need to
+   * useless so we're not adding a prop that was already rendered to the list of props that need to
    * be rendered).
    */
   static void FillObjectsToDrawCallback(const void* mappedData, void* data);

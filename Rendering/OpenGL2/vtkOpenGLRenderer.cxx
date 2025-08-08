@@ -122,7 +122,7 @@ vtkOpenGLRenderer::vtkOpenGLRenderer()
   shaderProperty->AddFragmentShaderReplacement("//VTK::Color::Dec", true, "", false);
   shaderProperty->AddFragmentShaderReplacement("//VTK::Color::Impl", true, "", false);
 
-  // add gradient parameters as unforms.
+  // add gradient parameters as uniforms.
   shaderProperty->AddFragmentShaderReplacement("//VTK::CustomUniforms::Dec",
     /*replaceFirst=*/true,
     R"(
@@ -154,7 +154,7 @@ else if(gradientMode == GRADIENT_HORIZONTAL)
 }
 else if(gradientMode == GRADIENT_RADIAL_VIEWPORT_FARTHEST_SIDE)
 {
-  value = clamp(length(tcoordVCVSOutput - vec2(0.5f, 0.5f)) * 2.0f, 0.0f, 1.0f);              
+  value = clamp(length(tcoordVCVSOutput - vec2(0.5f, 0.5f)) * 2.0f, 0.0f, 1.0f);
 }
 else if(gradientMode == GRADIENT_RADIAL_VIEWPORT_FARTHEST_CORNER)
 {
@@ -459,7 +459,7 @@ int vtkOpenGLRenderer::UpdateGeometry(vtkFrameBufferObjectBase* fbo)
     return this->NumberOfPropsRendered;
   }
 
-  // if we are suing shadows then let the renderpasses handle it
+  // if we are using shadows then let the renderpasses handle it
   // for opaque and translucent
   int hasTranslucentPolygonalGeometry = 0;
   if (this->UseShadows)
@@ -629,25 +629,28 @@ void vtkOpenGLRenderer::DeviceRenderTranslucentPolygonalGeometry(vtkFrameBufferO
 
   if (!this->UseDepthPeeling)
   {
-    // old code
-    // this->UpdateTranslucentPolygonalGeometry();
-
-    // new approach
-    if (!this->TranslucentPass)
+    if (!this->UseOIT)
     {
-      vtkOrderIndependentTranslucentPass* oit = vtkOrderIndependentTranslucentPass::New();
-      this->TranslucentPass = oit;
+      this->UpdateTranslucentPolygonalGeometry();
     }
-    vtkTranslucentPass* tp = vtkTranslucentPass::New();
-    this->TranslucentPass->SetTranslucentPass(tp);
-    tp->Delete();
+    else
+    {
+      if (!this->TranslucentPass)
+      {
+        vtkOrderIndependentTranslucentPass* oit = vtkOrderIndependentTranslucentPass::New();
+        this->TranslucentPass = oit;
+      }
+      vtkTranslucentPass* tp = vtkTranslucentPass::New();
+      this->TranslucentPass->SetTranslucentPass(tp);
+      tp->Delete();
 
-    vtkRenderState s(this);
-    s.SetPropArrayAndCount(this->PropArray, this->PropArrayCount);
-    s.SetFrameBuffer(fbo);
-    this->LastRenderingUsedDepthPeeling = 0;
-    this->TranslucentPass->Render(&s);
-    this->NumberOfPropsRendered += this->TranslucentPass->GetNumberOfRenderedProps();
+      vtkRenderState s(this);
+      s.SetPropArrayAndCount(this->PropArray, this->PropArrayCount);
+      s.SetFrameBuffer(fbo);
+      this->LastRenderingUsedDepthPeeling = 0;
+      this->TranslucentPass->Render(&s);
+      this->NumberOfPropsRendered += this->TranslucentPass->GetNumberOfRenderedProps();
+    }
   }
   else // depth peeling.
   {

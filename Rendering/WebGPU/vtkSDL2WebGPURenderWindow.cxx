@@ -29,10 +29,6 @@
 #pragma clang diagnostic pop
 #endif
 
-#ifdef VTK_DAWN_ENABLE_BACKEND_METAL
-#include "wgpu_utils_metal.h"
-#endif
-
 VTK_ABI_NAMESPACE_BEGIN
 
 namespace
@@ -63,12 +59,12 @@ vtkSDL2WebGPURenderWindow::~vtkSDL2WebGPURenderWindow()
 {
   this->Finalize();
 
-  vtkRenderer* ren;
+  vtkRenderer* renderer;
   vtkCollectionSimpleIterator rit;
   this->Renderers->InitTraversal(rit);
-  while ((ren = this->Renderers->GetNextRenderer(rit)))
+  while ((renderer = this->Renderers->GetNextRenderer(rit)))
   {
-    ren->SetRenderWindow(nullptr);
+    renderer->SetRenderWindow(nullptr);
   }
 }
 

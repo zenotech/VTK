@@ -43,6 +43,52 @@ struct vtkXVisualInfo : public XVisualInfo
 {
 };
 
+/*******************************************************************************
+ * Motif style hint definitions
+ *
+ * The definitions in this section are taken from here:
+ *
+ *     https://sources.debian.org/src/motif/2.3.4-6+deb8u1/lib/Xm/MwmUtil.h/
+ *
+ * These are likely to be supported as long as xlib is, and the extended
+ * window manager hints documented at freedesktop.org don't seem to have a
+ * good alternative:
+ *
+ *     https://specifications.freedesktop.org/wm-spec/latest/ar01s05.html#id-1.6.7
+ *
+ * The _NET_WM_WINDOW_TYPE_SPLASH window type mentioned there comes close, but
+ * does not result in task bar entries that can be used to bring the windows
+ * to the front.
+ */
+typedef struct
+{
+  int flags;
+  int functions;
+  int decorations;
+  int input_mode;
+  int status;
+} MotifWmHints;
+
+typedef MotifWmHints MwmHints;
+
+/* bit definitions for MwmHints.flags */
+#define MWM_HINTS_FUNCTIONS (1L << 0)
+#define MWM_HINTS_DECORATIONS (1L << 1)
+
+/* bit definitions for MwmHints.functions */
+#define MWM_FUNC_ALL (1L << 0)
+
+/* number of elements of size 32 in _MWM_HINTS */
+#define PROP_MOTIF_WM_HINTS_ELEMENTS 5
+#define PROP_MWM_HINTS_ELEMENTS PROP_MOTIF_WM_HINTS_ELEMENTS
+
+/* atom name for _MWM_HINTS property */
+#define _XA_MOTIF_WM_HINTS "_MOTIF_WM_HINTS"
+#define _XA_MWM_HINTS _XA_MOTIF_WM_HINTS
+/*
+ * Motif style hint definitions
+ ******************************************************************************/
+
 #define GLX_CONTEXT_MAJOR_VERSION_ARB 0x2091
 #define GLX_CONTEXT_MINOR_VERSION_ARB 0x2092
 typedef GLXContext (*glXCreateContextAttribsARBProc)(
@@ -140,24 +186,6 @@ GLXFBConfig vtkXOpenGLRenderWindowTryForFBConfig(Display* DisplayId, int drawabl
   // cout << "            STATUS : FAILURE!!!" << endl;
   return None;
 }
-
-// dead code?
-#if 0
-XVisualInfo *vtkXOpenGLRenderWindowTryForVisual(Display *DisplayId,
-                                                vtkTypeBool doublebuff,
-                                                vtkTypeBool stereo,
-                                                int stencil, bool srgb)
-{
-  GLXFBConfig fbc = vtkXOpenGLRenderWindowTryForFBConfig(DisplayId,
-       GLX_WINDOW_BIT,
-       doublebuff, stereo,
-       stencil, srgb);
-
-  XVisualInfo *v = glXGetVisualFromFBConfig( DisplayId, fbc);
-
-  return v;
-}
-#endif
 
 GLXFBConfig vtkXOpenGLRenderWindowGetDesiredFBConfig(Display* DisplayId, vtkTypeBool& win_stereo,
   vtkTypeBool& win_doublebuffer, int drawable_type, vtkTypeBool& stencil, bool srgb)
@@ -363,6 +391,15 @@ bool vtkXOpenGLRenderWindow::InitializeFromCurrentContext()
   return false;
 }
 
+void vtkXOpenGLRenderWindow::SetCoverable(vtkTypeBool coverable)
+{
+  if (this->Coverable != coverable)
+  {
+    this->Coverable = coverable;
+    this->Modified();
+  }
+}
+
 //
 // Set the variable that indicates that we want a stereo capable window
 // be created. This method can only be called before a window is realized.
@@ -462,8 +499,8 @@ void vtkXOpenGLRenderWindow::CreateAWindow()
   if ((this->Position[0] >= 0) && (this->Position[1] >= 0))
   {
     xsh.flags |= USPosition;
-    xsh.x = static_cast<int>(this->Position[0]);
-    xsh.y = static_cast<int>(this->Position[1]);
+    xsh.x = this->Position[0];
+    xsh.y = this->Position[1];
   }
 
   x = this->Position[0];
@@ -487,8 +524,9 @@ void vtkXOpenGLRenderWindow::CreateAWindow()
   }
 
   attr.override_redirect = False;
-  if (this->Borders == 0.0)
+  if (this->Borders == 0.0 && !this->Coverable)
   {
+    // Removes borders, and makes the window appear on top of all other windows
     attr.override_redirect = True;
   }
 
@@ -519,6 +557,19 @@ void vtkXOpenGLRenderWindow::CreateAWindow()
       XCreateWindow(this->DisplayId, this->ParentId, x, y, static_cast<unsigned int>(width),
         static_cast<unsigned int>(height), 0, v->depth, InputOutput, v->visual,
         CWBackPixel | CWBorderPixel | CWColormap | CWOverrideRedirect | CWEventMask, &attr);
+
+    if (this->Borders == 0.0 && this->Coverable)
+    {
+      // Removes borders, while still allowing other windows on top
+      Atom mwmHintsProperty = XInternAtom(this->DisplayId, _XA_MWM_HINTS, 0);
+      MotifWmHints mwmHints;
+      mwmHints.flags = MWM_HINTS_FUNCTIONS | MWM_HINTS_DECORATIONS;
+      mwmHints.functions = MWM_FUNC_ALL;
+      mwmHints.decorations = 0;
+      XChangeProperty(this->DisplayId, this->WindowId, mwmHintsProperty, XA_ATOM, 32,
+        PropModeReplace, reinterpret_cast<unsigned char*>(&mwmHints), PROP_MWM_HINTS_ELEMENTS);
+    }
+
     XStoreName(this->DisplayId, this->WindowId, this->WindowName);
     XSetNormalHints(this->DisplayId, this->WindowId, &xsh);
 
@@ -1060,15 +1111,6 @@ void vtkXOpenGLRenderWindow::SetSize(int width, int height)
         }
       }
     }
-  }
-}
-
-void vtkXOpenGLRenderWindow::SetSizeNoXResize(int width, int height)
-{
-  if ((this->Size[0] != width) || (this->Size[1] != height))
-  {
-    this->Superclass::SetSize(width, height);
-    this->Modified();
   }
 }
 

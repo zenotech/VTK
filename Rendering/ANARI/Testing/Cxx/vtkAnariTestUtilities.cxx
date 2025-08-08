@@ -3,28 +3,36 @@
 
 #include "vtkAnariTestUtilities.h"
 
+#include "vtkAnariSceneGraph.h"
 #include "vtkTesting.h"
 
-void SetAnariRendererParameterDefaults(
-  vtkRenderer* renderer, bool useDebugDevice, const char* testName)
+void SetParameterDefaults(
+  vtkAnariPass* pass, vtkRenderer* renderer, bool useDebugDevice, const char* testName)
 {
-  if (!renderer)
+  if (!pass || !renderer)
     return;
 
-  vtkAnariRendererNode::SetLibraryName("environment", renderer);
-  vtkAnariRendererNode::SetSamplesPerPixel(6, renderer);
-  vtkAnariRendererNode::SetLightFalloff(.5, renderer);
-  vtkAnariRendererNode::SetUseDenoiser(1, renderer);
-  vtkAnariRendererNode::SetCompositeOnGL(1, renderer);
+  auto* ad = pass->GetAnariDevice();
+  auto* ar = pass->GetAnariRenderer();
 
   if (useDebugDevice)
   {
-    vtkAnariRendererNode::SetUseDebugDevice(1, renderer);
     vtkNew<vtkTesting> testing;
-
     std::string traceDir = testing->GetTempDirectory();
     traceDir += "/anari-trace/";
     traceDir += testName;
-    vtkAnariRendererNode::SetDebugDeviceDirectory(traceDir.c_str(), renderer);
+    ad->SetAnariDebugConfig(traceDir.c_str(), "code");
   }
+
+  ad->SetupAnariDeviceFromLibrary("environment", "default", useDebugDevice);
+
+  // General renderer parameters:
+  ar->SetParameterf("ambientRadiance", 1.f);
+
+  // VisRTX specific renderer parameters:
+  ar->SetParameterf("lightFalloff", 0.5f);
+  ar->SetParameterb("denoise", true);
+  ar->SetParameteri("pixelSamples", 8);
+
+  vtkAnariSceneGraph::SetCompositeOnGL(renderer, 1);
 }

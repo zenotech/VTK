@@ -37,6 +37,9 @@
     environment:
         name: rsync-upload-release-artifacts
     before_script:
+        # Generate the artifact inventory before adding the wheels[+sdk] to the release dir since
+        # we do not want to include them in it.
+        - .gitlab/ci/generate-artifacts-inventory.py --artifacts-dir "${RSYNC_SOURCE}" --output-file "${RSYNC_SOURCE}/${CI_COMMIT_TAG}-artifacts.json"
         - . .gitlab/ci/prepare-release-env.sh
     variables:
         RSYNC_KEY_PATH: $RSYNC_RELEASE_KEY
@@ -54,7 +57,10 @@
     script:
         - cd build/
         - ls dist
-        - dnf install -y --setopt=install_weak_deps=False twine
+        - dnf install -y --setopt=install_weak_deps=False pipx
+        - pipx ensurepath
+        - source $HOME/.bash_profile
+        - pipx install twine==6.1.0
         - twine upload -u __token__ -p $PYPI_UPLOAD_TOKEN dist/*
 
 .pypi_vtk_upload:
@@ -68,7 +74,10 @@
     script:
         - cd build/
         - ls dist
-        - dnf install -y --setopt=install_weak_deps=False twine
+        - dnf install -y --setopt=install_weak_deps=False pipx
+        - pipx ensurepath
+        - source $HOME/.bash_profile
+        - pipx install twine==6.1.0
         - twine upload -u gitlab-ci-token -p $CI_JOB_TOKEN --repository-url https://gitlab.kitware.com/api/v4/projects/$CI_PROJECT_ID/packages/pypi dist/*
 
 .generic_vtk_wasm_emscripten_linux_upload:

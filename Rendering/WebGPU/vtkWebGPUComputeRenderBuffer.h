@@ -25,13 +25,16 @@ public:
   static vtkWebGPUComputeRenderBuffer* New();
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
+protected:
+  vtkWebGPUComputeRenderBuffer();
+  ~vtkWebGPUComputeRenderBuffer() override;
+
 private:
   friend class vtkWebGPUComputePass;
   friend class vtkWebGPUComputePassBufferStorageInternals;
   friend class vtkWebGPUPolyDataMapper;
   friend class vtkWebGPURenderer;
 
-  vtkWebGPUComputeRenderBuffer();
   vtkWebGPUComputeRenderBuffer(const vtkWebGPUComputeRenderBuffer&) = delete;
   void operator=(const vtkWebGPUComputeRenderBuffer&) = delete;
 
@@ -106,7 +109,7 @@ private:
   ///@{
 
   // We may want vtkWebGPUComputePipeline::AddBuffer() not to create a new device buffer for this
-  // vtkWebGPUComputeBuffer but rather use an exisiting one that has been created elsewhere (by a
+  // vtkWebGPUComputeBuffer but rather use an existing one that has been created elsewhere (by a
   // webGPUPolyDataMapper for example). This is the attribute that points to this 'already existing'
   // buffer.
   wgpu::Buffer wgpuBuffer = nullptr;

@@ -8,14 +8,6 @@ endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   set(_vtk_test_cxx_wasm_enabled_in_browser ON)
-  set(_vtk_test_emscripten_extra_linker_args
-    "-sASSERTIONS=1"
-    # O2 or higher make wasm-opt terribly slow.
-    # test executables take a minute to link.
-    # we need emscripten to emit code that handles exit code and atexit(s)
-    "-sEXIT_RUNTIME=1"
-    # tests dynamically allocate memory, can easily go over the preset limit.
-    "-sALLOW_MEMORY_GROWTH=1")
 endif ()
 
 vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
@@ -47,6 +39,7 @@ vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   TestColorTransferFunctionStringArray.cxx,NO_VALID
   TestCompositeDataDisplayAttributes.cxx,NO_VALID
   TestCompositePolyDataMapper.cxx,NO_DATA
+  TestCompositePolyDataMapperBlockOpacities.cxx,NO_DATA
   TestCompositePolyDataMapperCameraShiftScale.cxx,NO_DATA
   TestCompositePolyDataMapperCellScalars.cxx,NO_DATA
   TestCompositePolyDataMapperCustomShader.cxx,NO_DATA
@@ -73,6 +66,7 @@ vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   TestDragEvent.cxx
   TestEdgeFlags.cxx
   TestEdgeOpacity.cxx
+  TestEdgeThickness.cxx
   TestFollowerPicking.cxx
   TestGlyph3DMapper.cxx
   TestGlyph3DMapper2.cxx,NO_VALID,NO_RT,NO_DATA
@@ -88,6 +82,7 @@ vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   TestGradientBackground.cxx
   TestGradientBackgroundWithTiledViewport.cxx,NO_DATA
   TestGradientBackgroundWithTiledViewports.cxx,NO_DATA
+# TestHardwarePicker.cxx,NO_DATA
   TestHomogeneousTransformOfActor.cxx
   TestImageAndAnnotations.cxx,NO_DATA
   TestInteractorStyleImageProperty.cxx,NO_VALID
@@ -98,13 +93,16 @@ vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   TestManyRenderWindows.cxx,NO_VALID,NO_RT,NO_DATA
   TestMapVectorsAsRGBColors.cxx
   TestMapVectorsToColors.cxx
+  TestMixedGeometryCellScalars.cxx,NO_DATA
   TestOffAxisStereo.cxx
   TestOnAndOffScreenConeCxx.cxx
   TestOpacity.cxx
+  TestOpacityMSAA.cxx
   TestOrderedTriangulator.cxx
   TestOSConeCxx.cxx
   TestPickingManager.cxx,NO_VALID
   TestPickTextActor.cxx,NO_VALID
+  TestPointPicker.cxx,NO_DATA
   TestPointSelection.cxx,NO_VALID
   TestPointSelectionWithCellData.cxx,NO_VALID
   TestPolygonSelection.cxx
@@ -140,6 +138,8 @@ vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   TestWindowToImageFilter.cxx
   TestResizingWindowToImageFilter.cxx
   TestTextureWrap.cxx
+  TestVertexVisibility.cxx
+  TestWorldPointPicker.cxx,NO_DATA
   # TestViewDependentErrorMetric.cxx # Loads of extra deps - move?
   # TestHierarchicalBoxPipeline.cxx  # legacy code
   )

@@ -6,6 +6,8 @@ set(classes
   vtkApproximatingSubdivisionFilter
   vtkAreaContourSpectrumFilter
   vtkAxes
+  vtkAxisAlignedReflectionFilter
+  vtkAxisAlignedTransformFilter
   vtkBlankStructuredGrid
   vtkBlankStructuredGridWithImage
   vtkBlockIdScalars
@@ -42,6 +44,7 @@ set(classes
   vtkDistancePolyDataFilter
   vtkEdgePoints
   vtkEqualizerFilter
+  vtkExplodeDataSet
   vtkExtractArray
   vtkExtractGhostCells
   vtkExtractSelectedFrustum
@@ -132,15 +135,14 @@ set(classes
   vtkWarpVector
   vtkYoungsMaterialInterface)
 
-set(private_classes
-  vtkTableBasedClipCases
-)
-
 set(templates
   vtkJoinTables.txx)
 
+set(no_wrap_classes
+  vtkReflectionUtilities)
+
 vtk_module_add_module(VTK::FiltersGeneral
   CLASSES ${classes}
-  PRIVATE_CLASSES ${private_classes}
+  NOWRAP_CLASSES ${no_wrap_classes}
   TEMPLATES ${templates})
 vtk_add_test_mangling(VTK::FiltersGeneral)

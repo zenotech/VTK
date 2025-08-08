@@ -12,6 +12,7 @@ endif ()
 
 set(vtk_cmake_dir "${VTK_SOURCE_DIR}/CMake")
 list(INSERT CMAKE_MODULE_PATH 0 "${vtk_cmake_dir}")
+include(vtkCI)
 
 if (APPLE)
   include(vtkApple)
@@ -43,6 +44,8 @@ endif()
 option(VTK_ANDROID_BUILD "Build VTK for Android" OFF)
 mark_as_advanced(VTK_ANDROID_BUILD)
 if (VTK_ANDROID_BUILD)
+  set(VTK_ANDROID_USER_OPTIONS "" CACHE STRING "CMake options to pass to the android build")
+  mark_as_advanced(VTK_ANDROID_USER_OPTIONS)
   include(vtkAndroid)
   return()
 endif()
@@ -122,6 +125,8 @@ if (NOT CMAKE_INSTALL_QMLDIR)
     "${CMAKE_INSTALL_LIBDIR}/qml")
 endif ()
 
+# Choose static or shared libraries.
+option(BUILD_SHARED_LIBS "Build VTK with shared libraries." ON)
 set(VTK_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(CMAKE_CXX_VISIBILITY_PRESET "hidden")
 set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
@@ -183,18 +188,15 @@ endif()
 cmake_dependent_option(VTK_USE_KOKKOS "Support KOKKOS backend accelerator" OFF
   "CMAKE_VERSION VERSION_GREATER_EQUAL 3.21;NOT VTK_USE_CUDA" OFF)
 mark_as_advanced(VTK_USE_KOKKOS)
-if(VTK_USE_KOKKOS)
-  set(VTK_KOKKOS_BACKEND:STRING "SERIAL" CACHE STRING "'HIP', 'SYCL', or 'CUDA'")
-endif()
 # If the Kokkos backend is set, it should imply that Kokkos is to used
+# Note: this behavior is deprecated. Warning issued below.
 if(VTK_KOKKOS_BACKEND)
   set(VTK_USE_KOKKOS ON)
 endif()
 
 if(VTK_USE_HIP)
-  message(WARNING "VTK_USE_HIP will be removed in future releases, please use VTK_USE_KOKKOS and VTK_KOKKOS_BACKEND")
+  message(WARNING "VTK_USE_HIP will be removed in future releases, please use VTK_USE_KOKKOS with Kokkos built for HIP.")
   set(VTK_USE_KOKKOS ON)
-  set(VTK_KOKKOS_BACKEND "HIP")
 endif()
 
 if(VTK_USE_KOKKOS)
@@ -204,14 +206,23 @@ if(VTK_USE_KOKKOS)
   # This needs to be a top level flag as enable_language needs
   # to be called from CMake entry point for variables to have
   # the correct scope.
-  if (VTK_KOKKOS_BACKEND STREQUAL "HIP")
+  if ("HIP" IN_LIST Kokkos_DEVICES)
     enable_language(HIP)
-  elseif (VTK_KOKKOS_BACKEND STREQUAL "CUDA")
+  endif()
+  if ("CUDA" IN_LIST Kokkos_DEVICES)
     enable_language(CUDA)
-  elseif (VTK_KOKKOS_BACKEND STREQUAL "SYCL")
-  elseif (VTK_KOKKOS_BACKEND STREQUAL "SERIAL")
-  else ()
-    message(FATAL_ERROR "VTK_KOKKOS_BACKEND not recognized")
+  endif()
+  if (VTK_KOKKOS_BACKEND)
+    message(DEPRECATION "Setting VTK_KOKKOS_BACKEND no longer necessary.")
+    if (VTK_KOKKOS_BACKEND STREQUAL "HIP")
+      enable_language(HIP)
+    elseif (VTK_KOKKOS_BACKEND STREQUAL "CUDA")
+      enable_language(CUDA)
+    elseif (VTK_KOKKOS_BACKEND STREQUAL "SYCL")
+    elseif (VTK_KOKKOS_BACKEND STREQUAL "SERIAL")
+    else ()
+      message(FATAL_ERROR "VTK_KOKKOS_BACKEND `${VTK_KOKKOS_BACKEND}` not recognized")
+    endif()
   endif()
 endif()
 
@@ -291,6 +302,12 @@ set("_vtk_module_reason_VTK::Java"
 if (VTK_WRAP_SERIALIZATION)
   list(APPEND vtk_requested_modules
     VTK::SerializationManager)
+  if (VTK_BUILD_TESTING)
+    list(APPEND vtk_requested_modules
+      VTK::TestingSerialization)
+  endif ()
+  set("_vtk_module_reason_VTK::TestingSerialization"
+  "via `VTK_WRAP_SERIALIZATION` AND `VTK_BUILD_TESTING`")
   if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     list(APPEND vtk_requested_modules
       VTK::WebAssembly)
@@ -302,7 +319,8 @@ if (VTK_WRAP_SERIALIZATION)
   "via `VTK_WRAP_SERIALIZATION` AND `CMAKE_SYSTEM_NAME` STREQUAL Emscripten")
 else ()
   list(APPEND vtk_rejected_modules
-    VTK::SerializationManager)
+    VTK::SerializationManager
+    VTK::TestingSerialization)
 endif ()
 set("_vtk_module_reason_VTK::SerializationManager"
   "via `VTK_WRAP_SERIALIZATION`")
@@ -388,6 +406,12 @@ if (VTK_ENABLE_WRAPPING)
     VTK::WrappingTools)
   set("_vtk_module_reason_VTK::WrappingTools"
     "via `VTK_ENABLE_WRAPPING`")
+endif ()
+
+if (VTK_OPENGL_USE_GLES)
+  # Do not build modules that require desktop OpenGL when GLES is requested.
+  list(APPEND vtk_rejected_modules
+    VTK::RenderingLICOpenGL2)
 endif ()
 
 if (vtk_requested_modules)
@@ -703,8 +727,15 @@ if (VTK_WRAP_PYTHON)
 endif ()
 
 if (VTK_WRAP_JAVA)
-  enable_language(Java)
+  find_package(Java 11 REQUIRED COMPONENTS Development)
 
+  # We need to set CMAKE_Java variables before enable_language to
+  # retain specified JDK in ENV{JAVA_HOME}.
+  set(CMAKE_Java_ARCHIVE ${Java_JAR_EXECUTABLE})
+  set(CMAKE_Java_COMPILER ${Java_JAVAC_EXECUTABLE})
+  set(CMAKE_Java_RUNTIME ${Java_JAVA_EXECUTABLE})
+
+  enable_language(Java)
   add_subdirectory(Wrapping/Java)
 endif ()
 
@@ -726,6 +757,20 @@ if (VTK_BUILD_TESTING)
   if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     # EMSDK makes python available after the environment is initialized with emsdk_env.{sh, csh, bat, ps1}
     find_package(Python3 COMPONENTS Interpreter)
+    # Unit tests are linked with special options which are stored in an interface target.
+    add_library(vtkWebAssemblyTestLinkOptions INTERFACE)
+    add_library(VTK::vtkWebAssemblyTestLinkOptions ALIAS vtkWebAssemblyTestLinkOptions)
+    target_link_options(vtkWebAssemblyTestLinkOptions INTERFACE
+      # O2 or higher make wasm-opt terribly slow.
+      # test executables take a minute to link.
+      "-O1"
+      # For stack trace to show human-readable function names
+      "--profiling-funcs"
+      # we need emscripten to emit code that handles exit code and atexit(s)
+      "-sEXIT_RUNTIME=1"
+      # tests dynamically allocate memory, can easily go over the preset limit.
+      "-sALLOW_MEMORY_GROWTH=1")
+    install(TARGETS vtkWebAssemblyTestLinkOptions EXPORT "${vtk_install_export}")
   endif ()
 endif ()
 
