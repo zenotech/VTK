@@ -30,7 +30,9 @@
 
 #include "vtk_glad.h"
 
-// Uncomment to print shader/color info to cout
+#include <iostream>
+
+// Uncomment to print shader/color info to std::cout
 // #define vtkDrawTexturedElements_DEBUG
 
 VTK_ABI_NAMESPACE_BEGIN
@@ -96,7 +98,10 @@ void vtkDrawTexturedElements::BindArrayToTexture(
   }
   it->second.Arrays = { array };
   // needs to be re-uploaded.
-  it->second.Buffer->FlagBufferAsDirty();
+  if (it->second.Buffer)
+  {
+    it->second.Buffer->FlagBufferAsDirty();
+  }
   it->second.ScalarComponents = asScalars;
 }
 
@@ -128,7 +133,10 @@ void vtkDrawTexturedElements::AppendArrayToTexture(
   {
     it->second.Arrays.emplace_back(array);
     // needs to be re-uploaded.
-    it->second.Buffer->FlagBufferAsDirty();
+    if (it->second.Buffer)
+    {
+      it->second.Buffer->FlagBufferAsDirty();
+    }
   }
 }
 

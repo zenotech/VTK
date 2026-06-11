@@ -30,12 +30,12 @@ bool TestLabelsNotation()
   window->Render();
 
   std::vector<std::string> expectedLabels = {
-    "0.000e+0",
-    "2.000e-1",
-    "4.000e-1",
-    "6.000e-1",
-    "8.000e-1",
-    "1.000e+0",
+    "0.000e+00",
+    "2.000e-01",
+    "4.000e-01",
+    "6.000e-01",
+    "8.000e-01",
+    "1.000e+00",
   };
   bool status = axis->CompareLabelMapperString(expectedLabels);
 
@@ -166,13 +166,35 @@ bool TestNumberOfMinorTicks()
   vtkNew<vtkRenderWindow> window;
   SetupPipeline(axis, window);
   axis->AdjustLabelsOff();
-  axis->SetNumberOfMinorTicks(1);
+  int nbOfMinorTicks = 1;
+  const int nbOfMajorTicks = 5;
+  // one label per tick.
+  // nbMinorTicks is per major tick interval interval.
+  int nbOfLabels = (nbOfMajorTicks - 1) * (nbOfMinorTicks) + nbOfMajorTicks;
+  axis->SetNumberOfMinorTicks(nbOfMinorTicks);
   axis->SetMinorTickLength(8);
   window->Render();
 
   vtkNew<vtkPoints> expectedPoints;
-  double spacing = 30;
-  int nbOfLabels = 9;
+  const double majorSpacing = 240;
+  double spacing = majorSpacing / (nbOfLabels - 1);
+  for (int i = 0; i < nbOfLabels; i++)
+  {
+    expectedPoints->InsertNextPoint(START_POINT + i * spacing, START_POINT + i * spacing, 0);
+  }
+
+  if (!CompareTicksPosition(axis, window, expectedPoints))
+  {
+    return false;
+  }
+
+  nbOfMinorTicks = 3;
+  nbOfLabels = (nbOfMajorTicks - 1) * (nbOfMinorTicks) + nbOfMajorTicks;
+  spacing = majorSpacing / (nbOfLabels - 1);
+
+  axis->SetNumberOfMinorTicks(nbOfMinorTicks);
+  window->Render();
+  expectedPoints->Initialize();
   for (int i = 0; i < nbOfLabels; i++)
   {
     expectedPoints->InsertNextPoint(START_POINT + i * spacing, START_POINT + i * spacing, 0);
@@ -214,10 +236,23 @@ bool TestRulerMode()
   {
     expectedPoints->InsertNextPoint(START_POINT + i * spacing, START_POINT + i * spacing, 0);
   }
-  status = CompareTicksPosition(axis, window, expectedPoints);
+  status = CompareTicksPosition(axis, window, expectedPoints) && status;
 
   expectedLabels = { "42.00", "42.37", "42.74" };
   status = axis->CompareLabelMapperString(expectedLabels) && status;
+
+  axis->SetRange(0, 50);
+  axis->SetRulerDistance(0.04);
+  axis->SetNumberOfMinorTicks(0);
+
+  expectedPoints->Initialize();
+  spacing = 8.4853;
+  nbOfTicks = 29;
+  for (int i = 0; i < nbOfTicks; i++)
+  {
+    expectedPoints->InsertNextPoint(START_POINT + i * spacing, START_POINT + i * spacing, 0);
+  }
+  status = CompareTicksPosition(axis, window, expectedPoints) && status;
 
   return status;
 }

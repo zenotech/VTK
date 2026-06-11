@@ -13,14 +13,14 @@ vtk_module_third_party(
     STANDARD_INCLUDE_DIRS
   EXTERNAL
     PACKAGE SQLite3
-    TARGETS SQLite::SQLite3
+    TARGETS SQLite3::SQLite3
     STANDARD_INCLUDE_DIRS)
 
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/vtk_sqlite.h.in"
   "${CMAKE_CURRENT_BINARY_DIR}/vtk_sqlite.h")
 
-if (VTK_MODULE_USE_EXTERNAL_vtksqlite)
+if (VTK_MODULE_USE_EXTERNAL_VTK_sqlite)
   if (vtk_sqlite_build_binary)
     find_program(VTK_SQLITE_EXECUTABLE
       NAMES sqlite3

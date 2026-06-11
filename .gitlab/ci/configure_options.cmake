@@ -47,11 +47,21 @@ configuration_flag(VTK_WRAP_JAVA "java")
 configuration_flag(VTK_BUILD_MAVEN_PKG "java")
 
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "java")
-  set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
-  set(JOGL_VERSION "2.3.2" CACHE STRING "")
-  # Naming is <arch-platform> since some maven versions fail to properly parse
-  # the artifact name when numbers are trailing in the classifer name.
-  set(MAVEN_NATIVE_ARTIFACTS "darwin-amd;darwin-arm;linux-amd;windows-amd" CACHE STRING "" FORCE)
+  set(JOGL_VERSION "2.6.0" CACHE STRING "")
+
+  # Naming is <arch-platform-build_type> since some maven versions fail to
+  # properly parse the artifact name when numbers are trailing in the classifer.
+  string(TOLOWER "${CMAKE_BUILD_TYPE}" cmake_build_type)
+  set(native_artifacts
+    darwin-amd-${cmake_build_type}
+    darwin-arm-${cmake_build_type}
+    linux-amd-${cmake_build_type}
+    windows-amd-${cmake_build_type}
+  )
+  set(MAVEN_NATIVE_ARTIFACTS "${native_artifacts}" CACHE STRING "" FORCE)
+  unset(cmake_build_type)
+  unset(native_artifacts)
+
   set(MAVEN_VTK_ARTIFACT_SUFFIX "-java${VTK_JAVA_RELEASE_VERSION}" CACHE STRING "")
   # Disable snapshots for tag releases and also when the env variable
   # VTK_JAVA_FORCE_RELEASE is defined through the Gitlab schedule pipeline UI.
@@ -60,18 +70,14 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "java")
   if (NOT DEFINED ENV{CI_COMMIT_TAG} AND NOT DEFINED ENV{VTK_JAVA_FORCE_RELEASE})
     set(MAVEN_VTK_SNAPSHOT "-SNAPSHOT" CACHE STRING "")
   endif()
-  set(VTK_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+  set(VTK_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+  set(VTK_BUILD_TESTING ON CACHE BOOL "" FORCE)
   set(VTK_CUSTOM_LIBRARY_SOVERSION "" CACHE STRING "")
   set(VTK_CUSTOM_LIBRARY_VERSION "" CACHE STRING "")
   set(VTK_DEBUG_LEAKS OFF CACHE BOOL "" FORCE)
   set(VTK_GROUP_ENABLE_Rendering "YES" CACHE STRING "")
   set(VTK_JAVA_JOGL_COMPONENT "YES" CACHE STRING "")
   set(VTK_MODULE_ENABLE_VTK_RenderingOpenXR NO CACHE STRING "" FORCE)
-  set(VTK_MODULE_ENABLE_VTK_TestingCore NO CACHE STRING "")
-  set(VTK_MODULE_ENABLE_VTK_TestingDataModel NO CACHE STRING "")
-  set(VTK_MODULE_ENABLE_VTK_TestingGenericBridge NO STRING STRING "")
-  set(VTK_MODULE_ENABLE_VTK_TestingIOSQL NO CACHE STRING "")
-  set(VTK_MODULE_ENABLE_VTK_TestingRendering NO CACHE STRING "")
   set(VTK_VERSIONED_INSTALL "OFF" CACHE BOOL "" FORCE)
 endif()
 
@@ -79,6 +85,8 @@ endif()
 configuration_flag_module(VTK_GROUP_ENABLE_Qt "qt")
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "qt5")
   set(VTK_QT_VERSION 5 CACHE STRING "")
+elseif ("$ENV{CMAKE_CONFIGURATION}" MATCHES "qt")
+  set(VTK_QT_VERSION 6 CACHE STRING "")
 endif ()
 
 # "nogl" builds

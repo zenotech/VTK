@@ -39,6 +39,7 @@ if os.environ.get("READTHEDOCS", "") == "True":
 # ones.
 extensions = [
     "myst_parser",
+    "sphinx.ext.graphviz",
     "sphinx.ext.todo",
     "sphinx_copybutton",  # add copy button to snippets
     "sphinx_design",  # enables tabs, and other web components
@@ -90,6 +91,8 @@ copybutton_prompt_text = r"\$ | C\:\> |>>> "  # strip prompt text on copy
 copybutton_prompt_is_regexp = True
 copybutton_only_copy_prompt_lines = False
 
+# -- GraphViz configuration ----------------------------------------------------
+graphviz_output_format = 'svg'
 
 # -- Custom markdown generation ------------------------------------------------
 ignore_list = [
@@ -101,7 +104,7 @@ module_list = vtk_documentation.gather_module_documentation(
     "../../",
     "./modules/vtk-modules",
     custom_paths=[],
-    ignore_list=ignore_list,
+    extra_documentation_dirs=["doc"]
 )
 
 

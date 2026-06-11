@@ -66,6 +66,9 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora[0-9]*_x86_64" OR
     # Flaky failures https://gitlab.kitware.com/vtk/vtk/-/issues/19040
     "^VTK::ViewsInfovisCxx-TestGraphLayoutView$"
     "^VTK::ViewsInfovisCxx-TestRenderView$"
+
+    # Flaky failures https://gitlab.kitware.com/vtk/vtk/-/issues/19896
+    "^VTK::RenderingOpenGL2Cxx-TestFluidMapper$"
     )
 endif ()
 
@@ -98,6 +101,9 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "el8")
     # Intermittent flakiness; may be related to CI runner OpenGL config.
     # Appears as a colormap or color-range failure:
     "^VTK::FiltersCellGridPython-TestUnstructuredGridToCellGrid$"
+
+    # Flaky failures https://gitlab.kitware.com/vtk/vtk/-/issues/19896
+    "^VTK::RenderingOpenGL2Cxx-TestFluidMapper$"
     )
 endif ()
 
@@ -128,7 +134,7 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora[0-9]*_x86_64")
     )
 endif ()
 
-if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora39_x86_64" AND "$ENV{CMAKE_CONFIGURATION}" MATCHES "mpi")
+if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora42_x86_64" AND "$ENV{CMAKE_CONFIGURATION}" MATCHES "mpi")
   list(APPEND test_exclusions
     # MPI initialization failures from inside of IOSS. Needs investigation.
     # https://gitlab.kitware.com/vtk/vtk/-/issues/19314
@@ -271,6 +277,18 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora39_x86_64" AND "$ENV{CMAKE_CONFIG
     )
 endif ()
 
+
+if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora[0-9]*_x86_64" AND "$ENV{CMAKE_CONFIGURATION}" MATCHES "cuda")
+  list(APPEND test_exclusions
+    # Failure since viskores: https://gitlab.kitware.com/vtk/vtk/-/issues/19739
+    "^VTK::AcceleratorsVTKmFiltersCxx-TestVTKMAbort$"
+    "^VTK::AcceleratorsVTKmFiltersCxx-TestVTKMGradient$"
+    "^VTK::AcceleratorsVTKmFiltersCxx-TestVTKMGradientAndVorticity$"
+    "^VTK::AcceleratorsVTKmFiltersCxx-TestVTKMProbe$"
+    "^VTK::AcceleratorsVTKmFiltersCxx-TestVTKMSlice$"
+    )
+endif ()
+
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "offscreen")
   list(APPEND test_exclusions
     # Failed to open the display.
@@ -363,6 +381,9 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora[0-9]*_aarch64")
     "^VTK::InteractionWidgetsPython-TestTensorWidget2$"
     "^VTK::RenderingExternalCxx-TestGLUTRenderWindow$" # also leaks
 
+    # https://gitlab.kitware.com/vtk/vtk/-/issues/19896
+    "^VTK::RenderingOpenGL2Cxx-TestFluidMapper$"
+
     # https://gitlab.kitware.com/vtk/vtk/-/issues/19578
     "^VTK::FiltersGeneralCxx-TestContourTriangulatorHoles$")
 endif ()
@@ -409,6 +430,13 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "macos")
     "^VTK::IOADIOS2Cxx-TestADIOS2BPReaderSingleTimeStep$"
     "^VTK::CommonDataModelPython-TestClipPolyhedra$"
     "^VTK::ImagingCoreCxx-TestStencilWithPolyDataContour$")
+
+  if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "arm64")
+    # Unknown NSInternalInconsistencyException when using macos arm64
+    # https://gitlab.kitware.com/vtk/vtk/-/issues/19916
+    list(APPEND test_exclusions
+      "^vtkJavaTests-Regression$")
+  endif()
 endif ()
 
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "wheel_macos" AND
@@ -476,6 +504,8 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "stdthread")
     # Test is flaky with STDThread
     # See #18555
     "^VTK::FiltersFlowPathsCxx-TestEvenlySpacedStreamlines2D$"
+    # https://gitlab.kitware.com/vtk/vtk/-/issues/19741
+    "^VTK::FiltersVerdictCxx-TestCellQuality$"
     )
 endif ()
 
@@ -562,14 +592,12 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm(32|64)")
     # https://gitlab.kitware.com/vtk/vtk/-/issues/19343
     "^VTK::RenderingCoreCxx-TestCompositePolyDataMapperMixedGeometryEdges$"
     "^VTK::RenderingCoreCxx-TestCompositePolyDataMapperPartialFieldData$"
-    "^VTK::RenderingCoreCxx-TestCompositePolyDataMapperSpheres$"
     "^VTK::RenderingCoreCxx-TestCompositePolyDataMapperVertices$"
     "^VTK::RenderingCoreCxx-TestEdgeFlags$"
     "^VTK::RenderingCoreCxx-TestLabeledContourMapperWithActorMatrix$"
     # https://gitlab.kitware.com/vtk/vtk/-/issues/19580
     "^VTK::RenderingCoreCxx-TestMixedGeometryCellScalars$"
     "^VTK::RenderingCoreCxx-TestPolyDataMapperNormals$"
-    "^VTK::RenderingCoreCxx-TestRenderLinesAsTubes$"
     "^VTK::RenderingCoreCxx-TestTextureWrap$"
     "^VTK::RenderingOpenGL2Cxx-TestCoincident$"
     "^VTK::RenderingOpenGL2Cxx-TestCompositeDataOverlappingCells$"
@@ -606,7 +634,7 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm(32|64)")
     "^VTK::RenderingOpenGL2Cxx-TestWindowBlits$")
 endif ()
 
-if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora39_webgpu")
+if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora42_webgpu")
   list(APPEND test_exclusions
     "^VTK::RenderingWebGPUCxx-TestComputeFrustumCulling") # Crashes randomly with mesa-vulkan-drivers
 endif ()
@@ -627,6 +655,14 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "windows" AND
     "^VTK::IOCGNSReaderCxx-TestCGNSUnsteadyTemporalSolution$"
     "^VTK::ParallelCoreCxx-TestThreadedCallbackQueue$"
     "^VTK::RenderingVolumeCxx-TestGPURayCastLabelMapValidity$")
+endif ()
+
+if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "helide")
+  list(APPEND test_exclusions
+    # ANARI test requires the latest changes from anari-sdk PR
+    # (https://github.com/KhronosGroup/ANARI-SDK/pull/335)
+    "^VTK::RenderingAnariCxx-TestAnariPolyDataTexture$"
+    "^VTK::RenderingAnariCxx-TestAnariRenderMesh$")
 endif ()
 
 string(REPLACE ";" "|" test_exclusions "${test_exclusions}")

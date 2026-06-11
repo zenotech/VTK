@@ -13,6 +13,7 @@
 VTK_ABI_NAMESPACE_BEGIN
 vtkStandardNewMacro(vtkCategoryLegend);
 vtkCxxSetObjectMacro(vtkCategoryLegend, Values, vtkVariantArray);
+vtkCxxSetObjectMacro(vtkCategoryLegend, ScalarsToColors, vtkScalarsToColors);
 
 //------------------------------------------------------------------------------
 vtkCategoryLegend::vtkCategoryLegend()
@@ -40,6 +41,7 @@ vtkCategoryLegend::vtkCategoryLegend()
 vtkCategoryLegend::~vtkCategoryLegend()
 {
   this->SetValues(nullptr);
+  this->SetScalarsToColors(nullptr);
 }
 
 //------------------------------------------------------------------------------
@@ -130,18 +132,6 @@ bool vtkCategoryLegend::Paint(vtkContext2D* painter)
 }
 
 //------------------------------------------------------------------------------
-void vtkCategoryLegend::SetScalarsToColors(vtkScalarsToColors* stc)
-{
-  this->ScalarsToColors = stc;
-}
-
-//------------------------------------------------------------------------------
-vtkScalarsToColors* vtkCategoryLegend::GetScalarsToColors()
-{
-  return this->ScalarsToColors;
-}
-
-//------------------------------------------------------------------------------
 vtkRectf vtkCategoryLegend::GetBoundingRect(vtkContext2D* painter)
 {
   if (this->CacheBounds && this->RectTime > this->GetMTime() && this->RectTime > this->PlotTime &&
@@ -159,10 +149,7 @@ vtkRectf vtkCategoryLegend::GetBoundingRect(vtkContext2D* painter)
   // programmatically set Padding here.  This results in better
   // appearance when we zoom in or out on the legend.
   this->Padding = static_cast<int>(height / 4.0);
-  if (this->Padding < 1)
-  {
-    this->Padding = 1;
-  }
+  this->Padding = std::max(this->Padding, 1);
 
   // Calculate size of title (if any)
   float titleHeight = 0.0f;
@@ -198,20 +185,14 @@ vtkRectf vtkCategoryLegend::GetBoundingRect(vtkContext2D* painter)
       continue;
     }
     painter->ComputeStringBounds(this->Values->GetValue(l).ToString(), stringBounds->GetData());
-    if (stringBounds[1].GetX() > maxWidth)
-    {
-      maxWidth = stringBounds[1].GetX();
-    }
+    maxWidth = std::max(stringBounds[1].GetX(), maxWidth);
   }
 
   // Calculate size of outlier label (if necessary)
   if (this->HasOutliers)
   {
     painter->ComputeStringBounds(this->OutlierLabel, stringBounds->GetData());
-    if (stringBounds[1].GetX() > maxWidth)
-    {
-      maxWidth = stringBounds[1].GetX();
-    }
+    maxWidth = std::max(stringBounds[1].GetX(), maxWidth);
   }
 
   if (titleWidth > maxWidth)

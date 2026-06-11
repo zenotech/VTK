@@ -11,6 +11,7 @@ set(VTK_MODULE_ENABLE_VTK_CommonArchive NO CACHE STRING "") # libarchive
 # ├── Domains
 set(VTK_MODULE_ENABLE_VTK_DomainsMicroscopy NO CACHE STRING "") # no OpenSlide
 # ├── Filters
+set(VTK_MODULE_ENABLE_VTK_FiltersONNX NO CACHE BOOL "") # no onnxruntime
 set(VTK_MODULE_ENABLE_VTK_FiltersOpenTURNS NO CACHE STRING "") # no openturns
 set(VTK_MODULE_ENABLE_VTK_FiltersReebGraph NO CACHE STRING "") # no boost
 # ├── Infovis
@@ -28,6 +29,7 @@ set(VTK_MODULE_ENABLE_VTK_IOGDAL NO CACHE STRING "") # no gdal
 set(VTK_MODULE_ENABLE_VTK_IOLAS NO CACHE STRING "") # no liblas
 set(VTK_MODULE_ENABLE_VTK_IOMySQL NO CACHE STRING "") # no mysql
 set(VTK_MODULE_ENABLE_VTK_IOOCCT NO CACHE STRING "") # no open cascade
+set(VTK_MODULE_ENABLE_VTK_IOUSD NO CACHE STRING "") # no usd
 set(VTK_MODULE_ENABLE_VTK_IOODBC NO CACHE STRING "") # no iodbc
 set(VTK_MODULE_ENABLE_VTK_IOOpenVDB NO CACHE STRING "") # no openvdb
 set(VTK_MODULE_ENABLE_VTK_IOPDAL NO CACHE STRING "") # no pdal
@@ -48,9 +50,5 @@ set(VTK_MODULE_ENABLE_VTK_RenderingZSpace NO CACHE STRING "") # no zspace
 set(VTK_MODULE_ENABLE_VTK_fides NO CACHE STRING "") # no adios2
 set(VTK_MODULE_ENABLE_VTK_xdmf3 NO CACHE STRING "") # no boost
 set(VTK_MODULE_ENABLE_VTK_vtkviskores NO CACHE STRING "") # no execinfo.h in viskores's loguru
-
-# set emdawnwebgpu dir
-get_filename_component(_emdawnwebgpu_DIR "${CMAKE_CURRENT_LIST_DIR}/../dawn" ABSOLUTE)
-set(emdawnwebgpu_DIR "${_emdawnwebgpu_DIR}/lib/cmake/emdawnwebgpu" CACHE STRING "")
 
 include("${CMAKE_CURRENT_LIST_DIR}/configure_common.cmake")

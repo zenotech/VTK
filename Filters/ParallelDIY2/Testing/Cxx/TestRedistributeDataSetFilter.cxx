@@ -21,6 +21,7 @@
 #include "vtkRenderWindow.h"
 #include "vtkRenderWindowInteractor.h"
 #include "vtkRenderer.h"
+#include "vtkStringFormatter.h"
 #include "vtkTestUtilities.h"
 #include "vtkUnstructuredGrid.h"
 
@@ -115,7 +116,8 @@ bool ValidateDataset(
   controller->AllReduce(&local_cellid_max, &global_cellid_max, 1, vtkCommunicator::MAX_OP);
   if (rank == 0 && global_cellid_max != input->GetNumberOfCells() - 1)
   {
-    vtkLogF(ERROR, "incorrect global cell ids! expected %lld, actual %lld",
+    vtkLogF(ERROR,
+      "incorrect global cell ids! expected %" VTK_ID_TYPE_PRId ", actual %" VTK_ID_TYPE_PRId,
       input->GetNumberOfCells() - 1, global_cellid_max);
     return false;
   }
@@ -166,7 +168,7 @@ int TestRedistributeDataSetFilter(int argc, char* argv[])
   }
 
   const int rank = controller->GetLocalProcessId();
-  vtkLogger::SetThreadName("rank:" + std::to_string(rank));
+  vtkLogger::SetThreadName("rank:" + vtk::to_string(rank));
 
   vtkNew<vtkUnstructuredGrid> data;
   if (rank == 0)

@@ -20,6 +20,18 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "macos")
   endif ()
 endif ()
 
+# Is this a free-threading python dist?
+if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "(linux|macos|windows)[0-9]+t")
+  # Python xarray deps not available yet for free threading
+  set(VTK_MODULE_ENABLE_VTK_IONetCDF NO CACHE STRING "")
+
+  # CPython in Windows does not set the Py_GIL_DISABLED macro in free-thread builds:
+  # https://docs.python.org/3/howto/free-threading-extensions.html
+  if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "windows")
+    set(VTK_NO_PYTHON_THREADS ON CACHE BOOL "")
+  endif()
+endif()
+
 set(VTK_WHEEL_BUILD ON CACHE BOOL "")
 set(VTK_INSTALL_SDK ON CACHE BOOL "")
 
@@ -42,6 +54,7 @@ set(VTK_BUILD_PYI_FILES ON CACHE BOOL "")
 set(VTK_GROUP_ENABLE_Qt NO CACHE STRING "") # Qt
 set(VTK_MODULE_ENABLE_VTK_CommonArchive NO CACHE STRING "") # libarchive
 set(VTK_MODULE_ENABLE_VTK_DomainsMicroscopy NO CACHE STRING "") # OpenSlide
+set(VTK_MODULE_ENABLE_VTK_FiltersONNX NO CACHE BOOL "") # onnxruntime
 set(VTK_MODULE_ENABLE_VTK_FiltersOpenTURNS NO CACHE STRING "") # OpenTURNS
 set(VTK_MODULE_ENABLE_VTK_FiltersReebGraph NO CACHE STRING "") # Boost
 set(VTK_MODULE_ENABLE_VTK_IOADIOS2 NO CACHE STRING "") # ADIOS2
@@ -68,6 +81,7 @@ set(VTK_MODULE_ENABLE_VTK_RenderingZSpace NO CACHE STRING "") # zSpace
 set(VTK_MODULE_ENABLE_VTK_fides NO CACHE STRING "") # ADIOS2
 set(VTK_MODULE_ENABLE_VTK_xdmf3 NO CACHE STRING "") # Boost
 set(VTK_MODULE_ENABLE_VTK_IOOCCT NO CACHE STRING "") # occt
+set(VTK_MODULE_ENABLE_VTK_IOUSD NO CACHE STRING "") # usd
 set(VTK_ENABLE_CATALYST OFF CACHE BOOL "") # catalyst
 
 include("${CMAKE_CURRENT_LIST_DIR}/configure_common.cmake")

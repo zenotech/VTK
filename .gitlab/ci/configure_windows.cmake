@@ -1,6 +1,7 @@
 # Modules which require software not on CI machines.
 set(VTK_MODULE_ENABLE_VTK_CommonArchive NO CACHE STRING "") # libarchive
 set(VTK_MODULE_ENABLE_VTK_DomainsMicroscopy NO CACHE STRING "") # openslide
+set(VTK_MODULE_ENABLE_VTK_FiltersONNX NO CACHE BOOL "") # onnxruntime
 set(VTK_MODULE_ENABLE_VTK_FiltersOpenTURNS NO CACHE STRING "") # openturns
 set(VTK_MODULE_ENABLE_VTK_FiltersReebGraph NO CACHE STRING "") # boost
 set(VTK_MODULE_ENABLE_VTK_GeovisGDAL NO CACHE STRING "") # gdal
@@ -24,7 +25,9 @@ set(VTK_MODULE_ENABLE_VTK_RenderingRayTracing NO CACHE STRING "") # ospray
 set(VTK_MODULE_ENABLE_VTK_fides NO CACHE STRING "") # adios
 set(VTK_MODULE_ENABLE_VTK_xdmf3 NO CACHE STRING "") # boost
 set(VTK_MODULE_ENABLE_VTK_IOOCCT NO CACHE STRING "") # occt
+set(VTK_MODULE_ENABLE_VTK_IOUSD NO CACHE STRING "") # usd
 set(VTK_ENABLE_CATALYST OFF CACHE BOOL "") # catalyst
+set(VTK_OPENGL_HAS_EGL ON CACHE BOOL "") # egl
 
 # Windows-only features
 set(VTK_USE_MICROSOFT_MEDIA_FOUNDATION ON CACHE BOOL "")
@@ -36,9 +39,12 @@ set(VTK_DISABLE_QT_MULTICONFIG_WINDOWS_WARNING ON CACHE BOOL "")
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "python")
   file(TO_CMAKE_PATH "$ENV{CI_PROJECT_DIR}" ci_project_dir)
   set(vtk_dll_paths)
-  if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "qt")
+  if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "qt5")
     list(APPEND vtk_dll_paths
       "${ci_project_dir}/.gitlab/qt/bin")
+  elseif ("$ENV{CMAKE_CONFIGURATION}" MATCHES "qt")
+    list(APPEND vtk_dll_paths
+      "${ci_project_dir}/.gitlab/qt6/bin")
   endif ()
   if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "tbb")
     file(TO_CMAKE_PATH "$ENV{TBB_REDIST_DIR}" tbb_redist_dir)

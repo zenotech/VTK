@@ -18,7 +18,9 @@
 #include "vtkImageData.h"
 #include "vtkInformation.h"
 #include "vtkLookupTable.h"
+#include "vtkMatrix3x3.h"
 #include "vtkObjectFactory.h"
+#include "vtkOpenGLCamera.h"
 #include "vtkOpenGLError.h"
 #include "vtkOpenGLLowMemoryLinesAgent.h"
 #include "vtkOpenGLLowMemoryPolygonsAgent.h"
@@ -26,12 +28,14 @@
 #include "vtkOpenGLLowMemoryVerticesAgent.h"
 #include "vtkOpenGLRenderPass.h"
 #include "vtkOpenGLRenderWindow.h"
+#include "vtkOpenGLRenderer.h"
 #include "vtkOpenGLShaderCache.h"
 #include "vtkOpenGLShaderDeclaration.h"
 #include "vtkOpenGLShaderProperty.h"
 #include "vtkOpenGLState.h"
 #include "vtkOpenGLUniforms.h"
 #include "vtkOpenGLVertexBufferObject.h"
+#include "vtkPlaneCollection.h"
 #include "vtkPointData.h"
 #include "vtkPolyDataFS.h"
 #include "vtkPolyDataMapper.h"
@@ -49,9 +53,11 @@
 #include <limits>
 #include <sstream>
 
+#include <iostream>
+
 VTK_ABI_NAMESPACE_BEGIN
 
-// Uncomment to print shader/color info to cout
+// Uncomment to print shader/color info to std::cout
 // #define vtkOpenGLLowMemoryPolyDataMapper_DEBUG
 namespace
 {
@@ -213,8 +219,6 @@ vtkOpenGLLowMemoryPolyDataMapper::vtkOpenGLLowMemoryPolyDataMapper()
   vtkStringToken edgeValueBufferOffset = "edgeValueBufferOffset";
   vtkStringToken pointIdOffset = "pointIdOffset";
   vtkStringToken primitiveIdOffset = "primitiveIdOffset";
-  vtkStringToken cellType = "cellType";
-  vtkStringToken usesCellMap = "usesCellMap";
 
   (void)positions;
   (void)colors;
@@ -231,8 +235,6 @@ vtkOpenGLLowMemoryPolyDataMapper::vtkOpenGLLowMemoryPolyDataMapper()
   (void)edgeValueBufferOffset;
   (void)pointIdOffset;
   (void)primitiveIdOffset;
-  (void)cellType;
-  (void)usesCellMap;
 }
 
 //------------------------------------------------------------------------------
@@ -827,18 +829,6 @@ void vtkOpenGLLowMemoryPolyDataMapper::InstallArrayTextureShaderDeclarations()
     /*dataType=*/GLSLDataType::Integer,
     /*attributeType=*/GLSLAttributeType::Scalar,
     /*variableName=*/"primitiveIdOffset"_token);
-  this->ShaderDecls.emplace_back(
-    /*qualifier=*/GLSLQualifierType::Uniform,
-    /*precision=*/GLSLPrecisionType::High,
-    /*dataType=*/GLSLDataType::Integer,
-    /*attributeType=*/GLSLAttributeType::Scalar,
-    /*variableName=*/"cellType"_token);
-  this->ShaderDecls.emplace_back(
-    /*qualifier=*/GLSLQualifierType::Uniform,
-    /*precision=*/GLSLPrecisionType::High,
-    /*dataType=*/GLSLDataType::Integer,
-    /*attributeType=*/GLSLAttributeType::Scalar,
-    /*variableName=*/"usesCellMap"_token);
 }
 
 //------------------------------------------------------------------------------
@@ -880,6 +870,11 @@ bool vtkOpenGLLowMemoryPolyDataMapper::IsShaderUpToDate(vtkRenderer* renderer, v
   }
   // has the pbr state changed?
   if (this->PBRStateTimeStamp > this->ShaderBuildTimeStamp)
+  {
+    return false;
+  }
+  // have the clipping planes changed?
+  if (this->ClippingPlanes && this->ClippingPlanes->GetMTime() > this->ShaderBuildTimeStamp)
   {
     return false;
   }
@@ -1031,13 +1026,20 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderValues(
   this->ReplaceShaderWideLines(renderer, actor, vsSource, fsSource);
   this->ReplaceShaderEdges(renderer, actor, vsSource, fsSource);
   this->ReplaceShaderSelection(renderer, actor, vsSource, fsSource);
+  this->ReplaceShaderClip(renderer, actor, vsSource, fsSource);
   // encapsulate the whole light stuff inside an if clause.
   vtkShaderProgram::Substitute(fsSource, "//VTK::Light::Dec",
     "//VTK::Light::Dec\n"
     "uniform int enable_lights;\n");
   vtkShaderProgram::Substitute(fsSource, "//VTK::Light::Impl",
     "  gl_FragData[0] = vec4(ambientColor + diffuseColor, opacity);\n"
-    "   if (enable_lights == 1)\n"
+    "   int vtkEnableLights = enable_lights;\n"
+    "   if (vtkEnableLights == 0 && renderLinesAsTubes == 1 && primitiveSize == 3 && "
+    "hasTubeBasisVS == 1)\n"
+    "   {\n"
+    "     vtkEnableLights = 1;\n"
+    "   }\n"
+    "   if (vtkEnableLights == 1)\n"
     "   {\n"
     "   //VTK::Light::Impl\n"
     "   }\n");
@@ -1093,20 +1095,36 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderPosition(
   int pointId = 0;
   int primitiveId = 0;
   int cellId = 0;
-  int vertexId = gl_VertexID - vertexIdOffset;
-  // pull the vtk point id from vertexIdBuffer
-  pointId = texelFetchBuffer(vertexIdBuffer, gl_VertexID).x + pointIdOffset;
-  // compute primitive id
+  int vertexId = 0;
+  // compute primitive id and vertex id
   if (cellType == 1) // VTK_VERTEX
   {
+    vertexId = gl_VertexID - vertexIdOffset;
     primitiveId = vertexId;
+    // pull the vtk point id from vertexIdBuffer
+    pointId = texelFetchBuffer(vertexIdBuffer, gl_VertexID).x + pointIdOffset;
   }
   else if (cellType == 3) // VTK_LINE
   {
+    if (primitiveSize == 3) // thick lines
+    {
+      // for wide lines, we need to acount for 6 pseudo vertices per line segment.
+      // i.e 2 pseudo vertices per end point of a line segment.
+      vertexId = (gl_VertexID - vertexIdOffset) / 3;
+    }
+    else
+    {
+      vertexId = gl_VertexID - vertexIdOffset;
+      // pull the vtk point id from vertexIdBuffer
+      pointId = texelFetchBuffer(vertexIdBuffer, gl_VertexID).x + pointIdOffset;
+    }
     primitiveId = vertexId >> 1;
   }
   else if (cellType == 5) // VTK_TRIANGLE
   {
+    vertexId = gl_VertexID - vertexIdOffset;
+    // pull the vtk point id from vertexIdBuffer
+    pointId = texelFetchBuffer(vertexIdBuffer, gl_VertexID).x + pointIdOffset;
     primitiveId = vertexId / 3;
   }
   // fast path by default.
@@ -1131,6 +1149,13 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderPosition(
 void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderNormal(
   vtkRenderer*, vtkActor*, std::string& vsSource, std::string& fsSource)
 {
+  vtkShaderProgram::Substitute(fsSource, "//VTK::Normal::Dec",
+    "//VTK::Normal::Dec\n"
+    "uniform float ZCalcS;\n"
+    "uniform float ZCalcR;\n"
+    "in vec3 tubeBasis1VS;\n"
+    "in vec3 tubeBasis2VS;\n"
+    "flat in int hasTubeBasisVS;\n");
   // Assign normal vector outputs.
   switch (this->ShaderNormalSource)
   {
@@ -1138,29 +1163,62 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderNormal(
     {
       vtkShaderProgram::Substitute(vsSource, "//VTK::Normal::Dec",
         "//VTK::Normal::Dec\n"
-        "out vec3 normalVCVSOutput;");
+        "out vec3 normalVCVSInput;");
       vtkShaderProgram::Substitute(vsSource, "//VTK::Normal::Impl",
         "  vec3 normalMC = texelFetchBuffer(pointNormals, pointId).xyz;\n"
-        "  normalVCVSOutput = normalize(normalMatrix * normalMC);\n"
+        "  normalVCVSInput = normalize(normalMatrix * normalMC);\n"
         "//VTK::Normal::Impl");
       vtkShaderProgram::Substitute(fsSource, "//VTK::Normal::Dec",
         "//VTK::Normal::Dec\n"
-        "in vec3 normalVCVSOutput;");
-      vtkShaderProgram::Substitute(fsSource, "//VTK::Normal::Impl",
-        " vec3 vertexNormalVCVS = normalVCVSOutput;\n"
-        // Ensure normal is pointing towards camera for points so that both
-        // the back face and front face are lit up and colored by
-        // the vertex color.
-        " if (primitiveSize == 1) vertexNormalVCVS = vec3(0.0, 0.0, 1.0);\n"
-        // In similar vein, enforce non-negative components for the normal of
-        // line segments to ensure the backside of lines do not appear black.
-        " else if (primitiveSize == 2) vertexNormalVCVS = abs(vertexNormalVCVS);\n"
-        " else if (gl_FrontFacing == false) vertexNormalVCVS = -vertexNormalVCVS;\n"
-        "//VTK::Normal::Impl");
+        "in vec3 normalVCVSInput;\n"
+        "vec3 computedNormalVCVS;\n");
+      const std::string fsNormalImpl = R"(
+  computedNormalVCVS = normalVCVSInput;
+  vec3 vertexNormalVCVS = computedNormalVCVS;
+  // Ensure normal is pointing towards the camera for points so that both
+  // the back face and front face are lit by the vertex color.
+  if (renderPointsAsSpheres == 1 && primitiveSize == 1)
+  {
+    if (pointPicking == 1)
+    {
+      vertexNormalVCVS = vec3(0.0, 0.0, 1.0);
+    }
+    else
+    {
+      vec2 sphereCoord = vec2(2.0 * gl_PointCoord.x - 1.0, 1.0 - 2.0 * gl_PointCoord.y);
+      float len2 = dot(sphereCoord, sphereCoord);
+      float lenZ = sqrt(max(0.0, 1.0 - len2));
+      vertexNormalVCVS = normalize(vec3(sphereCoord, lenZ));
+    }
+  }
+  else if (renderLinesAsTubes == 1 && primitiveSize == 3 && hasTubeBasisVS == 1)
+  {
+    float len2 = dot(tubeBasis1VS.xy, tubeBasis1VS.xy);
+    float lenZ = clamp(sqrt(max(0.0, 1.0 - len2)), 0.0, 1.0);
+    vertexNormalVCVS = normalize(tubeBasis1VS + tubeBasis2VS * lenZ);
+  }
+  else if (primitiveSize == 1)
+  {
+    vertexNormalVCVS = vec3(0.0, 0.0, 1.0);
+  }
+  else if (cellType == 3 || primitiveSize == 2)
+  {
+    // In similar vein, enforce non-negative components for line segments
+    // to ensure the backside of lines do not appear black.
+    vertexNormalVCVS = abs(vertexNormalVCVS);
+  }
+  else if (gl_FrontFacing == false)
+  {
+    vertexNormalVCVS = -vertexNormalVCVS;
+  }
+  computedNormalVCVS = vertexNormalVCVS;
+  vec3 normalVCVSOutput = vertexNormalVCVS;
+//VTK::Normal::Impl)";
+      vtkShaderProgram::Substitute(fsSource, "//VTK::Normal::Impl", fsNormalImpl);
       if (this->HasClearCoat)
       {
         vtkShaderProgram::Substitute(fsSource, "//VTK::Normal::Impl",
-          "vec3 coatNormalVCVSOutput = normalVCVSOutput;\n"
+          "vec3 coatNormalVCVSOutput = computedNormalVCVS;\n"
           "//VTK::Normal::Impl");
       }
       // Write code to pull tangents if they exist.
@@ -1216,7 +1274,7 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderNormal(
             "  float s = - sin(r2pi);\n" // Counter clockwise (as in
                                          // OSPray)
             "  float c = cos(r2pi);\n"
-            "  vec3 Nn = normalize(normalVCVSOutput);\n"
+            "  vec3 Nn = normalize(computedNormalVCVS);\n"
             "  tangentVC = (1.0-c) * dot(tangentVCVS,Nn) * Nn\n"
             "+ c * tangentVCVS - s * cross(Nn, tangentVCVS);\n"
             "//VTK::Normal::Impl");
@@ -1224,14 +1282,14 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderNormal(
 
         vtkShaderProgram::Substitute(fsSource, "//VTK::Normal::Impl",
           "  tangentVC = normalize(tangentVC - dot(tangentVC, "
-          "normalVCVSOutput) * normalVCVSOutput);\n"
-          "  vec3 bitangentVC = cross(normalVCVSOutput, tangentVC);\n"
+          "computedNormalVCVS) * computedNormalVCVS);\n"
+          "  vec3 bitangentVC = cross(computedNormalVCVS, tangentVC);\n"
           "//VTK::Normal::Impl");
 
         if (this->UsesNormalMap || this->UsesCoatNormalMap)
         {
           vtkShaderProgram::Substitute(fsSource, "//VTK::Normal::Impl",
-            "  mat3 tbn = mat3(tangentVC, bitangentVC, normalVCVSOutput);\n"
+            "  mat3 tbn = mat3(tangentVC, bitangentVC, vertexNormalVCVS);\n"
             "//VTK::Normal::Impl");
 
           if (this->UsesNormalMap)
@@ -1245,6 +1303,7 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderNormal(
               "  normalTS = normalize(normalTS * vec3(normalScaleUniform, normalScaleUniform, "
               "1.0));\n"
               "  vertexNormalVCVS = normalize(tbn * normalTS);\n"
+              "  computedNormalVCVS = vertexNormalVCVS;\n"
               "//VTK::Normal::Impl");
           }
           if (this->UsesCoatNormalMap)
@@ -1266,33 +1325,68 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderNormal(
       break;
     }
     case ShaderNormalSourceAttribute::Cell:
+    {
       vtkShaderProgram::Substitute(vsSource, "//VTK::Normal::Dec",
         "//VTK::Normal::Dec\n"
-        "out vec3 normalVCVSOutput;");
+        "out vec3 normalVCVSInput;");
       vtkShaderProgram::Substitute(vsSource, "//VTK::Normal::Impl",
         "vec3 normalMC = texelFetchBuffer(cellNormals, cellId).xyz;\n"
-        "  normalVCVSOutput = normalize(normalMatrix * normalMC);\n");
+        "  normalVCVSInput = normalize(normalMatrix * normalMC);\n"
+        "//VTK::Normal::Impl");
       vtkShaderProgram::Substitute(fsSource, "//VTK::Normal::Dec",
         "//VTK::Normal::Dec\n"
-        "in vec3 normalVCVSOutput;");
-      vtkShaderProgram::Substitute(fsSource, "//VTK::Normal::Impl",
-        "vec3 vertexNormalVCVS = normalVCVSOutput;\n"
-        // Ensure normal is pointing towards camera for points so that both
-        // the back face and front face are lit up and colored by
-        // the vertex color.
-        " if (primitiveSize == 1) vertexNormalVCVS = vec3(0.0, 0.0, 1.0);\n"
-        // In similar vein, enforce non-negative components for the normal of
-        // line segments to ensure the backside of lines do not appear black.
-        " else if (primitiveSize == 2) vertexNormalVCVS = abs(vertexNormalVCVS);\n"
-        " else if (gl_FrontFacing == false) vertexNormalVCVS = -vertexNormalVCVS;\n"
-        "//VTK::Normal::Impl");
+        "in vec3 normalVCVSInput;\n"
+        "vec3 computedNormalVCVS;");
+      const std::string fsCellNormalImpl = R"(
+computedNormalVCVS = normalVCVSInput;
+vec3 vertexNormalVCVS = computedNormalVCVS;
+// Ensure normal is pointing towards the camera for points so that both
+// the back face and front face are lit by the vertex color.
+if (renderPointsAsSpheres == 1 && primitiveSize == 1)
+{
+  if (pointPicking == 1)
+  {
+    vertexNormalVCVS = vec3(0.0, 0.0, 1.0);
+  }
+  else
+  {
+    vec2 sphereCoord = vec2(2.0 * gl_PointCoord.x - 1.0, 1.0 - 2.0 * gl_PointCoord.y);
+    float len2 = dot(sphereCoord, sphereCoord);
+    float lenZ = sqrt(max(0.0, 1.0 - len2));
+    vertexNormalVCVS = normalize(vec3(sphereCoord, lenZ));
+  }
+}
+else if (renderLinesAsTubes == 1 && primitiveSize == 3 && hasTubeBasisVS == 1)
+{
+  float len2 = dot(tubeBasis1VS.xy, tubeBasis1VS.xy);
+  float lenZ = clamp(sqrt(max(0.0, 1.0 - len2)), 0.0, 1.0);
+  vertexNormalVCVS = normalize(tubeBasis1VS + tubeBasis2VS * lenZ);
+}
+else if (primitiveSize == 1)
+{
+  vertexNormalVCVS = vec3(0.0, 0.0, 1.0);
+}
+else if (primitiveSize == 2)
+{
+  // Enforce non-negative components for line segments to avoid dark backfaces.
+  vertexNormalVCVS = abs(vertexNormalVCVS);
+}
+else if (gl_FrontFacing == false)
+{
+  vertexNormalVCVS = -vertexNormalVCVS;
+}
+computedNormalVCVS = vertexNormalVCVS;
+vec3 normalVCVSOutput = vertexNormalVCVS;
+//VTK::Normal::Impl)";
+      vtkShaderProgram::Substitute(fsSource, "//VTK::Normal::Impl", fsCellNormalImpl);
       if (this->HasClearCoat)
       {
         vtkShaderProgram::Substitute(fsSource, "//VTK::Normal::Impl",
-          "vec3 coatNormalVCVSOutput = normalVCVSOutput;\n"
+          "vec3 coatNormalVCVSOutput = computedNormalVCVS;\n"
           "//VTK::Normal::Impl");
       }
-      break;
+    }
+    break;
     case ShaderNormalSourceAttribute::Primitive:
     {
       // We have no point or cell normals, so compute something.
@@ -1300,6 +1394,9 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderNormal(
       // result is undefined (maybe NaN?) if neighbors are missing.
       // The partial derivatives are scaled by the inverse of fwidth
       // to avoid overflow or underflow in the following computations.
+      vtkShaderProgram::Substitute(fsSource, "//VTK::Normal::Dec",
+        "//VTK::Normal::Dec\n"
+        "vec3 computedNormalVCVS;\n");
       vtkShaderProgram::Substitute(fsSource, "//VTK::UniformFlow::Impl",
         "float scale = 1.0/length(fwidth(vertexVC.xyz));\n"
         "  vec3 fdx = dFdx(vertexVC.xyz)*scale;\n"
@@ -1308,8 +1405,22 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderNormal(
       );
       std::ostringstream fsImpl;
       // here, orient the view coordinate normal such that it always points out of the screen.
-      fsImpl << "vec3 normalVCVSOutput;\n";
-      fsImpl << "if (primitiveSize == 1) { normalVCVSOutput = vec3(0.0, 0.0, 1.0); }\n";
+      fsImpl << "if (renderPointsAsSpheres == 1 && primitiveSize == 1)\n"
+                "{\n"
+                "  if (pointPicking == 1)\n"
+                "  {\n"
+                "    computedNormalVCVS = vec3(0.0, 0.0, 1.0);\n"
+                "  }\n"
+                "  else\n"
+                "  {\n"
+                "    float xpos = 2.0*gl_PointCoord.x - 1.0;\n"
+                "    float ypos = 1.0 - 2.0*gl_PointCoord.y;\n"
+                "    float lenZ = sqrt(max(0.0, 1.0 - (xpos*xpos + ypos*ypos)));\n"
+                "    computedNormalVCVS = normalize(vec3(2.0*gl_PointCoord.x - 1.0, 1.0 - "
+                "2.0*gl_PointCoord.y, lenZ));\n"
+                "  }\n"
+                "}\n"
+                "else if (primitiveSize == 1) { computedNormalVCVS = vec3(0.0, 0.0, 1.0); }\n";
       // Generate a normal for a line that is perpendicular to the line and
       // maximally aligned with the camera view direction.  Basic approach
       // is as follows.  Start with the gradients dFdx and dFdy (see above),
@@ -1321,29 +1432,36 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderNormal(
       // the camera view and the line, result is (lineVec.y, -lineVec.x, 0).
       // Cross this vector with the line vector again to get a normal that
       // is orthogonal to the line and maximally aligned with the camera.
+      fsImpl << "else if (renderLinesAsTubes == 1 && primitiveSize == 3 && hasTubeBasisVS == 1)\n"
+                "{\n"
+                "  float len2 = dot(tubeBasis1VS.xy, tubeBasis1VS.xy);\n"
+                "  float lenZ = clamp(sqrt(max(0.0, 1.0 - len2)), 0.0, 1.0);\n"
+                "  computedNormalVCVS = normalize(tubeBasis1VS + tubeBasis2VS * lenZ);\n"
+                "}\n";
       fsImpl << "else if (primitiveSize == 2)\n"
                 "{\n"
                 "  float addOrSubtract = (dot(fdx, fdy) >= 0.0) ? 1.0 : -1.0;\n"
                 "  vec3 lineVec = addOrSubtract*fdy + fdx;\n"
-                "  normalVCVSOutput = normalize(cross(vec3(lineVec.y, -lineVec.x, 0.0), "
+                "  computedNormalVCVS = normalize(cross(vec3(lineVec.y, -lineVec.x, 0.0), "
                 "lineVec));\n"
                 "}\n";
       // for primitives with 3 or more points (i.e triangles and triangle strips in our
       // mapper, we don't do line loops or line strips)
       fsImpl << "else\n"
                 "{\n"
-                "  normalVCVSOutput = normalize(cross(fdx,fdy));\n"
-                "  if (cameraParallel == 1 && normalVCVSOutput.z < 0.0) { normalVCVSOutput = "
-                "-1.0*normalVCVSOutput; }\n"
-                "  if (cameraParallel == 0 && dot(normalVCVSOutput,vertexVC.xyz) > 0.0) { "
-                "normalVCVSOutput "
-                "= -1.0*normalVCVSOutput; }\n"
+                "  computedNormalVCVS = normalize(cross(fdx,fdy));\n"
+                "  if (cameraParallel == 1 && computedNormalVCVS.z < 0.0) { computedNormalVCVS = "
+                "-1.0*computedNormalVCVS; }\n"
+                "  if (cameraParallel == 0 && dot(computedNormalVCVS,vertexVC.xyz) > 0.0) { "
+                "computedNormalVCVS "
+                "= -1.0*computedNormalVCVS; }\n"
                 "}\n";
-      fsImpl << "vec3 vertexNormalVCVS = normalVCVSOutput;\n";
+      fsImpl << "vec3 vertexNormalVCVS = computedNormalVCVS;\n";
       if (this->HasClearCoat)
       {
-        fsImpl << "vec3 coatNormalVCVSOutput = normalVCVSOutput;\n";
+        fsImpl << "vec3 coatNormalVCVSOutput = computedNormalVCVS;\n";
       }
+      fsImpl << "vec3 normalVCVSOutput = computedNormalVCVS;\n";
       fsImpl << "//VTK::Normal::Impl";
       vtkShaderProgram::Substitute(fsSource, "//VTK::Normal::Impl", fsImpl.str());
       break;
@@ -1351,6 +1469,127 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderNormal(
     default:
       break;
   }
+  std::string depthImpl;
+  if (this->ShaderNormalSource == ShaderNormalSourceAttribute::Point ||
+    this->ShaderNormalSource == ShaderNormalSourceAttribute::Cell)
+  {
+    depthImpl = R"(
+computedNormalVCVS = normalVCVSInput;
+gl_FragDepth = gl_FragCoord.z;
+if (renderPointsAsSpheres == 1 && primitiveSize == 1)
+{
+  if (pointPicking == 1)
+  {
+    computedNormalVCVS = vec3(0.0, 0.0, 1.0);
+    gl_FragDepth = gl_FragCoord.z + ZCalcS * ZCalcR;
+    if (cameraParallel == 0)
+    {
+      float ZCalcQ = (ZCalcR - 1.0);
+      gl_FragDepth = (ZCalcS - gl_FragCoord.z) / ZCalcQ + ZCalcS;
+    }
+  }
+  else
+  {
+    vec2 sphereCoord = vec2(2.0 * gl_PointCoord.x - 1.0, 1.0 - 2.0 * gl_PointCoord.y);
+    float len2 = dot(sphereCoord, sphereCoord);
+    if (len2 > 1.0)
+    {
+      discard;
+    }
+    float lenZ = sqrt(max(0.0, 1.0 - len2));
+    computedNormalVCVS = normalize(vec3(sphereCoord, lenZ));
+    gl_FragDepth = gl_FragCoord.z + computedNormalVCVS.z * ZCalcS * ZCalcR;
+    if (cameraParallel == 0)
+    {
+      float ZCalcQ = (computedNormalVCVS.z * ZCalcR - 1.0);
+      gl_FragDepth = (ZCalcS - gl_FragCoord.z) / ZCalcQ + ZCalcS;
+    }
+  }
+}
+else if (renderLinesAsTubes == 1 && primitiveSize == 3 && hasTubeBasisVS == 1)
+{
+  float len2 = dot(tubeBasis1VS.xy, tubeBasis1VS.xy);
+  float lenZ = clamp(sqrt(max(0.0, 1.0 - len2)), 0.0, 1.0);
+  float denom = clamp(tubeBasis2VS.z, 0.5, 1.0);
+  computedNormalVCVS = normalize(tubeBasis1VS + tubeBasis2VS * lenZ);
+  gl_FragDepth = gl_FragCoord.z + lenZ * ZCalcS * ZCalcR / denom;
+  if (cameraParallel == 0)
+  {
+    float ZCalcQ = (lenZ * ZCalcR / denom - 1.0);
+    gl_FragDepth = (ZCalcS - gl_FragCoord.z) / ZCalcQ + ZCalcS;
+  }
+}
+else
+{
+  if (primitiveSize == 1)
+  {
+    computedNormalVCVS = vec3(0.0, 0.0, 1.0);
+  }
+  else if (cellType == 3 || primitiveSize == 2)
+  {
+    computedNormalVCVS = abs(computedNormalVCVS);
+  }
+  else if (gl_FrontFacing == false)
+  {
+    computedNormalVCVS = -computedNormalVCVS;
+  }
+  }
+)";
+  }
+  else
+  {
+    depthImpl = R"(
+computedNormalVCVS = vec3(0.0, 0.0, 1.0);
+gl_FragDepth = gl_FragCoord.z;
+if (renderPointsAsSpheres == 1 && primitiveSize == 1)
+{
+  vec3 sphereNormal = vec3(0.0, 0.0, 1.0);
+  if (pointPicking == 1)
+  {
+    computedNormalVCVS = sphereNormal;
+    gl_FragDepth = gl_FragCoord.z + ZCalcS * ZCalcR;
+    if (cameraParallel == 0)
+    {
+      float ZCalcQ = (ZCalcR - 1.0);
+      gl_FragDepth = (ZCalcS - gl_FragCoord.z) / ZCalcQ + ZCalcS;
+    }
+  }
+  else
+  {
+    vec2 sphereCoord = vec2(2.0 * gl_PointCoord.x - 1.0, 1.0 - 2.0 * gl_PointCoord.y);
+    float len2 = dot(sphereCoord, sphereCoord);
+    if (len2 > 1.0)
+    {
+      discard;
+    }
+    float lenZ = sqrt(max(0.0, 1.0 - len2));
+    sphereNormal = normalize(vec3(sphereCoord, lenZ));
+    computedNormalVCVS = sphereNormal;
+    gl_FragDepth = gl_FragCoord.z + sphereNormal.z * ZCalcS * ZCalcR;
+    if (cameraParallel == 0)
+    {
+      float ZCalcQ = (sphereNormal.z * ZCalcR - 1.0);
+      gl_FragDepth = (ZCalcS - gl_FragCoord.z) / ZCalcQ + ZCalcS;
+    }
+  }
+}
+else if (renderLinesAsTubes == 1 && primitiveSize == 3 && hasTubeBasisVS == 1)
+{
+  float len2 = dot(tubeBasis1VS.xy, tubeBasis1VS.xy);
+  float lenZ = clamp(sqrt(max(0.0, 1.0 - len2)), 0.0, 1.0);
+  float denom = clamp(tubeBasis2VS.z, 0.5, 1.0);
+  computedNormalVCVS = normalize(tubeBasis1VS + tubeBasis2VS * lenZ);
+  gl_FragDepth = gl_FragCoord.z + lenZ * ZCalcS * ZCalcR / denom;
+  if (cameraParallel == 0)
+  {
+    float ZCalcQ = (lenZ * ZCalcR / denom - 1.0);
+    gl_FragDepth = (ZCalcS - gl_FragCoord.z) / ZCalcQ + ZCalcS;
+  }
+}
+)";
+  }
+  depthImpl += "\n//VTK::Depth::Impl";
+  vtkShaderProgram::Substitute(fsSource, "//VTK::Depth::Impl", depthImpl);
 }
 
 //------------------------------------------------------------------------------
@@ -1453,21 +1692,25 @@ uniform int vertex_pass;)";
           colorDec += "uniform float intensity_specular_bf; // the material specular intensity\n"
                       "uniform vec3 color_specular_bf; // intensity weighted color\n"
                       "uniform float power_specular_bf;\n";
-          colorImpl +=
-            "  if (gl_FrontFacing == false && vertex_pass != 1 && primitiveSize != 1) {\n"
-            "    ambientColor = intensity_ambient_bf * color_ambient_bf;\n"
-            "    diffuseColor = intensity_diffuse_bf * color_diffuse_bf;\n"
-            "    specularColor = intensity_specular_bf * color_specular_bf;\n"
-            "    specularPower = power_specular_bf;\n"
-            "    opacity = intensity_opacity_bf; }\n";
+          colorImpl += "  if (vertex_pass != 1 && primitiveSize > 2) {\n"
+                       "    if (gl_FrontFacing == false) {\n"
+                       "      ambientColor = intensity_ambient_bf * color_ambient_bf;\n"
+                       "      diffuseColor = intensity_diffuse_bf * color_diffuse_bf;\n"
+                       "      specularColor = intensity_specular_bf * color_specular_bf;\n"
+                       "      specularPower = power_specular_bf;\n"
+                       "      opacity = intensity_opacity_bf;\n"
+                       "   }\n"
+                       " }\n";
         }
         else
         {
-          colorImpl +=
-            "  if (gl_FrontFacing == false && vertex_pass != 1 && primitiveSize != 1) {\n"
-            "    ambientColor = intensity_ambient_bf * color_ambient_bf;\n"
-            "    diffuseColor = intensity_diffuse_bf * color_diffuse_bf;\n"
-            "    opacity = intensity_opacity_bf; }\n";
+          colorImpl += "  if (vertex_pass != 1 && primitiveSize > 2) {\n"
+                       "    if (gl_FrontFacing == false) {\n"
+                       "      ambientColor = intensity_ambient_bf * color_ambient_bf;\n"
+                       "      diffuseColor = intensity_diffuse_bf * color_diffuse_bf;\n"
+                       "      opacity = intensity_opacity_bf;\n"
+                       "   }\n"
+                       " }\n";
         }
       }
       vtkShaderProgram::Substitute(fsSource, "//VTK::Color::Dec", colorDec);
@@ -1485,11 +1728,20 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderImplementationCustomUniforms
   vtkShaderProgram::Substitute(vsSource, "//VTK::CustomUniforms::Dec",
     "//VTK::CustomUniforms::Dec\n"
     "uniform highp int primitiveSize;\n"
-    "uniform highp int usesEdgeValues;\n");
+    "uniform highp int usesEdgeValues;\n"
+    "uniform highp int usesCellMap;\n"
+    "uniform highp int cellType;\n"
+    "uniform highp int renderPointsAsSpheres;\n"
+    "uniform highp int renderLinesAsTubes;\n"
+    "uniform highp int pointPicking;\n");
   vtkShaderProgram::Substitute(fsSource, "//VTK::CustomUniforms::Dec",
     "//VTK::CustomUniforms::Dec\n"
     "uniform highp int primitiveSize;\n"
-    "uniform highp int usesEdgeValues;\n");
+    "uniform highp int usesEdgeValues;\n"
+    "uniform highp int cellType;\n"
+    "uniform highp int renderPointsAsSpheres;\n"
+    "uniform highp int renderLinesAsTubes;\n"
+    "uniform highp int pointPicking;\n");
 }
 
 //------------------------------------------------------------------------------
@@ -1506,25 +1758,99 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderPointSize(
 void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderWideLines(
   vtkRenderer*, vtkActor*, std::string& vsSource, std::string&)
 {
+  vtkShaderProgram::Substitute(vsSource, "//VTK::Normal::Dec",
+    "//VTK::Normal::Dec\n"
+    "out vec3 tubeBasis1VS;\n"
+    "out vec3 tubeBasis2VS;\n"
+    "flat out int hasTubeBasisVS;\n");
   // Wide lines only when primitiveSize == 2
   vtkShaderProgram::Substitute(vsSource, "//VTK::LineWidthGLES30::Dec",
     "uniform vec4 viewportDimensions;\n"
-    "uniform float lineWidthStepSize;\n"
-    "uniform float halfLineWidth;");
+    "uniform float lineWidth;");
   vtkShaderProgram::Substitute(vsSource, "//VTK::LineWidthGLES30::Impl",
-    "if (primitiveSize == 2) {"
-    "if (halfLineWidth > 0.0)\n"
-    "{\n"
-    "  float offset = float(gl_InstanceID / 2) * lineWidthStepSize - halfLineWidth;\n"
-    "  vec4 tmpPos = gl_Position;\n"
-    "  vec3 tmpPos2 = tmpPos.xyz / tmpPos.w;\n"
-    "  tmpPos2.x = tmpPos2.x + 2.0 * mod(float(gl_InstanceID), 2.0) * offset / "
-    "viewportDimensions[2];\n"
-    "  tmpPos2.y = tmpPos2.y + 2.0 * mod(float(gl_InstanceID + 1), 2.0) * offset / "
-    "viewportDimensions[3];\n"
-    "  gl_Position = vec4(tmpPos2.xyz * tmpPos.w, tmpPos.w);\n"
-    "}\n"
-    "}\n");
+    R"(
+tubeBasis1VS = vec3(0.0);
+tubeBasis2VS = vec3(0.0);
+hasTubeBasisVS = 0;
+if (cellType == 3 && primitiveSize == 3) // VTK_LINE rendered as 2 triangle primitives
+{
+  if (lineWidth > 1.0)
+  {
+    // for wide lines, we need to expand the line segment to a quad.
+    vec2 QUAD[6] = vec2[6](
+      vec2(0.0, -0.5),
+      vec2(0.0, 0.5),
+      vec2(1.0, -0.5),
+      vec2(1.0, -0.5),
+      vec2(0.0, 0.5),
+      vec2(1.0, 0.5)
+    );
+    // Assumption: (gl_VertexID - vertexIdOffset) is always non-negative and divisible by 6 for all vertices in the expanded line.
+    // If this assumption fails, it may cause out-of-bounds access or incorrect quad mapping.
+    // Validate index to avoid out-of-bounds access.
+    vec2 pCoord = vec2(0.0, 0.0);
+    int quadIdx = (gl_VertexID - vertexIdOffset) % 6;
+    if (quadIdx < 0 || quadIdx >= 6) {
+      // Invalid index, fallback to first point.
+      pCoord = vec2(0.0, -0.5);
+    } else {
+      pCoord = QUAD[quadIdx];
+    }
+
+    int p0VertexId = 2 * primitiveId + vertexIdOffset;
+    int p1VertexId = p0VertexId + 1;
+
+    int p0PointId = texelFetchBuffer(vertexIdBuffer, p0VertexId).x + pointIdOffset;
+    int p1PointId = texelFetchBuffer(vertexIdBuffer, p1VertexId).x + pointIdOffset;
+    vec4 p0MC = vec4(texelFetchBuffer(positions, p0PointId).xyz, 1.0);
+    vec4 p1MC = vec4(texelFetchBuffer(positions, p1PointId).xyz, 1.0);
+    vec4 p0VC = MCVCMatrix * p0MC;
+    vec4 p1VC = MCVCMatrix * p1MC;
+    // transform to view and then to clip space.
+    vec4 p0_DC = MCDCMatrix * p0MC;
+    vec4 p1_DC = MCDCMatrix * p1MC;
+    // transform to 2-D screen plane.
+    // Convert from clip space to window coordinates: win = vpMin + vpSize * ((ndc*0.5)+0.5)
+    vec2 p0Screen = viewportDimensions.xy + viewportDimensions.zw * (0.5 * p0_DC.xy / p0_DC.w + 0.5);
+    vec2 p1Screen = viewportDimensions.xy + viewportDimensions.zw * (0.5 * p1_DC.xy / p1_DC.w + 0.5);
+    // compute the line direction vector.
+    vec2 dirScreen = p1Screen - p0Screen;
+    float dirLen = length(dirScreen);
+    vec2 xBasis = dirLen > 1e-6 ? dirScreen / dirLen : vec2(1.0, 0.0);
+    // compute the perpendicular vector to the line direction.
+    vec2 yBasis = vec2(-xBasis.y, xBasis.x);
+    float normalLen = length(yBasis);
+    vec2 normal2D = normalLen > 1e-6 ? yBasis / normalLen : vec2(0.0, 1.0);
+    vec2 p0Offset = p0Screen + pCoord.x * xBasis + pCoord.y * yBasis * lineWidth;
+    vec2 p1Offset = p1Screen + pCoord.x * xBasis + pCoord.y * yBasis * lineWidth;
+    vec2 p = mix(p0Offset, p1Offset, pCoord.x);
+    vec4 p_DC = mix(p0_DC, p1_DC, pCoord.x);
+    // compute the final position in clip space: convert window -> NDC
+    vec2 ndcPos = ((p - viewportDimensions.xy) / viewportDimensions.zw) * 2.0 - 1.0;
+    gl_Position = vec4(p_DC.w * ndcPos, p_DC.z, p_DC.w);
+    vertexVCVSOutput = mix(p0VC, p1VC, pCoord.x);
+    vec3 lineDirVec = p1VC.xyz - p0VC.xyz;
+    float lineDirLen = length(lineDirVec);
+    vec3 lineDirVC = lineDirLen > 1e-6 ? lineDirVec / lineDirLen : vec3(0.0, 0.0, 1.0);
+    vec3 normalVC = normalize(vec3(normal2D, 0.0));
+    vec3 tubeBasis2Tmp = cross(lineDirVC, normalVC);
+    float tubeBasis2Len = length(tubeBasis2Tmp);
+    if (tubeBasis2Len < 1e-6)
+    {
+      tubeBasis2Tmp = vec3(0.0, 0.0, 1.0);
+      tubeBasis2Len = 1.0;
+    }
+    tubeBasis2Tmp = tubeBasis2Tmp / tubeBasis2Len;
+    if (tubeBasis2Tmp.z < 0.0)
+    {
+      tubeBasis2Tmp = -tubeBasis2Tmp;
+    }
+    tubeBasis1VS = vec3(2.0 * pCoord.y * normal2D, 0.0);
+    tubeBasis2VS = tubeBasis2Tmp;
+    hasTubeBasisVS = 1;
+  }
+}
+)");
 }
 
 //------------------------------------------------------------------------------
@@ -1540,7 +1866,7 @@ uniform highp int edgeVisibility;)");
   std::ostringstream vsImpl;
   vsImpl
     << R"(// only compute edge equation for provoking vertex i.e p3 in a triangle made of p1, p2, p3
-  if ((((edgeVisibility == 1) || (wireframe == 1)) && (primitiveSize == 3)) && (vertexId % 3 == 2))
+  if ((((edgeVisibility == 1) || (wireframe == 1)) && (cellType == 5)) && (vertexId % 3 == 2))
   {
     int p0 = texelFetchBuffer(vertexIdBuffer, gl_VertexID - 2).x + pointIdOffset;
     int p1 = texelFetchBuffer(vertexIdBuffer, gl_VertexID - 1).x + pointIdOffset;
@@ -1554,8 +1880,7 @@ uniform highp int edgeVisibility;)");
     pos[2] = gl_Position.xy/gl_Position.w;
     for(int i = 0; i < 3; ++i)
     {
-      pos[i] = pos[i]*vec2(0.5) + vec2(0.5);
-      pos[i] = pos[i]*viewportDimensions.zw + viewportDimensions.xy;
+      pos[i] = viewportDimensions.xy + viewportDimensions.zw * (pos[i]*vec2(0.5) + vec2(0.5));
     }
     pos[3] = pos[0];
     float ccw = sign(cross(vec3(pos[1] - pos[0], 0.0), vec3(pos[2] - pos[0], 0.0)).z);
@@ -1591,7 +1916,7 @@ uniform float edgeWidth;
 
   std::ostringstream fsImpl;
   fsImpl << R"(
-  if (((edgeVisibility == 1) || (wireframe == 1)) && (primitiveSize == 3))
+  if (((edgeVisibility == 1) || (wireframe == 1)) && (cellType == 5)) // VTK_TRIANGLE
   {
     // distance gets larger as you go inside the polygon
     float edist[3];
@@ -1607,6 +1932,8 @@ uniform float edgeWidth;
       edist[1] += edgeEqn[1].z;
       edist[2] += edgeEqn[2].z;
     }
+    // Legacy-consistent edge band: rely on signed edge distances with a
+    // half-width offset so edges look uniform and thin.
     float emix = clamp(0.5 + 0.5 * edgeWidth - min(min(edist[0], edist[1]), edist[2]), 0.0, 1.0);
     if (wireframe == 1)
     {
@@ -1616,8 +1943,28 @@ uniform float edgeWidth;
     {
       diffuseColor = mix(diffuseColor, vec3(0.0), emix * edgeOpacity);
       ambientColor = mix(ambientColor, edgeColor, emix * edgeOpacity);
+      // When lighting is enabled and tubes are requested, add a subtle
+      // color-only highlight that mimics a rounded tube without touching
+      // normals (safe for WebGL/ES). This matches the legacy look.
+      if (enable_lights == 1 && renderLinesAsTubes == 1)
+      {
+        float cdist = min(edist[0], edist[1]);
+        vec4 cedge = mix(edgeEqn[0], edgeEqn[1], 0.5 + 0.5 * sign(edist[0] - edist[1]));
+        cedge = mix(cedge, edgeEqn[2], 0.5 + 0.5 * sign(cdist - edist[2]));
+        // Small bias to match legacy rasterization steps on diagonals
+        float rdist = 2.0 * min(cdist, edist[2]) / (max(edgeWidth, 1e-3) + 0.15);
+        float lenZ = clamp(sqrt(max(0.0, 1.0 - rdist * rdist)), 0.0, 1.0);
+        float tubeLambert = 0.3 + 0.7 * lenZ; // soften highlight to better match legacy
+        vec3 tubeDiffuse = intensity_diffuse * edgeColor * tubeLambert;
+        vec3 tubeAmbient = intensity_ambient * edgeColor;
+        diffuseColor = mix(diffuseColor, tubeDiffuse, emix * edgeOpacity);
+        ambientColor = mix(ambientColor, tubeAmbient, emix * edgeOpacity);
+      }
+      // Note: Avoid adjusting fragment normals here. In some normal paths,
+      // normalVCVSOutput is an input varying and cannot be assigned on WebGL/ES.
     }
-  })";
+  }
+)";
   vtkShaderProgram::Substitute(fsSource, "//VTK::Edges::Impl", fsImpl.str());
 }
 
@@ -1768,7 +2115,7 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderTCoord(
       vsimpl += tCoordType + " " + tcoordname + " = texelFetchBuffer(" + samplerBufferName +
         ", pointId)" + suffix + ";\n";
     }
-    if (info && info->Has(vtkProp::GeneralTextureTransform()))
+    if (info && info->Has(vtkProp::GENERAL_TEXTURE_TRANSFORM()))
     {
       vtkShaderProgram::Substitute(vsSource, "//VTK::TCoord::Dec",
         "//VTK::TCoord::Dec\n"
@@ -2054,9 +2401,48 @@ void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderTCoord(
     {
       vtkShaderProgram::Substitute(fsSource, "//VTK::TCoord::Impl",
         tCoordImpFS +
-          "if (gl_FrontFacing == true || showTexturesOnBackface) {"
-          "gl_FragData[0] = gl_FragData[0] * tcolor; }");
+          "if (primitiveSize > 2) {\n"
+          "  if (gl_FrontFacing == true || showTexturesOnBackface) {\n"
+          "    gl_FragData[0] = gl_FragData[0] * tcolor;\n"
+          "  }\n"
+          "}\n");
     }
+  }
+}
+
+//------------------------------------------------------------------------------
+void vtkOpenGLLowMemoryPolyDataMapper::ReplaceShaderClip(
+  vtkRenderer*, vtkActor*, std::string& vsSource, std::string& fsSource)
+{
+  if (this->GetNumberOfClippingPlanes())
+  {
+    // add all the clipping planes
+    int numClipPlanes = this->GetNumberOfClippingPlanes();
+    if (numClipPlanes > 6)
+    {
+      vtkErrorMacro(<< "This mapper can only use at most 6 clipping planes. "
+                    << "You have specified " << numClipPlanes
+                    << ". Please reduce the number of clipping planes.");
+    }
+
+    // clip planes
+    vtkShaderProgram::Substitute(vsSource, "//VTK::Clip::Dec",
+      "uniform highp int numClipPlanes;\n"
+      "uniform vec4 clipPlanes[6];\n"
+      "out float clipDistancesVSOutput[6];");
+    vtkShaderProgram::Substitute(vsSource, "//VTK::Clip::Impl",
+      "for (int planeNum = 0; planeNum < numClipPlanes; planeNum++)\n"
+      "{\n"
+      "  clipDistancesVSOutput[planeNum] = dot(clipPlanes[planeNum], vertexMC);\n"
+      "}\n");
+    vtkShaderProgram::Substitute(fsSource, "//VTK::Clip::Dec",
+      "uniform highp int numClipPlanes;\n"
+      "in float clipDistancesVSOutput[6];");
+    vtkShaderProgram::Substitute(fsSource, "//VTK::Clip::Impl",
+      "for (int planeNum = 0; planeNum < numClipPlanes; planeNum++)\n"
+      "{\n"
+      "  if (clipDistancesVSOutput[planeNum] < 0.0) discard;\n"
+      "}\n");
   }
 }
 
@@ -2082,14 +2468,31 @@ void vtkOpenGLLowMemoryPolyDataMapper::SetShaderParameters(vtkRenderer* renderer
   const float edgeWidth = actor->GetProperty()->GetEdgeWidth();
 
   this->ShaderProgram->SetUniform4f("viewportDimensions", vpDims);
-  this->ShaderProgram->SetUniformf("lineWidthStepSize", lineWidth / vtkMath::Ceil(lineWidth));
-  this->ShaderProgram->SetUniformf("halfLineWidth", lineWidth / 2.0);
+  this->ShaderProgram->SetUniformf("lineWidth", lineWidth);
+  if (this->ShaderProgram->IsUniformUsed("renderPointsAsSpheres"))
+  {
+    this->ShaderProgram->SetUniformi(
+      "renderPointsAsSpheres", actor->GetProperty()->GetRenderPointsAsSpheres() ? 1 : 0);
+  }
+  if (this->ShaderProgram->IsUniformUsed("renderLinesAsTubes"))
+  {
+    this->ShaderProgram->SetUniformi(
+      "renderLinesAsTubes", actor->GetProperty()->GetRenderLinesAsTubes() ? 1 : 0);
+  }
+  if (this->ShaderProgram->IsUniformUsed("pointPicking"))
+  {
+    this->ShaderProgram->SetUniformi("pointPicking", this->PointPicking ? 1 : 0);
+  }
   this->ShaderProgram->SetUniform3f("vertex_color", actor->GetProperty()->GetVertexColor());
   this->ShaderProgram->SetUniform3f("edgeColor", actor->GetProperty()->GetEdgeColor());
   this->ShaderProgram->SetUniformf("edgeOpacity", actor->GetProperty()->GetEdgeOpacity());
   this->ShaderProgram->SetUniformi("edgeVisibility", actor->GetProperty()->GetEdgeVisibility());
   this->ShaderProgram->SetUniformi(
     "wireframe", actor->GetProperty()->GetRepresentation() == VTK_WIREFRAME);
+  // Always drive edge overlay thickness from screen-space lineWidth and clamp it
+  // to a modest range to avoid saturating entire faces due to numerical differences
+  // across backends (WebGL vs desktop). The tube look will be layered by color; we
+  // do not need very large overlay widths here.
   if (actor->GetProperty()->GetUseLineWidthForEdgeThickness())
   {
     this->ShaderProgram->SetUniformf("edgeWidth", lineWidth);
@@ -2098,6 +2501,79 @@ void vtkOpenGLLowMemoryPolyDataMapper::SetShaderParameters(vtkRenderer* renderer
   {
     this->ShaderProgram->SetUniformf("edgeWidth", edgeWidth);
   }
+
+  vtkOpenGLCamera* oglCam = vtkOpenGLCamera::SafeDownCast(renderer->GetActiveCamera());
+  if (oglCam)
+  {
+    vtkMatrix4x4* wcdc = nullptr;
+    vtkMatrix4x4* wcvc = nullptr;
+    vtkMatrix3x3* norms = nullptr;
+    vtkMatrix4x4* vcdc = nullptr;
+    oglCam->GetKeyMatrices(renderer, wcvc, norms, vcdc, wcdc);
+    if (this->ShaderProgram->IsUniformUsed("cameraParallel"))
+    {
+      this->ShaderProgram->SetUniformi("cameraParallel", oglCam->GetParallelProjection());
+    }
+    if (this->ShaderProgram->IsUniformUsed("ZCalcR"))
+    {
+      const float zCalcS = oglCam->GetParallelProjection()
+        ? static_cast<float>(vcdc->GetElement(2, 2))
+        : static_cast<float>(-0.5 * vcdc->GetElement(2, 2) + 0.5);
+      this->ShaderProgram->SetUniformf("ZCalcS", zCalcS);
+      const double denom = static_cast<double>(renderer->GetSize()[0]) * vcdc->GetElement(0, 0);
+      if (denom != 0.0)
+      {
+        const float radius = actor->GetProperty()->GetRenderPointsAsSpheres()
+          ? actor->GetProperty()->GetPointSize()
+          : actor->GetProperty()->GetLineWidth();
+        this->ShaderProgram->SetUniformf("ZCalcR", radius / static_cast<float>(denom));
+      }
+      else
+      {
+        this->ShaderProgram->SetUniformf("ZCalcR", 0.0f);
+      }
+    }
+  }
+
+  if (this->GetNumberOfClippingPlanes() && this->ShaderProgram->IsUniformUsed("numClipPlanes") &&
+    this->ShaderProgram->IsUniformUsed("clipPlanes"))
+  {
+    // add all the clipping planes
+    int numClipPlanes = this->GetNumberOfClippingPlanes();
+    if (numClipPlanes > 6)
+    {
+      vtkErrorMacro(<< "This mapper can only use at most 6 clipping planes. "
+                    << "You have specified " << numClipPlanes
+                    << ". Please reduce the number of clipping planes.");
+      numClipPlanes = 6;
+    }
+
+    double shift[3] = { 0.0, 0.0, 0.0 };
+    double scale[3] = { 1.0, 1.0, 1.0 };
+    if (this->GetCoordShiftAndScaleEnabled())
+    {
+      std::copy(this->ShiftValues.begin(), this->ShiftValues.end(), shift);
+      std::copy(this->ScaleValues.begin(), this->ScaleValues.end(), scale);
+    }
+
+    float planeEquations[6][4];
+    for (int i = 0; i < numClipPlanes; i++)
+    {
+      double planeEquation[4];
+      actor->GetModelToWorldMatrix(this->TempMatrix4);
+      this->GetClippingPlaneInDataCoords(this->TempMatrix4, i, planeEquation);
+
+      // multiply by shift scale if set
+      planeEquations[i][0] = planeEquation[0] / scale[0];
+      planeEquations[i][1] = planeEquation[1] / scale[1];
+      planeEquations[i][2] = planeEquation[2] / scale[2];
+      planeEquations[i][3] = planeEquation[3] + planeEquation[0] * shift[0] +
+        planeEquation[1] * shift[1] + planeEquation[2] * shift[2];
+    }
+    this->ShaderProgram->SetUniformi("numClipPlanes", numClipPlanes);
+    this->ShaderProgram->SetUniform4fv("clipPlanes", 6, planeEquations);
+  }
+  vtkOpenGLCheckErrorMacro("failed after UpdateShader");
 
   vtkHardwareSelector* selector = renderer->GetSelector();
   if (selector && this->ShaderProgram->IsUniformUsed("mapperIndex"))
@@ -2125,10 +2601,10 @@ void vtkOpenGLLowMemoryPolyDataMapper::SetShaderParameters(vtkRenderer* renderer
     // check for tcoord transform matrix
     vtkInformation* info = actor->GetPropertyKeys();
     vtkOpenGLCheckErrorMacro("failed after Render");
-    if (info && info->Has(vtkProp::GeneralTextureTransform()) &&
+    if (info && info->Has(vtkProp::GENERAL_TEXTURE_TRANSFORM()) &&
       this->ShaderProgram->IsUniformUsed("tcMatrix"))
     {
-      double* dmatrix = info->Get(vtkProp::GeneralTextureTransform());
+      double* dmatrix = info->Get(vtkProp::GENERAL_TEXTURE_TRANSFORM());
       float fmatrix[16];
       for (int i = 0; i < 4; i++)
       {
@@ -2505,17 +2981,7 @@ bool vtkOpenGLLowMemoryPolyDataMapper::HaveTextures(vtkActor* actor)
 //------------------------------------------------------------------------------
 unsigned int vtkOpenGLLowMemoryPolyDataMapper::GetNumberOfTextures(vtkActor* actor)
 {
-  unsigned int res = 0;
-  if (this->ColorTextureMap)
-  {
-    res++;
-  }
-  if (actor->GetTexture())
-  {
-    res++;
-  }
-  res += actor->GetProperty()->GetNumberOfTextures();
-  return res;
+  return static_cast<unsigned int>(this->GetTextures(actor).size());
 }
 
 //------------------------------------------------------------------------------

@@ -70,10 +70,10 @@ void ReverseDoubleArray(vtkDoubleArray* arr)
 {
   vtkNew<vtkDoubleArray> tmp;
   tmp->DeepCopy(arr);
-  for (int i = 0; i < arr->GetSize(); i++)
+  for (int i = 0; i < arr->GetNumberOfTuples(); i++)
   {
     double value = tmp->GetTuple1(i);
-    arr->SetTuple1(arr->GetSize() - i - 1, -value);
+    arr->SetTuple1(arr->GetNumberOfTuples() - i - 1, -value);
   }
 }
 
@@ -595,13 +595,14 @@ void CopyRotatedDataHTG(vtkHyperTree* input, vtkHyperTree* output, vtkHyperTreeG
 }
 
 //------------------------------------------------------------------------------
-vtkHyperTree* vtkAxisAlignedTransformFilter::CreateNewRotatedHyperTree(
+vtkSmartPointer<vtkHyperTree> vtkAxisAlignedTransformFilter::CreateNewRotatedHyperTree(
   vtkHyperTreeGrid* htg, vtkHyperTree* dest, const std::vector<unsigned int>& permutation)
 {
   int branchFactor = dest->GetBranchFactor();
   int dimension = dest->GetDimension();
 
-  vtkHyperTree* newTree = vtkHyperTree::CreateInstance(branchFactor, dimension);
+  vtkNew<vtkHyperTree> newTree;
+  newTree->Initialize(branchFactor, dimension);
 
   vtkNew<vtkHyperTreeGridNonOrientedCursor> cursor;
   cursor->Initialize(htg, dest->GetTreeIndex(), false);
@@ -1015,12 +1016,12 @@ bool vtkAxisAlignedTransformFilter::ProcessHTG(
       outputHTG->RemoveTree(i);
       continue;
     }
-    vtkHyperTree* rotatedHT = CreateNewRotatedHyperTree(inputHTG, ht, permutation);
+    vtkSmartPointer<vtkHyperTree> rotatedHT =
+      this->CreateNewRotatedHyperTree(inputHTG, ht, permutation);
     rotatedHT->SetGlobalIndexStart(cumulativeVertices);
     cumulativeVertices += rotatedHT->GetNumberOfVertices();
 
     outputHTG->SetTree(i, rotatedHT);
-    rotatedHT->Delete();
   }
 
   // Create and set empty mask

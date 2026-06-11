@@ -7,7 +7,7 @@
         GIT_CLONE_PATH: "$CI_BUILDS_DIR/vtk-ci-ext/$CI_CONCURRENT_ID"
         # TODO: Factor this out so that each job selects the Xcode version to
         # use so that different versions can be tested in a single pipeline.
-        DEVELOPER_DIR: "/Applications/Xcode-16.1.app/Contents/Developer"
+        DEVELOPER_DIR: "/Applications/Xcode-16.4.app/Contents/Developer"
 
 .wheel_macos_arm64:
     extends: .macos
@@ -55,18 +55,27 @@
         PYTHON_VERSION_SUFFIX: "3.13"
         _PYTHON_HOST_PLATFORM: "macosx-11.0-arm64"
 
+.wheel_macos314_arm64:
+    extends: .wheel_macos_arm64
+
+    variables:
+        CMAKE_CONFIGURATION: wheel_macos314_arm64
+        PYTHON_VERSION_SUFFIX: "3.14"
+        _PYTHON_HOST_PLATFORM: "macosx-11.0-arm64"
+
+.wheel_macos314t_arm64:
+    extends: .wheel_macos_arm64
+
+    variables:
+        CMAKE_CONFIGURATION: wheel_macos314t_arm64
+        PYTHON_VERSION_SUFFIX: "3.14"
+        _PYTHON_HOST_PLATFORM: "macosx-11.0-arm64"
+
 .wheel_macos_x86_64:
     extends: .macos
 
     variables:
         VTK_INSTALL: 1
-
-.wheel_macos38_x86_64:
-    extends: .wheel_macos_x86_64
-
-    variables:
-        CMAKE_CONFIGURATION: wheel_macos38_x86_64
-        PYTHON_VERSION_SUFFIX: "3.8"
 
 .wheel_macos39_x86_64:
     extends: .wheel_macos_x86_64
@@ -106,6 +115,23 @@
         CMAKE_CONFIGURATION: wheel_macos313_x86_64
         PYTHON_VERSION_SUFFIX: "3.13"
         _PYTHON_HOST_PLATFORM: "macosx-10.10-x86_64"
+
+.wheel_macos314_x86_64:
+    extends: .wheel_macos_x86_64
+
+    variables:
+        CMAKE_CONFIGURATION: wheel_macos314_x86_64
+        PYTHON_VERSION_SUFFIX: "3.14"
+        _PYTHON_HOST_PLATFORM: "macosx-10.10-x86_64"
+
+.wheel_macos314t_x86_64:
+    extends: .wheel_macos_x86_64
+
+    variables:
+        CMAKE_CONFIGURATION: wheel_macos314t_x86_64
+        PYTHON_VERSION_SUFFIX: "3.14"
+        _PYTHON_HOST_PLATFORM: "macosx-10.10-x86_64"
+
 ### Build and test
 
 .macos_build:
@@ -164,7 +190,7 @@
         - vtk
         - macos-x86_64
         - shell
-        - xcode-16.1
+        - xcode-16.4
         - nonconcurrent
 
 .macos_x86_64_wheel_builder_tags:
@@ -172,7 +198,7 @@
         - vtk
         - macos-x86_64
         - shell
-        - xcode-16.1
+        - xcode-16.4
         - concurrent
 
 .macos_x86_64_ext_builder_tags:
@@ -180,7 +206,7 @@
         - vtk
         - macos-x86_64
         - shell
-        - xcode-16.1
+        - xcode-16.4
         - concurrent
 
 .macos_arm64_builder_tags:
@@ -188,7 +214,7 @@
         - vtk
         - macos-arm64
         - shell
-        - xcode-16.1
+        - xcode-16.4
         - nonconcurrent
 
 .macos_arm64_wheel_builder_tags:
@@ -196,7 +222,7 @@
         - vtk
         - macos-arm64
         - shell
-        - xcode-16.1
+        - xcode-16.4
         - concurrent
 
 ## macOS-specific scripts
@@ -208,12 +234,8 @@
     - cmake --version
     - ninja --version
     # Download Qt
-    - cmake -P .gitlab/ci/download_qt.cmake
-    - export CMAKE_PREFIX_PATH=$PWD/.gitlab/qt
-    - "git submodule update --init --recursive || :"
-    - git submodule foreach --recursive cmake -P "$PWD/.gitlab/ci/fetch_submodule.cmake"
-    - git submodule sync --recursive
-    - git submodule update --init --recursive
+    - cmake -P .gitlab/ci/download_qt6.cmake
+    - export CMAKE_PREFIX_PATH=$PWD/.gitlab/qt6
     - cmake -P "$PWD/.gitlab/ci/fetch_tags.cmake"
 
 .before_script_java_macos: &before_script_java_macos
@@ -221,10 +243,13 @@
     - export JAVA_HOME=$PWD/.gitlab/jdk/Contents/Home/
     - cmake -P .gitlab/ci/download_maven.cmake
     - export PATH="$PWD/.gitlab/maven/bin:$PATH"
-    - 'mvn dependency:get "-Dmaven.repo.local=$GIT_CLONE_PATH/.gitlab/m2" "-Dartifact=org.jogamp.gluegen:gluegen-rt:2.3.2"'
-    - 'mvn dependency:get "-Dmaven.repo.local=$GIT_CLONE_PATH/.gitlab/m2" "-Dartifact=org.jogamp.gluegen:gluegen-rt:2.3.2:jar:natives-macosx-universal"'
-    - 'mvn dependency:get "-Dmaven.repo.local=$GIT_CLONE_PATH/.gitlab/m2" "-Dartifact=org.jogamp.jogl:jogl-all:2.3.2"'
-    - 'mvn dependency:get "-Dmaven.repo.local=$GIT_CLONE_PATH/.gitlab/m2" "-Dartifact=org.jogamp.jogl:jogl-all:2.3.2:jar:natives-macosx-universal"'
+    - export MAVEN_OPTS="-Dmaven.artifact.threads=1 -Daether.connector.http.supportedProtocols=HTTP/1.1"
+    - export MVN_REPOS="central::default::https://repo.maven.apache.org/maven2,jogamp::default::https://jogamp.org/deployment/maven"
+    - export MVN_LOCAL_REPO="$GIT_CLONE_PATH/.gitlab/m2"
+    - mvn dependency:get "-DremoteRepositories=$MVN_REPOS" "-Dmaven.repo.local=$MVN_LOCAL_REPO" "-Dartifact=org.jogamp.gluegen:gluegen-rt:2.6.0"
+    - mvn dependency:get "-DremoteRepositories=$MVN_REPOS" "-Dmaven.repo.local=$MVN_LOCAL_REPO" "-Dartifact=org.jogamp.gluegen:gluegen-rt:2.6.0:jar:natives-macosx-universal"
+    - mvn dependency:get "-DremoteRepositories=$MVN_REPOS" "-Dmaven.repo.local=$MVN_LOCAL_REPO" "-Dartifact=org.jogamp.jogl:jogl-all:2.6.0"
+    - mvn dependency:get "-DremoteRepositories=$MVN_REPOS" "-Dmaven.repo.local=$MVN_LOCAL_REPO" "-Dartifact=org.jogamp.jogl:jogl-all:2.6.0:jar:natives-macosx-universal"
     - ls -R $GIT_CLONE_PATH/.gitlab/m2
 
 .script_macos: &script_macos
@@ -242,6 +267,7 @@
     # this way we can only get it for non-wheel macos builds
     - cmake -P .gitlab/ci/download_adios2.cmake
     - export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH:$PWD/.gitlab/adios2
+    - cmake -P.gitlab/ci/download_onnxruntime.cmake
 
 .cmake_build_macos:
     stage: build
@@ -307,6 +333,12 @@
         - venv/bin/python3 setup.py bdist_wheel
         - '[ -f dist/*_universal2.whl ] && exit 1 # universal2 wheels are not made; platform detection requires an override'
         - venv/bin/python3 $GIT_CLONE_PATH/.gitlab/ci/create_wheel_sdk_archive.py
+        # Grab the platform tag to apply to the vtk-sdk wheel from the vtk wheel.
+        - wheel_platform_tag=$(echo dist/vtk-*.whl | awk -F- '{ print $NF }' | sed 's/\.whl$//')
+        - cd wheel_sdks
+        - ../venv/bin/python3 -m pip wheel .
+        - ../venv/bin/python3 -m wheel tags --platform-tag "$wheel_platform_tag" --remove ./vtk_sdk-*.whl
+        - cd ..
         # XXX: `delocate` can't handle `@loader_path` or do recursive
         # dependency scanning. Ignore it and just do it manually because
         # apparently VTK is the most complicated wheel in the world.
@@ -335,6 +367,11 @@
         - python -c "import vtk"
         - if [ "$VTK_DISABLE_PYI_TESTING" != "1" ]; then python -m vtkmodules.generate_pyi --test -p vtkmodules; else echo "pyi test is disabled."; fi
         - ctest -V --output-on-failure -S .gitlab/ci/ctest_test_external_wheel.cmake
+        # Run vtk-sdk tests
+        - cd build/wheel_sdks
+        - pip install  --find-links . vtk-sdk virtualenv pytest
+        - ../../venv/bin/python3 -m pytest -ra
+        - cd ../..
         - exec .gitlab/ci/check_warnings.sh ./Testing/ExternalWheel
     interruptible: true
 
@@ -346,3 +383,11 @@
         - *before_script_java_macos
         - *before_script_macos_deps
         - *script_macos
+
+.cmake_test_java_macos:
+    stage: test
+    script:
+        - *before_script_macos
+        - *before_script_java_macos
+        - ctest --output-on-failure -V -S .gitlab/ci/ctest_test.cmake
+    interruptible: true

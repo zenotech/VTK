@@ -62,11 +62,12 @@ Required:
     If the system package management utilities do not offer cmake or if the offered version is too old
     Precompiled binaries available on [CMake's download page][cmake-download].
 
+  <!-- Keep this section in sync with top-level README.md -->
   * Supported compiler
     - GCC 8.0 or newer
-    - Clang 5.0 or newer
-    - Apple Clang 10.0 or newer
-    - Microsoft Visual Studio 2017 or newer
+    - Clang 7.0 or newer
+    - Apple Clang 11.0 (Xcode 11.3.1) or newer
+    - Microsoft Visual Studio 2019 or newer
     - Intel 19.0 or newer
 
 ### Optional Additions

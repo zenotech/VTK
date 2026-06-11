@@ -4,18 +4,12 @@
 
 #include "vtkOpenGLHelper.h"
 
-#include "vtkBitArray.h"
 #include "vtkCamera.h"
 #include "vtkDataObject.h"
 #include "vtkHardwareSelector.h"
-#include "vtkMath.h"
-#include "vtkMatrix3x3.h"
-#include "vtkMatrix4x4.h"
 #include "vtkNew.h"
 #include "vtkObjectFactory.h"
-#include "vtkOpenGLActor.h"
 #include "vtkOpenGLBufferObject.h"
-#include "vtkOpenGLCamera.h"
 #include "vtkOpenGLError.h"
 #include "vtkOpenGLIndexBufferObject.h"
 #include "vtkOpenGLInstanceCulling.h"
@@ -25,19 +19,14 @@
 #include "vtkOpenGLShaderCache.h"
 #include "vtkOpenGLState.h"
 #include "vtkOpenGLVertexArrayObject.h"
-#include "vtkOpenGLVertexBufferObject.h"
 #include "vtkOpenGLVertexBufferObjectGroup.h"
 #include "vtkPolyData.h"
 #include "vtkProperty.h"
 #include "vtkShader.h"
 #include "vtkShaderProgram.h"
-#include "vtkTransform.h"
 #include "vtkTransformFeedback.h"
 
 #include "vtkGlyph3DVS.h"
-
-#include <algorithm>
-#include <numeric>
 
 //------------------------------------------------------------------------------
 VTK_ABI_NAMESPACE_BEGIN
@@ -62,6 +51,12 @@ vtkOpenGLGlyph3DHelper::vtkOpenGLGlyph3DHelper()
 // Release any graphics resources that are being consumed by this mapper.
 void vtkOpenGLGlyph3DHelper::ReleaseGraphicsResources(vtkWindow* window)
 {
+  if (!this->ResourceCallback->IsReleasing())
+  {
+    this->ResourceCallback->Release();
+    return;
+  }
+
   this->InstanceBuffersBuildTime = vtkTimeStamp();
   this->NormalMatrixBuffer->ReleaseGraphicsResources();
   this->MatrixBuffer->ReleaseGraphicsResources();
@@ -333,7 +328,8 @@ void vtkOpenGLGlyph3DHelper::GlyphRender(vtkRenderer* ren, vtkActor* actor, vtkI
     representation = GL_POINTS;
   }
   int iEnd = vtkOpenGLPolyDataMapper::PrimitiveEnd;
-  if (selector && selector->GetFieldAssociation() == vtkDataObject::FIELD_ASSOCIATION_POINTS)
+  if (!actor->GetProperty()->GetVertexVisibility() ||
+    (selector && selector->GetFieldAssociation() == vtkDataObject::FIELD_ASSOCIATION_POINTS))
   {
     // when selecting points, the selection pass renders points at a larger size.
     // so don't show vertices as they might conflict with the selection pass.
@@ -385,6 +381,12 @@ void vtkOpenGLGlyph3DHelper::GlyphRender(vtkRenderer* ren, vtkActor* actor, vtkI
         if (selecting_points)
         {
           program->SetUniformf("pointSize", 6.0);
+        }
+        else if (mode == GL_POINTS)
+        {
+          // set point size from actor property when drawing points and not selecting points
+          const float pointSize = actor->GetProperty()->GetPointSize();
+          program->SetUniformf("pointSize", pointSize);
         }
 #endif
         glDrawRangeElements(mode, 0, static_cast<GLuint>(numVerts - 1),
@@ -453,6 +455,14 @@ void vtkOpenGLGlyph3DHelper::GlyphRenderInstances(vtkRenderer* ren, vtkActor* ac
         {
           return;
         }
+#ifdef GL_ES_VERSION_3_0
+        if (mode == GL_POINTS)
+        {
+          // set point size from actor property when drawing points and not selecting points
+          const float pointSize = actor->GetProperty()->GetPointSize();
+          this->Primitives[i].Program->SetUniformf("pointSize", pointSize);
+        }
+#endif
 
         size_t stride = (withNormals ? 29 : 20) * sizeof(float);
 
@@ -557,6 +567,14 @@ void vtkOpenGLGlyph3DHelper::GlyphRenderInstances(vtkRenderer* ren, vtkActor* ac
         {
           return;
         }
+#ifdef GL_ES_VERSION_3_0
+        if (mode == GL_POINTS)
+        {
+          // set point size from actor property when drawing points and not selecting points
+          const float pointSize = actor->GetProperty()->GetPointSize();
+          this->Primitives[i].Program->SetUniformf("pointSize", pointSize);
+        }
+#endif
 
         // do the superclass and then reset a couple values
         if ((this->InstanceBuffersBuildTime > this->InstanceBuffersLoadTime ||

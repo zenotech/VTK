@@ -3,6 +3,7 @@
 #include "vtkCellArray.h"
 #include "vtkDeserializer.h"
 #include "vtkSerializer.h"
+#include "vtkSmartPointer.h"
 #include "vtkUnsignedCharArray.h"
 #include "vtkUnstructuredGrid.h"
 
@@ -34,7 +35,7 @@ static nlohmann::json Serialize_vtkUnstructuredGrid(
   state["SuperClassNames"].push_back("vtkUnstructuredGridBase");
   state["DataObjectType"] = object->GetDataObjectType();
   state["Cells"] = serializer->SerializeJSON(object->GetCells());
-  state["CellTypes"] = serializer->SerializeJSON(object->GetCellTypesArray());
+  state["CellTypes"] = serializer->SerializeJSON(object->GetCellTypes());
   state["MeshMTime"] = object->GetMeshMTime();
   return state;
 }
@@ -48,8 +49,8 @@ static void Deserialize_vtkUnstructuredGrid(
     f(state, object, deserializer);
   }
 
-  vtkUnsignedCharArray* cellTypes = nullptr;
-  vtkCellArray* connectivity = nullptr;
+  vtkSmartPointer<vtkDataArray> cellTypes;
+  vtkSmartPointer<vtkCellArray> connectivity;
   {
     auto iter = state.find("CellTypes");
     if ((iter != state.end()) && !iter->is_null())
@@ -58,7 +59,7 @@ static void Deserialize_vtkUnstructuredGrid(
       const auto identifier = iter->at("Id").get<vtkTypeUInt32>();
       auto subObject = context->GetObjectAtId(identifier);
       deserializer->DeserializeJSON(identifier, subObject);
-      cellTypes = vtkUnsignedCharArray::SafeDownCast(subObject);
+      cellTypes = vtkDataArray::SafeDownCast(subObject);
     }
   }
   {
