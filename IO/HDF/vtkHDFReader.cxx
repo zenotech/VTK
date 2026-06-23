@@ -1037,9 +1037,12 @@ int vtkHDFReader::Read(const std::vector<vtkIdType>& numberOfPoints,
         return 0;
       }
 
+      vtkIdType polyToFaceOffset = std::accumulate(numberOfPolyhedronToFaceIds.data(),
+        &numberOfPolyhedronToFaceIds[filePiece], geoOffsets.PolyhedronToFaceIdOffset);
+
       vtkSmartPointer<vtkDataArray> polyhedronToFaces;
       if ((polyhedronToFaces = readFromFileOrCache(vtkHDFUtilities::GEOMETRY_ATTRIBUTE_TAG,
-             "PolyhedronToFaces", geoOffsets.PolyhedronToFaceIdOffset,
+             "PolyhedronToFaces", polyToFaceOffset,
              numberOfPolyhedronToFaceIds[filePiece], true)) == nullptr)
       {
         vtkErrorMacro("Cannot read the PolyhedronToFaces array");
